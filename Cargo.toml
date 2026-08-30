@@ -1,0 +1,22 @@
+[package]
+name = "tl-rewrite"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Deterministic semantics-preserving rewrites for Mission-time Linear Temporal Logic."
+authors = ["Peter Krenesky <kreneskyp@gmail.com>"]
+license = "MIT OR Apache-2.0"
+publish = false
+repository = "https://github.com/agent-ix/tl-rewrite"
+
+[lib]
+name = "tl_rewrite"
+path = "src/lib.rs"
+
+[dependencies]
+
+[dev-dependencies]
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
