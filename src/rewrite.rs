@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use tl_syntax::{FormulaDocument, Node, NodeId, NodeKind, SemanticProfile, SourceSpan};
@@ -85,6 +85,8 @@ pub enum RewriteStatus {
     NonConvergent,
     /// The owned input document failed structural validation.
     InvalidInput,
+    /// An executable rewrite identity was absent from the immutable catalog.
+    InvalidCatalog,
     /// No enabled v1 rule is approved for the input profile.
     UnsupportedProfile,
 }
@@ -184,10 +186,12 @@ pub struct ReplayReport {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Abort {
     Budget(BudgetKind),
+    InvalidCatalog(&'static str),
 }
 
 struct PassState {
     nodes: Vec<Node>,
+    interner: BTreeMap<(NodeKind, Option<SourceSpan>), NodeId>,
     work_units: u64,
     budgets: RewriteBudgets,
 }
@@ -206,18 +210,15 @@ impl PassState {
 
     fn emit(&mut self, kind: NodeKind, span: Option<SourceSpan>) -> Result<NodeId, Abort> {
         self.work()?;
-        if let Some(index) = self
-            .nodes
-            .iter()
-            .position(|node| node.kind == kind && node.span == span)
-        {
-            return Ok(NodeId(index as u32));
+        if let Some(id) = self.interner.get(&(kind, span)) {
+            return Ok(*id);
         }
         if self.nodes.len() >= u32::MAX as usize {
             return Err(Abort::Budget(BudgetKind::Nodes));
         }
         let id = NodeId(self.nodes.len() as u32);
         self.nodes.push(Node { kind, span });
+        self.interner.insert((kind, span), id);
         Ok(id)
     }
 
@@ -299,22 +300,22 @@ fn compact_document(input: &FormulaDocument) -> Option<FormulaDocument> {
     let reachable = reachable_nodes(input.root(), input.nodes());
     let mut mapped = vec![NodeId(0); input.nodes().len()];
     let mut nodes: Vec<Node> = Vec::new();
+    let mut interner = BTreeMap::new();
     for (index, node) in input.nodes().iter().enumerate() {
         if !reachable[index] {
             continue;
         }
         let kind = remap(node.kind, &mapped);
-        let id = if let Some(existing) = nodes
-            .iter()
-            .position(|candidate| candidate.kind == kind && candidate.span == node.span)
-        {
-            NodeId(existing as u32)
+        let key = (kind, node.span);
+        let id = if let Some(existing) = interner.get(&key) {
+            *existing
         } else {
             let id = NodeId(nodes.len() as u32);
             nodes.push(Node {
                 kind,
                 span: node.span,
             });
+            interner.insert(key, id);
             id
         };
         mapped[index] = id;
@@ -390,7 +391,6 @@ fn is_true(state: &PassState, id: NodeId) -> bool {
 }
 
 fn applied(
-    _state: &mut PassState,
     rule: &'static str,
     replacement: NodeId,
 ) -> Result<Option<(&'static str, NodeId)>, Abort> {
@@ -415,7 +415,7 @@ fn apply_not(
     match state.kind(operand) {
         NodeKind::False => applied_kind(state, "bool.not.false", NodeKind::True, span),
         NodeKind::True => applied_kind(state, "bool.not.true", NodeKind::False, span),
-        NodeKind::Not { operand } => applied(state, "bool.not.double", operand),
+        NodeKind::Not { operand } => applied("bool.not.double", operand),
         NodeKind::Future { interval, operand } => {
             let negated = state.emit(NodeKind::Not { operand }, None)?;
             let output = state.emit(
@@ -490,14 +490,12 @@ fn apply_first(
             applied_kind(state, "bool.and.false-right", NodeKind::False, span)
         }
         NodeKind::And { left, right } if is_true(state, left) => {
-            applied(state, "bool.and.true-left", right)
+            applied("bool.and.true-left", right)
         }
         NodeKind::And { left, right } if is_true(state, right) => {
-            applied(state, "bool.and.true-right", left)
+            applied("bool.and.true-right", left)
         }
-        NodeKind::And { left, right } if left == right => {
-            applied(state, "bool.and.idempotent", left)
-        }
+        NodeKind::And { left, right } if left == right => applied("bool.and.idempotent", left),
         NodeKind::Or { left, right: _ } if is_true(state, left) => {
             applied_kind(state, "bool.or.true-left", NodeKind::True, span)
         }
@@ -505,17 +503,17 @@ fn apply_first(
             applied_kind(state, "bool.or.true-right", NodeKind::True, span)
         }
         NodeKind::Or { left, right } if is_false(state, left) => {
-            applied(state, "bool.or.false-left", right)
+            applied("bool.or.false-left", right)
         }
         NodeKind::Or { left, right } if is_false(state, right) => {
-            applied(state, "bool.or.false-right", left)
+            applied("bool.or.false-right", left)
         }
-        NodeKind::Or { left, right } if left == right => applied(state, "bool.or.idempotent", left),
+        NodeKind::Or { left, right } if left == right => applied("bool.or.idempotent", left),
         NodeKind::Implies { left, right: _ } if is_false(state, left) => {
             applied_kind(state, "bool.implies.false-left", NodeKind::True, span)
         }
         NodeKind::Implies { left, right } if is_true(state, left) => {
-            applied(state, "bool.implies.true-left", right)
+            applied("bool.implies.true-left", right)
         }
         NodeKind::Implies { left: _, right } if is_true(state, right) => {
             applied_kind(state, "bool.implies.true-right", NodeKind::True, span)
@@ -544,10 +542,10 @@ fn apply_first(
             applied_kind(state, "bool.equivalent.reflexive", NodeKind::True, span)
         }
         NodeKind::Equivalent { left, right } if is_true(state, left) => {
-            applied(state, "bool.equivalent.true-left", right)
+            applied("bool.equivalent.true-left", right)
         }
         NodeKind::Equivalent { left, right } if is_true(state, right) => {
-            applied(state, "bool.equivalent.true-right", left)
+            applied("bool.equivalent.true-right", left)
         }
         NodeKind::Equivalent { left, right } if is_false(state, left) => applied_kind(
             state,
@@ -562,7 +560,7 @@ fn apply_first(
             span,
         ),
         NodeKind::Future { interval, operand } if interval.start() == 0 && interval.end() == 0 => {
-            applied(state, "temporal.future.singleton", operand)
+            applied("temporal.future.singleton", operand)
         }
         NodeKind::Future {
             interval: _,
@@ -579,7 +577,7 @@ fn apply_first(
         NodeKind::Globally { interval, operand }
             if interval.start() == 0 && interval.end() == 0 =>
         {
-            applied(state, "temporal.globally.singleton", operand)
+            applied("temporal.globally.singleton", operand)
         }
         NodeKind::Globally {
             interval: _,
@@ -598,7 +596,7 @@ fn apply_first(
             left: _,
             right,
         } if interval.start() == 0 && interval.end() == 0 => {
-            applied(state, "temporal.until.singleton", right)
+            applied("temporal.until.singleton", right)
         }
         NodeKind::Until {
             interval,
@@ -618,7 +616,7 @@ fn apply_first(
             left: _,
             right,
         } if interval.start() == 0 && interval.end() == 0 => {
-            applied(state, "temporal.release.singleton", right)
+            applied("temporal.release.singleton", right)
         }
         NodeKind::Release {
             interval,
@@ -654,6 +652,7 @@ fn build_pass(
     }
 
     state.nodes.clear();
+    state.interner.clear();
     let catalog = catalog();
     let mut mapped = Vec::with_capacity(input.nodes().len());
     let mut contributors: Vec<BTreeSet<u32>> = Vec::with_capacity(input.nodes().len());
@@ -665,12 +664,14 @@ fn build_pass(
         let output = if let Some((rule_id, output)) = replacement {
             let before_sha256 = sha256_json(&before);
             let after_sha256 = sha256_json(&state.nodes[output.0 as usize]);
-            let rule_revision = catalog
+            let Some(rule_revision) = catalog
                 .rules
                 .iter()
                 .find(|rule| rule.id == rule_id)
                 .map(|rule| rule.revision)
-                .expect("every executable rule is defined by the catalog");
+            else {
+                return Err(Abort::InvalidCatalog(rule_id));
+            };
             pending_steps.push(PendingStep {
                 source_node: index as u32,
                 source_span: node.span,
@@ -781,58 +782,46 @@ fn report_base(
     }
 }
 
-/// Rewrites one validated formula to a fixed point or explicit non-success.
-///
-/// Implements: FR-002, FR-003
-pub fn rewrite(
-    input: &FormulaDocument,
-    formula_id: impl Into<String>,
+fn run_passes<F>(
+    mut current: FormulaDocument,
+    input_was_compacted: bool,
+    mut report: RewriteReport,
     options: RewriteOptions,
-    source_revision: impl Into<String>,
-) -> RewriteReport {
-    let mut report = report_base(input, formula_id.into(), options, source_revision.into());
-    if let Err(error) = input.validate() {
-        report.detail = Some(error.to_string());
-        return report;
-    }
-    if input.semantic_profile() != SemanticProfile::ClosedTraceV1 {
-        report.status = RewriteStatus::UnsupportedProfile;
-        report.detail = Some(
-            "the v1 rule catalog is enabled only for mltl.closed-trace/v1; online-prefix evidence remains pending"
-                .to_owned(),
-        );
-        return report;
-    }
-
-    let Some(mut current) = compact_document(input) else {
-        report.detail = Some("validated input could not be compacted".to_owned());
-        return report;
-    };
-    let input_was_compacted = current != *input;
-    if current.nodes().len() > options.budgets.max_nodes as usize {
-        report.status = RewriteStatus::BudgetExhausted;
-        report.exhausted_budget = Some(BudgetKind::Nodes);
-        report.partial_sha256 = Some(sha256_json(&current));
-        report.detail = Some("rewrite exhausted Nodes budget".to_owned());
-        return report;
-    }
+    mut state: PassState,
+    mut build: F,
+) -> RewriteReport
+where
+    F: FnMut(
+        &FormulaDocument,
+        u32,
+        &mut PassState,
+        &mut Vec<RewriteStep>,
+        &mut String,
+    ) -> Result<FormulaDocument, Abort>,
+{
     let mut seen = BTreeSet::from([sha256_json(&current)]);
-    let mut state = PassState {
-        nodes: Vec::new(),
-        work_units: 0,
-        budgets: options.budgets,
-    };
     let mut steps = Vec::new();
     let mut rolling = sha256_bytes(b"tl-rewrite.trace/v1");
 
     for pass in 0..options.budgets.max_iterations {
-        let candidate = match build_pass(&current, pass, &mut state, &mut steps, &mut rolling) {
+        let candidate = match build(&current, pass, &mut state, &mut steps, &mut rolling) {
             Ok(candidate) => candidate,
             Err(Abort::Budget(budget)) => {
                 report.status = RewriteStatus::BudgetExhausted;
                 report.exhausted_budget = Some(budget);
                 report.partial_sha256 = Some(sha256_json(&current));
                 report.detail = Some(format!("rewrite exhausted {budget:?} budget"));
+                report.work_units = state.work_units;
+                report.rule_applications = steps.len() as u64;
+                report.steps = steps;
+                return report;
+            }
+            Err(Abort::InvalidCatalog(rule_id)) => {
+                report.status = RewriteStatus::InvalidCatalog;
+                report.partial_sha256 = Some(sha256_json(&current));
+                report.detail = Some(format!(
+                    "executable rewrite identity {rule_id} is absent from the catalog"
+                ));
                 report.work_units = state.work_units;
                 report.rule_applications = steps.len() as u64;
                 report.steps = steps;
@@ -876,6 +865,57 @@ pub fn rewrite(
     report
 }
 
+/// Rewrites one validated formula to a fixed point or explicit non-success.
+///
+/// Implements: FR-002, FR-003
+pub fn rewrite(
+    input: &FormulaDocument,
+    formula_id: impl Into<String>,
+    options: RewriteOptions,
+    source_revision: impl Into<String>,
+) -> RewriteReport {
+    let mut report = report_base(input, formula_id.into(), options, source_revision.into());
+    if let Err(error) = input.validate() {
+        report.detail = Some(error.to_string());
+        return report;
+    }
+    if input.semantic_profile() != SemanticProfile::ClosedTraceV1 {
+        report.status = RewriteStatus::UnsupportedProfile;
+        report.detail = Some(
+            "the v1 rule catalog is enabled only for mltl.closed-trace/v1; online-prefix evidence remains pending"
+                .to_owned(),
+        );
+        return report;
+    }
+
+    let Some(current) = compact_document(input) else {
+        report.detail = Some("validated input could not be compacted".to_owned());
+        return report;
+    };
+    let input_was_compacted = current != *input;
+    if current.nodes().len() > options.budgets.max_nodes as usize {
+        report.status = RewriteStatus::BudgetExhausted;
+        report.exhausted_budget = Some(BudgetKind::Nodes);
+        report.partial_sha256 = Some(sha256_json(&current));
+        report.detail = Some("rewrite exhausted Nodes budget".to_owned());
+        return report;
+    }
+    let state = PassState {
+        nodes: Vec::new(),
+        interner: BTreeMap::new(),
+        work_units: 0,
+        budgets: options.budgets,
+    };
+    run_passes(
+        current,
+        input_was_compacted,
+        report,
+        options,
+        state,
+        build_pass,
+    )
+}
+
 /// Re-executes a report's exact identity and options and compares every field.
 ///
 /// Implements: FR-003
@@ -902,16 +942,47 @@ pub fn replay(input: &FormulaDocument, expected: &RewriteReport) -> ReplayReport
 
 #[cfg(test)]
 mod tests {
-    use super::{observe_state, RewriteStatus};
-    use std::collections::BTreeSet;
+    use super::{report_base, run_passes, PassState, RewriteOptions, RewriteStatus};
+    use std::collections::BTreeMap;
+    use tl_syntax::{FormulaDocument, Node, NodeId, NodeKind, SemanticProfile};
 
+    // Trace: TC-020, FR-002-AC-2, NFR-001-AC-2
     #[test]
-    fn repeated_complete_state_is_non_convergent() {
-        let mut seen = BTreeSet::new();
-        assert_eq!(observe_state(&mut seen, "state".to_owned()), Ok(()));
-        assert_eq!(
-            observe_state(&mut seen, "state".to_owned()),
-            Err(RewriteStatus::NonConvergent)
+    fn repeated_complete_state_through_engine_is_non_convergent() {
+        let document = |kind| {
+            FormulaDocument::new(
+                SemanticProfile::ClosedTraceV1,
+                NodeId(0),
+                vec![Node::new(kind)],
+            )
+            .unwrap()
+        };
+        let first = document(NodeKind::True);
+        let second = document(NodeKind::False);
+        let options = RewriteOptions::default();
+        let report = report_base(&first, "cycle".to_owned(), options, "source".to_owned());
+        let state = PassState {
+            nodes: Vec::new(),
+            interner: BTreeMap::new(),
+            work_units: 0,
+            budgets: options.budgets,
+        };
+        let observed = run_passes(
+            first.clone(),
+            false,
+            report,
+            options,
+            state,
+            |_, pass, _, _, _| {
+                Ok(if pass % 2 == 0 {
+                    second.clone()
+                } else {
+                    first.clone()
+                })
+            },
         );
+        assert_eq!(observed.status, RewriteStatus::NonConvergent);
+        assert_eq!(observed.iterations, 2);
+        assert!(observed.output.is_none());
     }
 }

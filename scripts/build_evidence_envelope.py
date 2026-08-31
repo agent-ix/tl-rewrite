@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PGM01_POLICY_REVISION = "7dac9d8c19952412b56a0347387666e2ca81e01d"
 PGM01_SCHEMA_DIGEST = "0946e235e9e4b0fa79e9b9ec27ae157b303c17de0a9408d3cc04968fb7152256"
 TL_SYNTAX_REVISION = "740182f13b84858008d6f176f75136737d405c1b"
-TL_MLTL_REVISION = "fced0e687f9975d1d0e128dc7c92c57b73a0eb97"
+TL_MLTL_REVISION = "da2c7704a5347d063398c852acf6aa5bf9b5752d"
 WEST_REVISION = "21cd99ab2e6095a099dd179029cfdeb54268ad3f"
 INPUT_SCHEMA = ROOT / "schemas" / "tl-rewrite-evidence-input-v1.schema.json"
 MANIFEST_SCHEMA = ROOT / "schemas" / "tl-rewrite-evidence-manifest-v1.schema.json"
@@ -63,15 +63,11 @@ def command_outcomes(directory: Path) -> list[dict[str, object]]:
     values = []
     for name in COMMANDS:
         status_path = directory / f"{name}.status.txt"
-        stdout_path = directory / f"{name}.stdout"
         if not status_path.exists():
             values.append({"name": name, "status": "inconclusive", "exitCode": None})
             continue
         code = int(status_path.read_text().strip())
-        skipped = (
-            stdout_path.exists()
-            and stdout_path.read_text(encoding="utf-8").strip() == "skipped-unavailable"
-        )
+        skipped = code == 125
         values.append(
             {
                 "name": name,

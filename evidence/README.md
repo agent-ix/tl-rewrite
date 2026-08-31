@@ -15,7 +15,7 @@ catalog, parameters, dependencies, schemas, corpus, and PGM-01.
 
 The collector architecture is adapted under MIT OR Apache-2.0 from the
 same-program tl-mltl collector at revision
-`fced0e687f9975d1d0e128dc7c92c57b73a0eb97`, tailored to catalog, rewrite,
+`da2c7704a5347d063398c852acf6aa5bf9b5752d`, tailored to catalog, rewrite,
 replay, bounded-equivalence, and WEST gates.
 
 Evidence informs a pending human source-release decision. It neither proves

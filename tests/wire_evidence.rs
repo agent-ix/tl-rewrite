@@ -146,6 +146,7 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
     }
 }
 
+// Trace: TC-018, FR-005-AC-2, NFR-002-AC-2
 #[test]
 fn evidence_producer_rejects_false_success_classifications() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

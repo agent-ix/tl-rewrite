@@ -20,6 +20,9 @@ and independently agree after rewriting. Tests cover stable execution,
 reachable graph compaction, every budget, fixed points, cycle detection, replay
 substitution, evaluator errors, mismatch counterexamples, wire closure, and
 evidence contracts.
+Strict coverage now reports 50/50 rows and 28/28/28 bound, tagged, and
+candidate Rust evidence symbols; the status-column module conflict below remains
+an explicit process limitation rather than an omitted result.
 Human review and source-release authority remain open. Online-prefix rewriting,
 the two growth-sensitive WEST Theorem 3 transformations, universal proof, and
 downstream qualification remain explicitly outside the candidate claim.

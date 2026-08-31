@@ -47,6 +47,7 @@ fn every_change_has_one_complete_ordered_step() {
     assert_eq!(report.steps[0].source_span.unwrap().start(), 4);
 }
 
+// Trace: TC-009, FR-003-AC-1
 #[test]
 fn discarded_subtree_rewrites_are_absent_from_the_trace_and_budget() {
     let input = document(
@@ -83,6 +84,7 @@ fn discarded_subtree_rewrites_are_absent_from_the_trace_and_budget() {
     assert_eq!(report.steps[0].rule_id, "bool.and.false-right");
 }
 
+// Trace: TC-009, FR-003-AC-1
 #[test]
 fn structural_interning_does_not_resurrect_a_discarded_step() {
     let input = document(

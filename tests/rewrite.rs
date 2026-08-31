@@ -119,6 +119,7 @@ fn node_growth_limit_fails_before_emission() {
     assert!(report.output.is_none());
 }
 
+// Trace: TC-007, FR-002-AC-2, NFR-001-AC-2
 #[test]
 fn node_limit_applies_to_the_reachable_compacted_graph() {
     let input = document(
@@ -149,6 +150,7 @@ fn node_limit_applies_to_the_reachable_compacted_graph() {
     assert!(report.output.is_none());
 }
 
+// Trace: TC-008, FR-002-AC-3
 #[test]
 fn output_prunes_unreachable_nodes_and_structurally_interns_duplicates() {
     let input = document(

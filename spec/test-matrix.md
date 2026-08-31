@@ -14,7 +14,7 @@ relationships:
 | Functional Req | Acceptance Criteria | Test Cases | Coverage Status |
 |---|---|---|---|
 | FR-001 | FR-001-AC-1 through FR-001-AC-3 | TC-001 through TC-004 | ✅ covered |
-| FR-002 | FR-002-AC-1 through FR-002-AC-3 | TC-005 through TC-008 | ✅ covered |
+| FR-002 | FR-002-AC-1 through FR-002-AC-3 | TC-005 through TC-008, TC-020 | ✅ covered |
 | FR-003 | FR-003-AC-1 through FR-003-AC-3 | TC-009 through TC-012 | ✅ covered |
 | FR-004 | FR-004-AC-1 through FR-004-AC-3 | TC-013 through TC-016 | ✅ covered |
 | FR-005 | FR-005-AC-1 through FR-005-AC-3 | TC-017 through TC-019 | ✅ covered |
@@ -56,3 +56,4 @@ relationships:
 | TC-017 | Round trip and reject versioned wire records | Integration | P0 | FR-005-AC-1, NFR-001-AC-1 | ✅ implemented |
 | TC-018 | Verify immutable evidence contract and schemas | Integration | P0 | FR-005-AC-2, NFR-002-AC-2 | ✅ implemented |
 | TC-019 | Inspect human authority and qualification boundary | Integration | P0 | FR-005-AC-3, StR-001-VC-1, NFR-002-AC-2 | ✅ implemented |
+| TC-020 | Detect repeated complete states through the rewrite engine | Unit | P0 | FR-002-AC-2, NFR-001-AC-2 | ✅ implemented |
