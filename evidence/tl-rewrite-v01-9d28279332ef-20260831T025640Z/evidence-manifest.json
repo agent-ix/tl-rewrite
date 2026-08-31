@@ -1,0 +1,195 @@
+{
+  "artifacts": [
+    {
+      "path": "cargo-version.txt",
+      "sha256": "fcfafeedf9e1047337cbc09d4b2279bbf73c68b0230dadfa2551a3122a92fe7c",
+      "size": 336
+    },
+    {
+      "path": "corpus-integrity.status.txt",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "size": 2
+    },
+    {
+      "path": "corpus-integrity.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "corpus-integrity.stdout",
+      "sha256": "05e27158bef7584f9ae9ae7a24dc48acdc3c1eb7314a968438b76ff07c57e98c",
+      "size": 100
+    },
+    {
+      "path": "default-dependencies.status.txt",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "size": 2
+    },
+    {
+      "path": "default-dependencies.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "default-dependencies.stdout",
+      "sha256": "8a03f94a4634db55b6a4f120f57d870a3a1d053f83942f8e1871eb0aed984741",
+      "size": 1569
+    },
+    {
+      "path": "diff-integrity.status.txt",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "size": 2
+    },
+    {
+      "path": "diff-integrity.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "diff-integrity.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "jsonschema-version.txt",
+      "sha256": "33bdaf9e2d6bcbde2e4e613e865e403f8fe21fc621078d34c30b0bdc7f68d903",
+      "size": 6
+    },
+    {
+      "path": "make-ci.status.txt",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "size": 2
+    },
+    {
+      "path": "make-ci.stderr",
+      "sha256": "9cda54f495cf681d4ea6252bd6ac83c9e908d845c57a826695400e681f1d7401",
+      "size": 5135
+    },
+    {
+      "path": "make-ci.stdout",
+      "sha256": "b25bd9dccb59ac324bceeffb4475d4cff0e4b844b1a9fbc1d813ddd1af0ebc6d",
+      "size": 2512
+    },
+    {
+      "path": "make-spec.status.txt",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "size": 2
+    },
+    {
+      "path": "make-spec.stderr",
+      "sha256": "b56538af46b82a6c46d6bb2942567cbd0d0ea18dccbde7481a05aafb7f46b901",
+      "size": 2532
+    },
+    {
+      "path": "make-spec.stdout",
+      "sha256": "df012247898f6718d1900fdcc6cbde16f9e53b14040c5aa0c1e5a2382a37dcdd",
+      "size": 1260
+    },
+    {
+      "path": "metadata.json",
+      "sha256": "38562192a35a355f92e93d07f1f43146bc991390459f2991cd03451f0d27f388",
+      "size": 90380
+    },
+    {
+      "path": "python-version.txt",
+      "sha256": "f6b75e07f1488db28a89724a522725e3e01af3dc78f6fd365f17eb4059e41056",
+      "size": 15
+    },
+    {
+      "path": "quire-coverage.status.txt",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "size": 2
+    },
+    {
+      "path": "quire-coverage.stderr",
+      "sha256": "aa2bc79e72e31239dda59a48e81da1e89433a8eb6ab32b118f9c0b6e67690de3",
+      "size": 1843
+    },
+    {
+      "path": "quire-coverage.stdout",
+      "sha256": "9ca903fca3dc827e135513e8e09e5072c46393935db1f331db4536362a67ca30",
+      "size": 1186
+    },
+    {
+      "path": "quire-provenance.json",
+      "sha256": "6df2f8c787012733dbcaab24f8810dd127a508513ba521a852592539c938ec91",
+      "size": 664
+    },
+    {
+      "path": "rustc-version.txt",
+      "sha256": "a834181975ab3494d51a1a01e4a9d4321fecd674a52e3db3cf93b3b84b6fc2c1",
+      "size": 196
+    },
+    {
+      "path": "rustdoc.status.txt",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "size": 2
+    },
+    {
+      "path": "rustdoc.stderr",
+      "sha256": "f7503aee78dbe55a18b89dd074868c1c52f1338aa58f8c46c9a6c3e584a2704d",
+      "size": 203
+    },
+    {
+      "path": "rustdoc.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "source-revision.txt",
+      "sha256": "81f682b81a0213febd872f5360eba526a48ac84c17004fa093c31f204a826780",
+      "size": 41
+    },
+    {
+      "path": "source-state.txt",
+      "sha256": "2e22da2ab13713309ac75219e525b8e06ed02f3f1963b8feef203fa25827f93d",
+      "size": 6
+    }
+  ],
+  "collectedAt": "2026-08-31T02:56:50Z",
+  "limitations": [
+    "manual-dispatch remote CI is not part of this local envelope",
+    "38 enabled closed-trace rules have exhaustive small-domain evidence; two WEST Theorem 3 rules remain excluded",
+    "ten selected WEST inputs are exercised without claiming universal proof or WEST qualification",
+    "online-prefix rewriting, independent human approval, and the source-release decision remain pending"
+  ],
+  "outcomes": [
+    {
+      "exitCode": 0,
+      "name": "make-ci",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "name": "make-spec",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "name": "quire-coverage",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "name": "rustdoc",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "name": "default-dependencies",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "name": "corpus-integrity",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "name": "diff-integrity",
+      "status": "passed"
+    }
+  ],
+  "schemaVersion": "tl-rewrite.evidence-manifest/v1",
+  "sourceRevision": "9d28279332efdfc6cb70ecd66f0b8a2171c8b3aa"
+}
