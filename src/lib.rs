@@ -4,6 +4,8 @@
 //! neither text parsing nor a second evaluator: bounded equivalence delegates
 //! to the exact pinned `tl-mltl` reference implementation.
 
+#![forbid(unsafe_code)]
+
 mod catalog;
 mod equivalence;
 mod hash;

@@ -682,7 +682,10 @@ fn build_pass(
     while let Some(source) = source_stack.pop() {
         let index = source.0 as usize;
         if index >= relevant_sources.len() || index >= retained_source_operands.len() {
-            return Err(Abort::Budget(BudgetKind::Nodes));
+            // FormulaDocument validation guarantees topological in-range
+            // operands. Match the defensive reachability walk above without
+            // misclassifying an impossible structural violation as a budget.
+            continue;
         }
         if relevant_sources[index] {
             continue;

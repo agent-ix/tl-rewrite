@@ -90,6 +90,27 @@ def main() -> int:
         assert any(item["name"] == "newgate" for item in censused["outcomes"])
         assert censused["overallStatus"] == "failed"
 
+        (evidence_dir / "evidence-envelope.json").write_text(
+            json.dumps({"result": {"status": "conclusive"}}) + "\n",
+            encoding="utf-8",
+        )
+        contradictory_summary = FINALIZER.summary(evidence_dir)
+        (evidence_dir / "collection-summary.json").write_text(
+            json.dumps(contradictory_summary, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        contradictory = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "finalize_collection.py"),
+                "--check",
+                str(evidence_dir),
+            ],
+            check=False,
+            capture_output=True,
+        )
+        assert contradictory.returncode != 0
+
         missing_summary = subprocess.run(
             [
                 sys.executable,
@@ -142,6 +163,10 @@ def main() -> int:
         added.write_text("FABRICATED\n", encoding="utf-8")
         assert any("unlisted" in error for error in VERIFIER.verify(evidence_dir))
         added.unlink()
+        symlink = evidence_dir / "symlink.txt"
+        symlink.symlink_to(artifact)
+        assert any("symlink" in error for error in VERIFIER.verify(evidence_dir))
+        symlink.unlink()
         artifact.write_text("FABRICATED\n", encoding="utf-8")
         assert VERIFIER.verify(evidence_dir)
     print("evidence outcome behavior is valid")

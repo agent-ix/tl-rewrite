@@ -97,6 +97,15 @@ def main() -> int:
         if actual != value:
             print(f"retained summary disagrees with status files: {evidence_dir}", file=sys.stderr)
             return 1
+        envelope = json.loads(
+            (evidence_dir / "evidence-envelope.json").read_text(encoding="utf-8")
+        )
+        if (
+            envelope.get("result", {}).get("status") == "conclusive"
+            and value["overallStatus"] != "passed"
+        ):
+            print(f"envelope verdict contradicts retained outcomes: {evidence_dir}", file=sys.stderr)
+            return 1
         return 0
     summary_path.write_text(
         json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8"

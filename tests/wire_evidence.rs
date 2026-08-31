@@ -93,6 +93,7 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
         "sealed-pgm01-schema",
         "sealed-pgm01-validator",
         "finalize_collection.py",
+        "msrv",
     ] {
         assert!(collector.contains(required), "collector omits {required}");
     }
@@ -119,9 +120,11 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
         "cargo deny check licenses",
         "cargo deny check sources",
         "python3 scripts/test_evidence_tool.py",
+        "scripts/check_failure_propagation.py",
+        "scripts/check_traceability_coverage.py",
+        "scripts/test_json_schema_gate.py",
         "bash scripts/verify_evidence.sh",
         "quire validate",
-        "quire coverage",
         "cargo doc",
     ] {
         assert!(dry_run.contains(command), "complete gate omits {command}");

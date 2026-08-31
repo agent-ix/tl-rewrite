@@ -3,6 +3,10 @@
 # =============================================================================
 
 CARGO ?= cargo
+PYTHON ?= python3
+QUIRE ?= quire
+SHA256SUM ?= sha256sum
+BASH ?= bash
 
 .PHONY: help
 help:
@@ -11,6 +15,7 @@ help:
 	@echo "  make fmt-check        - Verify formatting (CI gate)"
 	@echo "  make lint             - Clippy with -D warnings"
 	@echo "  make test             - cargo test"
+	@echo "  make check-failure-propagation - prove required command failures reach CI"
 	@echo "  make build            - Release build"
 	@echo "  make clean            - cargo clean"
 	@echo "  make deny             - cargo deny check licenses and sources"
@@ -19,6 +24,7 @@ help:
 	@echo "  make verify-evidence  - Verify every retained evidence SHA-256 manifest"
 	@echo "  make spec             - Validate and cover specification artifacts"
 	@echo "  make rustdoc          - Build warning-free public documentation"
+	@echo "  make msrv             - Test all targets and features with Rust 1.75"
 	@echo "  make evidence-tool    - Syntax-check evidence tooling and schemas"
 	@echo "  make ci               - All CI gates locally (fmt-check + lint + test + deny + audit-unsafe)"
 
@@ -42,18 +48,22 @@ lint:
 test:
 	$(CARGO) test --all-targets --all-features
 
+.PHONY: check-failure-propagation
+check-failure-propagation:
+	$(PYTHON) scripts/check_failure_propagation.py
+
 .PHONY: check-corpus
 check-corpus:
-	cd corpus/west-v1 && sha256sum --check SHA256SUMS
+	cd corpus/west-v1 && $(SHA256SUM) --check SHA256SUMS
 
 .PHONY: verify-evidence
 verify-evidence:
-	bash scripts/verify_evidence.sh
+	$(BASH) scripts/verify_evidence.sh
 
 .PHONY: spec
 spec:
-	quire validate --scope . 'spec/**/*.md'
-	quire coverage --scope . --strict
+	$(QUIRE) validate --scope . 'spec/**/*.md'
+	$(PYTHON) scripts/check_traceability_coverage.py
 
 .PHONY: rustdoc
 rustdoc:
@@ -61,8 +71,11 @@ rustdoc:
 
 .PHONY: evidence-tool
 evidence-tool:
-	python3 -m py_compile scripts/build_evidence_envelope.py scripts/finalize_collection.py scripts/test_evidence_tool.py scripts/validate_json_schema.py scripts/verify_evidence_manifest.py
-	python3 scripts/test_evidence_tool.py
+	$(PYTHON) -m compileall -q scripts
+	$(PYTHON) scripts/test_evidence_tool.py
+	$(PYTHON) scripts/test_failure_propagation.py
+	$(PYTHON) scripts/test_json_schema_gate.py
+	$(PYTHON) scripts/test_traceability_gate.py
 
 .PHONY: build
 build:
@@ -87,11 +100,15 @@ cargo-audit:
 
 .PHONY: audit-unsafe
 audit-unsafe:
-	bash scripts/check_unsafe_comments.sh
+	$(BASH) scripts/check_unsafe_comments.sh
+
+.PHONY: msrv
+msrv:
+	$(CARGO) +1.75.0 test --all-targets --all-features
 
 # =============================================================================
 # Composite
 # =============================================================================
 
 .PHONY: ci
-ci: fmt-check lint test check-corpus deny audit-unsafe evidence-tool spec rustdoc verify-evidence
+ci: check-failure-propagation fmt-check lint test check-corpus deny audit-unsafe evidence-tool spec msrv rustdoc verify-evidence

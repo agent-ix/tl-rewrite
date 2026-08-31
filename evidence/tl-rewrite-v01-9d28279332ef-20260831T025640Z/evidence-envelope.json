@@ -96,8 +96,8 @@
       "PGM-01-R09",
       "MP-001"
     ],
-    "status": "conclusive",
-    "summary": "all local tl-rewrite checks passed; human gates remain pending"
+    "status": "inconclusive",
+    "summary": "legacy record lacks sealed PGM-01 outcomes; human gates remain pending"
   },
   "schemaVersion": "quire.derivation-evidence/v1"
 }
