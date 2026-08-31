@@ -7,6 +7,9 @@ description: "Chronological changes to the tl-rewrite v0.1 plan bundle."
 
 ## History
 
+- **2026-08-31** - Sealed passing follow-up evidence for source revision
+  `54763ed4f67b`; all 13 outcomes and both post-seal PGM-01 validations passed,
+  and AA-001 anchors the checksum manifest outside the retained archive.
 - **2026-08-31** - Retained the failed `bf2db16c4dfe` collection honestly: all
   repository and schema gates passed, while both PGM-01 governance-validator
   invocations failed because the selected interpreter lacked the pinned format
