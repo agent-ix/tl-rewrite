@@ -109,7 +109,6 @@ def parameters_digest() -> str:
         ROOT / "src" / "equivalence.rs",
         ROOT / "src" / "hash.rs",
         ROOT / "src" / "lib.rs",
-        ROOT / "src" / "replay.rs",
         ROOT / "src" / "rewrite.rs",
         ROOT / "corpus" / "west-v1" / "SHA256SUMS",
         ROOT / "corpus" / "west-v1" / "manifest.json",
