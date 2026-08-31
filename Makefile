@@ -61,7 +61,7 @@ rustdoc:
 
 .PHONY: evidence-tool
 evidence-tool:
-	python3 -m py_compile scripts/build_evidence_envelope.py scripts/finalize_collection.py scripts/test_evidence_tool.py scripts/validate_json_schema.py
+	python3 -m py_compile scripts/build_evidence_envelope.py scripts/finalize_collection.py scripts/test_evidence_tool.py scripts/validate_json_schema.py scripts/verify_evidence_manifest.py
 	python3 scripts/test_evidence_tool.py
 
 .PHONY: build

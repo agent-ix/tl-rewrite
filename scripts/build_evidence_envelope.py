@@ -24,6 +24,7 @@ COLLECTOR = ROOT / "scripts" / "collect_evidence.sh"
 BUILDER = Path(__file__).resolve()
 VALIDATOR = ROOT / "scripts" / "validate_json_schema.py"
 FINALIZER = ROOT / "scripts" / "finalize_collection.py"
+EVIDENCE_VERIFIER = ROOT / "scripts" / "verify_evidence_manifest.py"
 COMMANDS = (
     "make-ci",
     "make-spec",
@@ -112,6 +113,7 @@ def parameters_digest() -> str:
         BUILDER,
         VALIDATOR,
         FINALIZER,
+        EVIDENCE_VERIFIER,
         INPUT_SCHEMA,
         MANIFEST_SCHEMA,
     )

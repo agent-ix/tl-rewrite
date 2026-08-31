@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import tempfile
 from pathlib import Path
 
@@ -21,6 +22,12 @@ FINALIZER_SPEC = importlib.util.spec_from_file_location(
 assert FINALIZER_SPEC is not None and FINALIZER_SPEC.loader is not None
 FINALIZER = importlib.util.module_from_spec(FINALIZER_SPEC)
 FINALIZER_SPEC.loader.exec_module(FINALIZER)
+VERIFIER_SPEC = importlib.util.spec_from_file_location(
+    "verify_evidence_manifest", ROOT / "scripts" / "verify_evidence_manifest.py"
+)
+assert VERIFIER_SPEC is not None and VERIFIER_SPEC.loader is not None
+VERIFIER = importlib.util.module_from_spec(VERIFIER_SPEC)
+VERIFIER_SPEC.loader.exec_module(VERIFIER)
 
 
 def main() -> int:
@@ -70,6 +77,24 @@ def main() -> int:
         rederived = FINALIZER.summary(evidence_dir)
         assert rederived["overallStatus"] == "failed"
         assert rederived != retained
+
+        artifact = evidence_dir / "make-ci.stdout"
+        artifact.write_text("passed\n", encoding="utf-8")
+        manifest = {
+            "artifacts": [
+                {
+                    "path": artifact.name,
+                    "sha256": VERIFIER.sha256(artifact),
+                    "size": artifact.stat().st_size,
+                }
+            ]
+        }
+        (evidence_dir / "evidence-manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
+        assert VERIFIER.verify(evidence_dir) == []
+        artifact.write_text("FABRICATED\n", encoding="utf-8")
+        assert VERIFIER.verify(evidence_dir)
     print("evidence outcome behavior is valid")
     return 0
 

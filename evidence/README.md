@@ -5,6 +5,10 @@ creates a revision-and-UTC-time-scoped directory, refuses overwrite, and
 retains stdout, stderr, exit status, identities, limitations, a canonical
 `quire.derivation-evidence/v1` envelope, and an external SHA-256 file.
 
+`evidence/ANCHORS` binds every retained outer manifest. The complete local gate
+requires an anchor for every record before checking the retained files,
+manifest-to-artifact identities, and the summary re-derived from status files.
+
 Set `PGM01_SCHEMA` and `PGM01_VALIDATOR` to the exact merged PGM-01 Draft 7
 schema and validator. Set `PGM01_PYTHON` when the validator's exact dependency
 environment uses a different interpreter. Missing external gates are recorded

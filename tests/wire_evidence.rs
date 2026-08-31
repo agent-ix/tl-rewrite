@@ -1,8 +1,9 @@
 mod common;
 
-use std::{fs, path::PathBuf, process::Command};
+use std::{collections::BTreeMap, fs, path::PathBuf, process::Command};
 
 use common::{document, proposition};
+use sha2::{Digest, Sha256};
 use tl_rewrite::{
     catalog, check_equivalence, replay, rewrite, CatalogDocument, ConformanceOptions,
     ConformanceReport, ReplayReport, RewriteOptions, RewriteReport,
@@ -132,6 +133,7 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
         "scripts/finalize_collection.py",
         "scripts/test_evidence_tool.py",
         "scripts/verify_evidence.sh",
+        "scripts/verify_evidence_manifest.py",
     ] {
         assert!(root.join(script).is_file(), "missing {script}");
     }
@@ -143,6 +145,37 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
             serde_json::from_str(&fs::read_to_string(root.join(schema)).unwrap()).unwrap();
         assert_eq!(value["$schema"], "http://json-schema.org/draft-07/schema#");
         assert_eq!(value["additionalProperties"], false);
+    }
+    let anchors = fs::read_to_string(root.join("evidence/ANCHORS")).unwrap();
+    let anchors = anchors
+        .lines()
+        .map(|line| {
+            let mut fields = line.split_whitespace();
+            let digest = fields.next().unwrap();
+            let path = fields.next().unwrap();
+            assert!(fields.next().is_none(), "invalid evidence anchor line");
+            (path.to_owned(), digest.to_owned())
+        })
+        .collect::<BTreeMap<_, _>>();
+    let manifests = fs::read_dir(root.join("evidence"))
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("sha256"))
+        .map(|path| format!("evidence/{}", path.file_name().unwrap().to_string_lossy()))
+        .collect::<Vec<_>>();
+    assert_eq!(anchors.len(), manifests.len());
+    for manifest in manifests {
+        let expected = anchors
+            .get(&manifest)
+            .unwrap_or_else(|| panic!("retained archive lacks anchor: {manifest}"));
+        let actual = format!(
+            "{:x}",
+            Sha256::digest(fs::read(root.join(&manifest)).unwrap())
+        );
+        assert_eq!(
+            &actual, expected,
+            "retained archive anchor changed: {manifest}"
+        );
     }
 }
 
