@@ -7,6 +7,10 @@ description: "Chronological changes to the tl-rewrite v0.1 plan bundle."
 
 ## History
 
+- **2026-08-31** - Retained the failed `bf2db16c4dfe` collection honestly: all
+  repository and schema gates passed, while both PGM-01 governance-validator
+  invocations failed because the selected interpreter lacked the pinned format
+  validator packages. Recreated the exact validator environment before retry.
 - **2026-08-31** - Sealed passing exact-candidate evidence for source revision
   `b9cd1764ef70`; all 13 collected and post-seal checks passed and the retained
   checksum manifest verifies.
