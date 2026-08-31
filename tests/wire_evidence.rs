@@ -1,6 +1,6 @@
 mod common;
 
-use std::{fs, path::PathBuf};
+use std::{fs, path::PathBuf, process::Command};
 
 use common::{document, proposition};
 use tl_rewrite::{
@@ -68,14 +68,30 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
     let collector = fs::read_to_string(root.join("scripts/collect_evidence.sh")).unwrap();
     let builder = fs::read_to_string(root.join("scripts/build_evidence_envelope.py")).unwrap();
     let makefile = fs::read_to_string(root.join("Makefile")).unwrap();
+    let workflow = fs::read_to_string(root.join(".github/workflows/ci.yml")).unwrap();
+    let dry_run = Command::new("make")
+        .args(["-n", "ci"])
+        .current_dir(&root)
+        .output()
+        .unwrap();
+    assert!(
+        dry_run.status.success(),
+        "make -n ci failed: {}",
+        String::from_utf8_lossy(&dry_run.stderr)
+    );
+    let dry_run = String::from_utf8(dry_run.stdout).unwrap();
     for required in [
         "refusing to overwrite retained evidence",
         "refusing to collect evidence from a modified or untracked source tree",
         "PGM01_SCHEMA",
+        "PGM01_PYTHON",
         "PGM01_VALIDATOR",
         "make ci",
         "make spec",
         "quire coverage --scope . --strict",
+        "sealed-pgm01-schema",
+        "sealed-pgm01-validator",
+        "finalize_collection.py",
     ] {
         assert!(collector.contains(required), "collector omits {required}");
     }
@@ -89,8 +105,35 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
     ] {
         assert!(builder.contains(required), "builder omits {required}");
     }
-    for target in ["ci:", "spec:", "check-corpus:", "evidence-tool:"] {
+    for target in [
+        "ci:",
+        "spec:",
+        "check-corpus:",
+        "evidence-tool:",
+        "verify-evidence:",
+    ] {
         assert!(makefile.contains(target));
+    }
+    for command in [
+        "cargo deny check licenses",
+        "cargo deny check sources",
+        "python3 scripts/test_evidence_tool.py",
+        "bash scripts/verify_evidence.sh",
+        "quire validate",
+        "quire coverage",
+        "cargo doc",
+    ] {
+        assert!(dry_run.contains(command), "complete gate omits {command}");
+    }
+    assert!(workflow.contains("workflow_dispatch:"));
+    assert!(!workflow.contains("pull_request:"));
+    assert!(!workflow.contains("push:"));
+    for script in [
+        "scripts/finalize_collection.py",
+        "scripts/test_evidence_tool.py",
+        "scripts/verify_evidence.sh",
+    ] {
+        assert!(root.join(script).is_file(), "missing {script}");
     }
     for schema in [
         "schemas/tl-rewrite-evidence-input-v1.schema.json",
@@ -101,6 +144,21 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
         assert_eq!(value["$schema"], "http://json-schema.org/draft-07/schema#");
         assert_eq!(value["additionalProperties"], false);
     }
+}
+
+#[test]
+fn evidence_producer_rejects_false_success_classifications() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let output = Command::new("python3")
+        .arg("scripts/test_evidence_tool.py")
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "evidence behavior test failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 // Trace: TC-019, FR-005-AC-3, StR-001-VC-1, NFR-002-AC-2

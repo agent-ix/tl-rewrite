@@ -11,7 +11,7 @@ make spec
 ```
 
 The library consumes validated `tl-syntax.formula/v1` documents pinned to
-revision `5e59a26d…`. Its v1 catalog enables 38 closed-trace rules with stable
+revision `740182f13b84858008d6f176f75136737d405c1b`. Its v1 catalog enables 38 closed-trace rules with stable
 identity, revision, profile, precondition, and derivation metadata. Two
 growth-sensitive nested Until/Release transformations from WEST paper Theorem 3
 are retained as primary-source catalog entries but deliberately excluded.
@@ -21,7 +21,16 @@ explicit iteration, node, application, and deterministic logical-work budgets.
 Only a fixed point carries a normalized formula. `replay` detects substituted
 inputs, catalog/options, steps, intermediates, or output. `check_equivalence`
 enumerates every valuation in a horizon-complete bounded closed-trace domain
-and delegates verdicts to pinned `tl-mltl` revision `a9b78471…`.
+and delegates verdicts to pinned `tl-mltl` revision
+`fced0e687f9975d1d0e128dc7c92c57b73a0eb97`.
+
+The supported `mltl.closed-trace/v1` profile uses false padding for missing
+proposition observations, while Boolean constants remain time-independent at
+every queried instant, including after the last observation. Consequently
+`F[a,b] true` is true and `G[a,b] false` is false even on traces shorter than
+`a + 1`. This deliberately differs from textbook finite-trace conventions that
+require the lower-bound instant to exist; equivalence claims here cover only
+the declared horizon-complete domain and profile.
 
 ## Corpus and evidence
 

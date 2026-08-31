@@ -17,8 +17,11 @@ output-changing rule application.
 
 ## Behavior
 
-- Steps record sequence, pass, source location, rule identity/revision,
+- Steps record sequence, pass, source location, rule identity and its actual
+  catalog revision,
   before/after subtree digests, and a rolling intermediate digest.
+- Applications in subtrees discarded by an ancestor rewrite are absent from
+  the trace and do not consume the output-changing application budget.
 - Formula documents remain separate from explanatory trace metadata.
 - Verification replays the exact request and compares the complete report.
 - Substitution or omission returns a typed mismatch and never a verified flag.

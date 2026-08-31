@@ -22,10 +22,10 @@ pub use rewrite::{
 };
 
 /// Exact tl-syntax source revision consumed by this candidate.
-pub const TL_SYNTAX_REVISION: &str = "5e59a26d71b4b5d79623850cda50010e18a90dad";
+pub const TL_SYNTAX_REVISION: &str = "740182f13b84858008d6f176f75136737d405c1b";
 
 /// Exact tl-mltl reference source revision consumed by this candidate.
-pub const TL_MLTL_REVISION: &str = "a9b7847199c1d846abd7b67901cd6836374ccee2";
+pub const TL_MLTL_REVISION: &str = "fced0e687f9975d1d0e128dc7c92c57b73a0eb97";
 
 /// Exact canonical WEST source revision from which permitted fixtures were selected.
 pub const WEST_REVISION: &str = "21cd99ab2e6095a099dd179029cfdeb54268ad3f";

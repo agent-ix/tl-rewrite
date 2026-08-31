@@ -11,9 +11,13 @@ make lint           # clippy with -D warnings
 make test           # cargo test
 make build          # release build
 make clean          # cargo clean
-make deny           # cargo deny check licenses
+make deny           # cargo deny check licenses and sources
 make audit-unsafe   # check that every unsafe block has a // SAFETY: comment
-make ci             # fmt-check + lint + test + deny + audit-unsafe
+make check-corpus   # verify retained WEST bytes
+make spec           # validate and cover specifications
+make evidence-tool  # test evidence behavior and schemas
+make verify-evidence # verify retained evidence checksum manifests
+make ci             # complete local gate
 ```
 
 ## Safety scaffolding
@@ -29,9 +33,9 @@ Backported from `agent-ix/ecaz`:
 ## Layout
 
 ```
-src/lib.rs             # crate root
-tests/integration.rs   # end-to-end tests
-benches/               # criterion benchmarks (opt-in; add criterion to dev-deps)
-spec/                  # requirements artifacts (from /spec-create-spec)
-scripts/               # local tooling
+src/                    # catalog, bounded engine, replay, and equivalence APIs
+tests/                  # requirement-tagged integration and property evidence
+corpus/west-v1/         # checksum-pinned selected WEST inputs
+spec/                   # requirements, assurance, reviews, and typed plan bundle
+scripts/                # safety and evidence tooling
 ```

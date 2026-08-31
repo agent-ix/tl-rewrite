@@ -19,9 +19,10 @@ Envelope schema: `quire.derivation-evidence/v1`, SHA-256
 
 The collector architecture is adapted under MIT OR Apache-2.0 from the
 same-program tl-mltl collector at immutable revision
-`a9b7847199c1d846abd7b67901cd6836374ccee2`. The adaptation records catalog,
+`fced0e687f9975d1d0e128dc7c92c57b73a0eb97`. The adaptation records catalog,
 rewrite, replay, bounded equivalence, WEST provenance/license, complete command
-failures, canonical validation, overwrite refusal, and external checksums.
+failures, canonical validation, overwrite refusal, external checksums, and a
+separate post-seal summary for exact finalized-envelope validation.
 Human review remains pending.
 
 ## Findings

@@ -17,10 +17,12 @@ path = "src/lib.rs"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
-tl-mltl = { git = "https://github.com/agent-ix/tl-mltl.git", rev = "a9b7847199c1d846abd7b67901cd6836374ccee2" }
-tl-syntax = { git = "https://github.com/agent-ix/tl-syntax.git", rev = "5e59a26d71b4b5d79623850cda50010e18a90dad", default-features = false, features = ["alloc", "serde"] }
+tl-mltl = { git = "https://github.com/agent-ix/tl-mltl.git", rev = "fced0e687f9975d1d0e128dc7c92c57b73a0eb97" }
+tl-syntax = { git = "https://github.com/agent-ix/tl-syntax.git", rev = "740182f13b84858008d6f176f75136737d405c1b", default-features = false, features = ["alloc", "serde"] }
 
 [dev-dependencies]
+proptest = "=1.5.0"
+tempfile = "=3.10.1"
 
 [profile.release]
 lto = "thin"

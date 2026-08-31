@@ -9,6 +9,7 @@ else
   evidence_dir="evidence/tl-rewrite-v01-${evidence_revision}-${evidence_timestamp}"
 fi
 checksum_path="${evidence_dir}.sha256"
+pgm01_python="${PGM01_PYTHON:-python3}"
 
 if [[ -e "$evidence_dir" || -e "$checksum_path" ]]; then
   echo "refusing to overwrite retained evidence: $evidence_dir" >&2
@@ -43,6 +44,14 @@ run_and_retain() {
   fi
 }
 
+retain_skipped() {
+  local name="$1"
+  echo skipped-unavailable >"$evidence_dir/$name.stdout"
+  : >"$evidence_dir/$name.stderr"
+  echo 125 >"$evidence_dir/$name.status.txt"
+  collection_failed=1
+}
+
 git rev-parse HEAD >"$evidence_dir/source-revision.txt"
 echo clean >"$evidence_dir/source-state.txt"
 rustc --version --verbose >"$evidence_dir/rustc-version.txt"
@@ -60,25 +69,42 @@ run_and_retain default-dependencies cargo tree --no-default-features --edges nor
 run_and_retain corpus-integrity make check-corpus
 run_and_retain diff-integrity git diff --check "origin/main...$(git rev-parse HEAD)"
 
-python3 scripts/build_evidence_envelope.py "$evidence_dir"
+python3 scripts/build_evidence_envelope.py "$evidence_dir" provisional
 run_and_retain input-schema python3 scripts/validate_json_schema.py schemas/tl-rewrite-evidence-input-v1.schema.json "$evidence_dir/collection-input.json"
 run_and_retain manifest-schema python3 scripts/validate_json_schema.py schemas/tl-rewrite-evidence-manifest-v1.schema.json "$evidence_dir/evidence-manifest.json"
 
 if [[ -n "${PGM01_SCHEMA:-}" ]]; then
   run_and_retain pgm01-schema python3 scripts/validate_json_schema.py "$PGM01_SCHEMA" "$evidence_dir/evidence-envelope.json"
 else
-  echo skipped-unavailable >"$evidence_dir/pgm01-schema.stdout"
-  : >"$evidence_dir/pgm01-schema.stderr"
-  echo 0 >"$evidence_dir/pgm01-schema.status.txt"
+  retain_skipped pgm01-schema
 fi
 
 if [[ -n "${PGM01_VALIDATOR:-}" ]]; then
-  run_and_retain pgm01-validator python3 "$PGM01_VALIDATOR" --fixture "$evidence_dir/evidence-envelope.json"
+  run_and_retain pgm01-validator "$pgm01_python" "$PGM01_VALIDATOR" --fixture "$evidence_dir/evidence-envelope.json"
 else
-  echo skipped-unavailable >"$evidence_dir/pgm01-validator.stdout"
-  : >"$evidence_dir/pgm01-validator.stderr"
-  echo 0 >"$evidence_dir/pgm01-validator.status.txt"
+  retain_skipped pgm01-validator
 fi
+
+python3 scripts/build_evidence_envelope.py "$evidence_dir" final
+
+if [[ -n "${PGM01_SCHEMA:-}" ]]; then
+  run_and_retain sealed-pgm01-schema python3 scripts/validate_json_schema.py "$PGM01_SCHEMA" "$evidence_dir/evidence-envelope.json"
+else
+  retain_skipped sealed-pgm01-schema
+fi
+
+if [[ -n "${PGM01_VALIDATOR:-}" ]]; then
+  run_and_retain sealed-pgm01-validator "$pgm01_python" "$PGM01_VALIDATOR" --fixture "$evidence_dir/evidence-envelope.json"
+else
+  retain_skipped sealed-pgm01-validator
+fi
+
+if [[ "$(<"$evidence_dir/sealed-pgm01-schema.status.txt")" -ne 0 || \
+      "$(<"$evidence_dir/sealed-pgm01-validator.status.txt")" -ne 0 ]]; then
+  python3 scripts/build_evidence_envelope.py "$evidence_dir" sealed-failed
+fi
+
+python3 scripts/finalize_collection.py "$evidence_dir"
 
 find "$evidence_dir" -type f -print0 | sort -z | xargs -0 sha256sum >"$checksum_path"
 if [[ $collection_failed -ne 0 ]]; then

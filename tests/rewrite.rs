@@ -43,7 +43,7 @@ fn primitive_and_nested_derivations_reach_expected_root() {
     assert_eq!(report.status, RewriteStatus::Normalized);
     let output = report.output.unwrap();
     assert_eq!(
-        output.nodes[output.root.0 as usize].kind,
+        output.nodes()[output.root().0 as usize].kind,
         proposition(9).kind
     );
     assert!(report
@@ -119,13 +119,57 @@ fn node_growth_limit_fails_before_emission() {
     assert!(report.output.is_none());
 }
 
+#[test]
+fn node_limit_applies_to_the_reachable_compacted_graph() {
+    let input = document(
+        SemanticProfile::ClosedTraceV1,
+        vec![
+            proposition(0),
+            proposition(1),
+            Node::new(NodeKind::And {
+                left: NodeId(0),
+                right: NodeId(1),
+            }),
+        ],
+    );
+    let report = rewrite(
+        &input,
+        "nondegenerate-node-limit",
+        RewriteOptions {
+            budgets: RewriteBudgets {
+                max_nodes: 2,
+                ..RewriteBudgets::default()
+            },
+            ..RewriteOptions::default()
+        },
+        "source",
+    );
+    assert_eq!(report.status, RewriteStatus::BudgetExhausted);
+    assert_eq!(report.exhausted_budget, Some(BudgetKind::Nodes));
+    assert!(report.output.is_none());
+}
+
+#[test]
+fn output_prunes_unreachable_nodes_and_structurally_interns_duplicates() {
+    let input = document(
+        SemanticProfile::ClosedTraceV1,
+        vec![proposition(4), proposition(4), Node::new(NodeKind::True)],
+    );
+    let report = rewrite(&input, "compact", RewriteOptions::default(), "source");
+    assert_eq!(report.status, RewriteStatus::Normalized);
+    assert!(report.steps.is_empty());
+    let output = report.output.unwrap();
+    assert_eq!(output.nodes(), &[Node::new(NodeKind::True)]);
+    assert_eq!(output.root(), NodeId(0));
+}
+
 // Trace: TC-008, FR-002-AC-3
 #[test]
 fn output_preserves_profile_validity_and_fixed_point() {
     let input = reducible();
     let report = rewrite(&input, "fixed", RewriteOptions::default(), "source");
     let output = report.output.unwrap();
-    assert_eq!(output.semantic_profile, input.semantic_profile);
+    assert_eq!(output.semantic_profile(), input.semantic_profile());
     output.validate().unwrap();
     let second = rewrite(&output, "fixed", RewriteOptions::default(), "source");
     assert_eq!(second.status, RewriteStatus::Unchanged);
@@ -174,7 +218,7 @@ fn bounded_formula_family_is_terminating_idempotent_and_growth_limited() {
                 ));
                 let output = first.output.unwrap();
                 output.validate().unwrap();
-                assert!(output.nodes.len() <= 5);
+                assert!(output.nodes().len() <= 5);
                 let second = rewrite(&output, id, RewriteOptions::default(), "source");
                 assert_eq!(second.status, RewriteStatus::Unchanged);
                 assert_eq!(second.output, Some(output));

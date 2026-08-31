@@ -33,6 +33,17 @@ operand satisfies every prefix before a witness, yielding Future. Applying the
 declared Until/Release dual to a constant-false Release left operand yields
 Globally.
 
+These identities use the pinned evaluator's complete closed-trace definition.
+Missing proposition observations are false. Boolean `true` and `false` are
+semantic constants rather than observations and remain time-independent after
+trace closure; therefore `F[a,b] true` stays true and `G[a,b] false` stays false
+even when the trace is shorter than `a + 1`. This is a declared profile
+difference from textbook semantics that require that lower-bound instant to
+exist. Until uses the exact left window
+`[a,i)` before a witness `i`, including when `a > 0`; Release follows by the
+declared dual. The retained exhaustive and property populations include
+nonzero lower bounds and nesting.
+
 ## Primary-source candidates retained but excluded
 
 Elwing et al., “Mission-time LTL (MLTL) Formula Validation Via Regular

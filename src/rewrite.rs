@@ -189,7 +189,6 @@ enum Abort {
 struct PassState {
     nodes: Vec<Node>,
     work_units: u64,
-    applications: u64,
     budgets: RewriteBudgets,
 }
 
@@ -205,20 +204,16 @@ impl PassState {
         Ok(())
     }
 
-    fn application(&mut self) -> Result<(), Abort> {
-        if self.applications >= self.budgets.max_rule_applications {
-            return Err(Abort::Budget(BudgetKind::RuleApplications));
-        }
-        self.applications = self
-            .applications
-            .checked_add(1)
-            .ok_or(Abort::Budget(BudgetKind::RuleApplications))?;
-        Ok(())
-    }
-
     fn emit(&mut self, kind: NodeKind, span: Option<SourceSpan>) -> Result<NodeId, Abort> {
         self.work()?;
-        if self.nodes.len() >= self.budgets.max_nodes as usize {
+        if let Some(index) = self
+            .nodes
+            .iter()
+            .position(|node| node.kind == kind && node.span == span)
+        {
+            return Ok(NodeId(index as u32));
+        }
+        if self.nodes.len() >= u32::MAX as usize {
             return Err(Abort::Budget(BudgetKind::Nodes));
         }
         let id = NodeId(self.nodes.len() as u32);
@@ -229,6 +224,107 @@ impl PassState {
     fn kind(&self, id: NodeId) -> NodeKind {
         self.nodes[id.0 as usize].kind
     }
+}
+
+fn operands(kind: NodeKind) -> [Option<NodeId>; 2] {
+    match kind {
+        NodeKind::Not { operand }
+        | NodeKind::Future { operand, .. }
+        | NodeKind::Globally { operand, .. } => [Some(operand), None],
+        NodeKind::And { left, right }
+        | NodeKind::Or { left, right }
+        | NodeKind::Implies { left, right }
+        | NodeKind::Equivalent { left, right }
+        | NodeKind::Until { left, right, .. }
+        | NodeKind::Release { left, right, .. } => [Some(left), Some(right)],
+        NodeKind::False | NodeKind::True | NodeKind::Proposition { .. } => [None, None],
+    }
+}
+
+fn retained_operands(rule_id: &str, input: NodeKind) -> [Option<NodeId>; 2] {
+    let [left, right] = operands(input);
+    match rule_id {
+        "bool.and.false-left" | "bool.or.true-left" | "bool.implies.false-left" => [left, None],
+        "bool.and.false-right" | "bool.or.true-right" | "bool.implies.true-right" => [right, None],
+        "bool.and.true-left"
+        | "bool.and.true-right"
+        | "bool.and.idempotent"
+        | "bool.or.false-left"
+        | "bool.or.false-right"
+        | "bool.or.idempotent"
+        | "bool.implies.true-left"
+        | "bool.implies.false-right"
+        | "bool.implies.reflexive"
+        | "bool.implies.eliminate"
+        | "bool.equivalent.true-left"
+        | "bool.equivalent.true-right"
+        | "bool.equivalent.false-left"
+        | "bool.equivalent.false-right"
+        | "bool.equivalent.reflexive"
+        | "neg.future.dual"
+        | "neg.globally.dual"
+        | "neg.until.dual"
+        | "neg.release.dual"
+        | "temporal.until.true-left"
+        | "temporal.release.false-left" => [left, right],
+        "bool.not.false"
+        | "bool.not.true"
+        | "bool.not.double"
+        | "temporal.future.singleton"
+        | "temporal.globally.singleton"
+        | "temporal.future.false"
+        | "temporal.future.true"
+        | "temporal.globally.false"
+        | "temporal.globally.true" => [left, None],
+        "temporal.until.singleton" | "temporal.release.singleton" => [right, None],
+        _ => [left, right],
+    }
+}
+
+fn reachable_nodes(root: NodeId, nodes: &[Node]) -> Vec<bool> {
+    let mut reachable = vec![false; nodes.len()];
+    let mut pending = vec![root];
+    while let Some(id) = pending.pop() {
+        let index = id.0 as usize;
+        if index >= nodes.len() || reachable[index] {
+            continue;
+        }
+        reachable[index] = true;
+        pending.extend(operands(nodes[index].kind).into_iter().flatten());
+    }
+    reachable
+}
+
+fn compact_document(input: &FormulaDocument) -> Option<FormulaDocument> {
+    let reachable = reachable_nodes(input.root(), input.nodes());
+    let mut mapped = vec![NodeId(0); input.nodes().len()];
+    let mut nodes: Vec<Node> = Vec::new();
+    for (index, node) in input.nodes().iter().enumerate() {
+        if !reachable[index] {
+            continue;
+        }
+        let kind = remap(node.kind, &mapped);
+        let id = if let Some(existing) = nodes
+            .iter()
+            .position(|candidate| candidate.kind == kind && candidate.span == node.span)
+        {
+            NodeId(existing as u32)
+        } else {
+            let id = NodeId(nodes.len() as u32);
+            nodes.push(Node {
+                kind,
+                span: node.span,
+            });
+            id
+        };
+        mapped[index] = id;
+    }
+    FormulaDocument::new(
+        input.semantic_profile(),
+        mapped[input.root().0 as usize],
+        nodes,
+    )
+    .ok()
 }
 
 fn remap(kind: NodeKind, mapped: &[NodeId]) -> NodeKind {
@@ -294,11 +390,10 @@ fn is_true(state: &PassState, id: NodeId) -> bool {
 }
 
 fn applied(
-    state: &mut PassState,
+    _state: &mut PassState,
     rule: &'static str,
     replacement: NodeId,
 ) -> Result<Option<(&'static str, NodeId)>, Abort> {
-    state.application()?;
     Ok(Some((rule, replacement)))
 }
 
@@ -308,7 +403,6 @@ fn applied_kind(
     kind: NodeKind,
     span: Option<SourceSpan>,
 ) -> Result<Option<(&'static str, NodeId)>, Abort> {
-    state.application()?;
     let replacement = state.emit(kind, span)?;
     Ok(Some((rule, replacement)))
 }
@@ -323,7 +417,6 @@ fn apply_not(
         NodeKind::True => applied_kind(state, "bool.not.true", NodeKind::False, span),
         NodeKind::Not { operand } => applied(state, "bool.not.double", operand),
         NodeKind::Future { interval, operand } => {
-            state.application()?;
             let negated = state.emit(NodeKind::Not { operand }, None)?;
             let output = state.emit(
                 NodeKind::Globally {
@@ -335,7 +428,6 @@ fn apply_not(
             Ok(Some(("neg.future.dual", output)))
         }
         NodeKind::Globally { interval, operand } => {
-            state.application()?;
             let negated = state.emit(NodeKind::Not { operand }, None)?;
             let output = state.emit(
                 NodeKind::Future {
@@ -351,7 +443,6 @@ fn apply_not(
             left,
             right,
         } => {
-            state.application()?;
             let left = state.emit(NodeKind::Not { operand: left }, None)?;
             let right = state.emit(NodeKind::Not { operand: right }, None)?;
             let output = state.emit(
@@ -369,7 +460,6 @@ fn apply_not(
             left,
             right,
         } => {
-            state.application()?;
             let left = state.emit(NodeKind::Not { operand: left }, None)?;
             let right = state.emit(NodeKind::Not { operand: right }, None)?;
             let output = state.emit(
@@ -440,7 +530,6 @@ fn apply_first(
             applied_kind(state, "bool.implies.reflexive", NodeKind::True, span)
         }
         NodeKind::Implies { left, right } => {
-            state.application()?;
             let negated = state.emit(NodeKind::Not { operand: left }, None)?;
             let output = state.emit(
                 NodeKind::Or {
@@ -555,45 +644,104 @@ fn build_pass(
     steps: &mut Vec<RewriteStep>,
     rolling: &mut String,
 ) -> Result<FormulaDocument, Abort> {
+    struct PendingStep {
+        source_node: u32,
+        source_span: Option<SourceSpan>,
+        rule_id: &'static str,
+        rule_revision: u32,
+        before_sha256: String,
+        after_sha256: String,
+    }
+
     state.nodes.clear();
-    let mut mapped = Vec::with_capacity(input.nodes.len());
-    for (index, node) in input.nodes.iter().enumerate() {
+    let catalog = catalog();
+    let mut mapped = Vec::with_capacity(input.nodes().len());
+    let mut contributors: Vec<BTreeSet<u32>> = Vec::with_capacity(input.nodes().len());
+    let mut pending_steps = Vec::new();
+    for (index, node) in input.nodes().iter().enumerate() {
         state.work()?;
         let before = remap(node.kind, &mapped);
         let replacement = apply_first(state, before, node.span)?;
         let output = if let Some((rule_id, output)) = replacement {
             let before_sha256 = sha256_json(&before);
             let after_sha256 = sha256_json(&state.nodes[output.0 as usize]);
-            *rolling = sha256_bytes(
-                format!(
-                    "{}\0{}\01\0{}\0{}",
-                    rolling, rule_id, before_sha256, after_sha256
-                )
-                .as_bytes(),
-            );
-            steps.push(RewriteStep {
-                sequence: steps.len() as u64,
-                pass,
+            let rule_revision = catalog
+                .rules
+                .iter()
+                .find(|rule| rule.id == rule_id)
+                .map(|rule| rule.revision)
+                .expect("every executable rule is defined by the catalog");
+            pending_steps.push(PendingStep {
                 source_node: index as u32,
                 source_span: node.span,
-                rule_id: rule_id.to_owned(),
-                rule_revision: 1,
+                rule_id,
+                rule_revision,
                 before_sha256,
                 after_sha256,
-                intermediate_sha256: rolling.clone(),
             });
+            let mut retained = BTreeSet::from([index as u32]);
+            for source in retained_operands(rule_id, node.kind).into_iter().flatten() {
+                retained.extend(contributors[source.0 as usize].iter().copied());
+            }
+            contributors.push(retained);
             output
         } else {
+            let mut retained = BTreeSet::new();
+            for source in operands(node.kind).into_iter().flatten() {
+                retained.extend(contributors[source.0 as usize].iter().copied());
+            }
+            contributors.push(retained);
             state.emit(before, node.span)?
         };
         mapped.push(output);
     }
-    FormulaDocument::new(
-        input.semantic_profile,
-        mapped[input.root.0 as usize],
-        state.nodes.clone(),
-    )
-    .map_err(|_| Abort::Budget(BudgetKind::Nodes))
+    let root = mapped[input.root().0 as usize];
+    let relevant_sources = &contributors[input.root().0 as usize];
+    for pending in pending_steps
+        .into_iter()
+        .filter(|pending| relevant_sources.contains(&pending.source_node))
+    {
+        if steps.len() as u64 >= state.budgets.max_rule_applications {
+            return Err(Abort::Budget(BudgetKind::RuleApplications));
+        }
+        *rolling = sha256_bytes(
+            format!(
+                "{}\0{}\0{}\0{}\0{}",
+                rolling,
+                pending.rule_id,
+                pending.rule_revision,
+                pending.before_sha256,
+                pending.after_sha256
+            )
+            .as_bytes(),
+        );
+        steps.push(RewriteStep {
+            sequence: steps.len() as u64,
+            pass,
+            source_node: pending.source_node,
+            source_span: pending.source_span,
+            rule_id: pending.rule_id.to_owned(),
+            rule_revision: pending.rule_revision,
+            before_sha256: pending.before_sha256,
+            after_sha256: pending.after_sha256,
+            intermediate_sha256: rolling.clone(),
+        });
+    }
+    let document = FormulaDocument::new(input.semantic_profile(), root, state.nodes.clone())
+        .map_err(|_| Abort::Budget(BudgetKind::Nodes))?;
+    let compacted = compact_document(&document).ok_or(Abort::Budget(BudgetKind::Nodes))?;
+    if compacted.nodes().len() > state.budgets.max_nodes as usize {
+        return Err(Abort::Budget(BudgetKind::Nodes));
+    }
+    Ok(compacted)
+}
+
+fn observe_state(seen: &mut BTreeSet<String>, digest: String) -> Result<(), RewriteStatus> {
+    if seen.insert(digest) {
+        Ok(())
+    } else {
+        Err(RewriteStatus::NonConvergent)
+    }
 }
 
 fn report_base(
@@ -620,7 +768,7 @@ fn report_base(
         request_sha256,
         output_sha256: None,
         partial_sha256: None,
-        semantic_profile: input.semantic_profile.as_str().to_owned(),
+        semantic_profile: input.semantic_profile().as_str().to_owned(),
         options,
         status: RewriteStatus::InvalidInput,
         exhausted_budget: None,
@@ -647,7 +795,7 @@ pub fn rewrite(
         report.detail = Some(error.to_string());
         return report;
     }
-    if input.semantic_profile != SemanticProfile::ClosedTraceV1 {
+    if input.semantic_profile() != SemanticProfile::ClosedTraceV1 {
         report.status = RewriteStatus::UnsupportedProfile;
         report.detail = Some(
             "the v1 rule catalog is enabled only for mltl.closed-trace/v1; online-prefix evidence remains pending"
@@ -656,12 +804,22 @@ pub fn rewrite(
         return report;
     }
 
-    let mut current = input.clone();
+    let Some(mut current) = compact_document(input) else {
+        report.detail = Some("validated input could not be compacted".to_owned());
+        return report;
+    };
+    let input_was_compacted = current != *input;
+    if current.nodes().len() > options.budgets.max_nodes as usize {
+        report.status = RewriteStatus::BudgetExhausted;
+        report.exhausted_budget = Some(BudgetKind::Nodes);
+        report.partial_sha256 = Some(sha256_json(&current));
+        report.detail = Some("rewrite exhausted Nodes budget".to_owned());
+        return report;
+    }
     let mut seen = BTreeSet::from([sha256_json(&current)]);
     let mut state = PassState {
         nodes: Vec::new(),
         work_units: 0,
-        applications: 0,
         budgets: options.budgets,
     };
     let mut steps = Vec::new();
@@ -676,7 +834,7 @@ pub fn rewrite(
                 report.partial_sha256 = Some(sha256_json(&current));
                 report.detail = Some(format!("rewrite exhausted {budget:?} budget"));
                 report.work_units = state.work_units;
-                report.rule_applications = state.applications;
+                report.rule_applications = steps.len() as u64;
                 report.steps = steps;
                 return report;
             }
@@ -684,24 +842,24 @@ pub fn rewrite(
         report.iterations = pass + 1;
         let candidate_sha256 = sha256_json(&candidate);
         if candidate == current {
-            report.status = if steps.is_empty() {
+            report.status = if steps.is_empty() && !input_was_compacted {
                 RewriteStatus::Unchanged
             } else {
                 RewriteStatus::Normalized
             };
             report.output_sha256 = Some(candidate_sha256);
             report.work_units = state.work_units;
-            report.rule_applications = state.applications;
+            report.rule_applications = steps.len() as u64;
             report.steps = steps;
             report.output = Some(candidate);
             return report;
         }
-        if !seen.insert(candidate_sha256.clone()) {
+        if observe_state(&mut seen, candidate_sha256.clone()).is_err() {
             report.status = RewriteStatus::NonConvergent;
             report.partial_sha256 = Some(candidate_sha256);
             report.detail = Some("a prior complete formula state reappeared".to_owned());
             report.work_units = state.work_units;
-            report.rule_applications = state.applications;
+            report.rule_applications = steps.len() as u64;
             report.steps = steps;
             return report;
         }
@@ -713,7 +871,7 @@ pub fn rewrite(
     report.partial_sha256 = Some(sha256_json(&current));
     report.detail = Some("rewrite exhausted Iterations budget".to_owned());
     report.work_units = state.work_units;
-    report.rule_applications = state.applications;
+    report.rule_applications = steps.len() as u64;
     report.steps = steps;
     report
 }
@@ -739,5 +897,21 @@ pub fn replay(input: &FormulaDocument, expected: &RewriteReport) -> ReplayReport
         },
         expected_report_sha256,
         observed_report_sha256,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{observe_state, RewriteStatus};
+    use std::collections::BTreeSet;
+
+    #[test]
+    fn repeated_complete_state_is_non_convergent() {
+        let mut seen = BTreeSet::new();
+        assert_eq!(observe_state(&mut seen, "state".to_owned()), Ok(()));
+        assert_eq!(
+            observe_state(&mut seen, "state".to_owned()),
+            Err(RewriteStatus::NonConvergent)
+        );
     }
 }

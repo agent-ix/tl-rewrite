@@ -1,7 +1,9 @@
 mod common;
 
 use common::{document, proposition};
-use tl_rewrite::{replay, rewrite, ReplayStatus, RewriteBudgets, RewriteOptions, RewriteStatus};
+use tl_rewrite::{
+    catalog, replay, rewrite, ReplayStatus, RewriteBudgets, RewriteOptions, RewriteStatus,
+};
 use tl_syntax::{Node, NodeId, NodeKind, SemanticProfile, SourceSpan};
 
 fn traced_input() -> tl_syntax::FormulaDocument {
@@ -32,12 +34,88 @@ fn every_change_has_one_complete_ordered_step() {
     assert_eq!(report.rule_applications, report.steps.len() as u64);
     for (sequence, step) in report.steps.iter().enumerate() {
         assert_eq!(step.sequence, sequence as u64);
-        assert_eq!(step.rule_revision, 1);
+        let definition = catalog()
+            .rules
+            .into_iter()
+            .find(|rule| rule.id == step.rule_id)
+            .unwrap();
+        assert_eq!(step.rule_revision, definition.revision);
         assert_eq!(step.before_sha256.len(), 64);
         assert_eq!(step.after_sha256.len(), 64);
         assert_eq!(step.intermediate_sha256.len(), 64);
     }
     assert_eq!(report.steps[0].source_span.unwrap().start(), 4);
+}
+
+#[test]
+fn discarded_subtree_rewrites_are_absent_from_the_trace_and_budget() {
+    let input = document(
+        SemanticProfile::ClosedTraceV1,
+        vec![
+            Node::new(NodeKind::True),
+            proposition(7),
+            Node::new(NodeKind::Or {
+                left: NodeId(0),
+                right: NodeId(1),
+            }),
+            Node::new(NodeKind::False),
+            Node::new(NodeKind::And {
+                left: NodeId(2),
+                right: NodeId(3),
+            }),
+        ],
+    );
+    let report = rewrite(
+        &input,
+        "discarded",
+        RewriteOptions {
+            budgets: RewriteBudgets {
+                max_rule_applications: 1,
+                ..RewriteBudgets::default()
+            },
+            ..RewriteOptions::default()
+        },
+        "source",
+    );
+    assert_eq!(report.status, RewriteStatus::Normalized);
+    assert_eq!(report.rule_applications, 1);
+    assert_eq!(report.steps.len(), 1);
+    assert_eq!(report.steps[0].rule_id, "bool.and.false-right");
+}
+
+#[test]
+fn structural_interning_does_not_resurrect_a_discarded_step() {
+    let input = document(
+        SemanticProfile::ClosedTraceV1,
+        vec![
+            Node::new(NodeKind::True),
+            proposition(9),
+            Node::new(NodeKind::Or {
+                left: NodeId(0),
+                right: NodeId(1),
+            }),
+            Node::new(NodeKind::Or {
+                left: NodeId(0),
+                right: NodeId(2),
+            }),
+        ],
+    );
+    let report = rewrite(
+        &input,
+        "interned-discard",
+        RewriteOptions {
+            budgets: RewriteBudgets {
+                max_rule_applications: 1,
+                ..RewriteBudgets::default()
+            },
+            ..RewriteOptions::default()
+        },
+        "source",
+    );
+    assert_eq!(report.status, RewriteStatus::Normalized);
+    assert_eq!(report.steps.len(), 1);
+    assert_eq!(report.steps[0].source_node, 3);
+    assert_eq!(report.steps[0].rule_id, "bool.or.true-left");
 }
 
 // Trace: TC-010, FR-003-AC-2, StR-001-VC-2

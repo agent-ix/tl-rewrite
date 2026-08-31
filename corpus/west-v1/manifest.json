@@ -7,16 +7,16 @@
   "licenseFile": "LICENSE",
   "formulaFile": "formulas_d1.txt",
   "selectedCases": [
-    {"id": "west-d1-and-idempotent", "line": 6, "source": "(~p1&~p1)", "expectedRule": "bool.and.idempotent"},
-    {"id": "west-d1-or-true", "line": 9, "source": "(~p1vT)", "expectedRule": "bool.or.true-right"},
-    {"id": "west-d1-and-true", "line": 10, "source": "(~p0&T)", "expectedRule": "bool.and.true-right"},
-    {"id": "west-d1-globally-true", "line": 11, "source": "G[0:2]T", "expectedRule": "temporal.globally.true"},
-    {"id": "west-d1-future-true", "line": 12, "source": "F[0:2]T", "expectedRule": "temporal.future.true"},
-    {"id": "west-d1-until-true", "line": 14, "source": "(TU[0:2]~p1)", "expectedRule": "temporal.until.true-left"},
-    {"id": "west-d1-or-false", "line": 15, "source": "(!vp0)", "expectedRule": "bool.or.false-left"},
-    {"id": "west-d1-and-true-left", "line": 16, "source": "(T&p1)", "expectedRule": "bool.and.true-left"},
-    {"id": "west-d1-false-or", "line": 19, "source": "(!v!)", "expectedRule": "bool.or.false-left"},
-    {"id": "west-d1-false-and", "line": 20, "source": "(!&!)", "expectedRule": "bool.and.false-left"}
+    {"id": "west-d1-and-idempotent", "line": 6, "source": "(~p1&~p1)", "formulaSha256": "5beed8cf421de27637ce9791c506a06cb164c11c74af08022fcf232d72719706", "expectedRule": "bool.and.idempotent"},
+    {"id": "west-d1-or-true", "line": 9, "source": "(~p1vT)", "formulaSha256": "2c7f08d05e07f850a86d384c0b34699a17c42bfcf53cf53b199a5f367d12f84b", "expectedRule": "bool.or.true-right"},
+    {"id": "west-d1-and-true", "line": 10, "source": "(~p0&T)", "formulaSha256": "3aa2f64681d4d4e8c4799b71499ee52f2068b96e35fea6dd62893b040e36a205", "expectedRule": "bool.and.true-right"},
+    {"id": "west-d1-globally-true", "line": 11, "source": "G[0:2]T", "formulaSha256": "b39a93bd1a4834f8fd8b79cfbe51de2880cc2cb3a941c428dc092ba822b9ab90", "expectedRule": "temporal.globally.true"},
+    {"id": "west-d1-future-true", "line": 12, "source": "F[0:2]T", "formulaSha256": "e7b3222b730e4025efaf7b8e572f308bd47dcf5990c393fee0aaff568126eeaf", "expectedRule": "temporal.future.true"},
+    {"id": "west-d1-until-true", "line": 14, "source": "(TU[0:2]~p1)", "formulaSha256": "ee283d38766b88352219610c1b45762e0c59b0a685533799293efb93eae9011e", "expectedRule": "temporal.until.true-left"},
+    {"id": "west-d1-or-false", "line": 15, "source": "(!vp0)", "formulaSha256": "8109ff270b6375dad40ef9a894235396c95bb71cd4ead1adfb06e804d093db1e", "expectedRule": "bool.or.false-left"},
+    {"id": "west-d1-and-true-left", "line": 16, "source": "(T&p1)", "formulaSha256": "1e15ae0a4e011029991d3a90afcb1906b36f7f4ea6f84c4871daa72ed12b04d0", "expectedRule": "bool.and.true-left"},
+    {"id": "west-d1-false-or", "line": 19, "source": "(!v!)", "formulaSha256": "c3db5a5cd4bec3ea0e7dc98f0ca0291feab499de7c716c8ff2a4fb2459f41cef", "expectedRule": "bool.or.false-left"},
+    {"id": "west-d1-false-and", "line": 20, "source": "(!&!)", "formulaSha256": "377130b4bf00b298a251371d72c9850414467ab57c1578fd99d8bb64710bcccd", "expectedRule": "bool.and.false-left"}
   ],
   "limitations": "Selected source formulas are transcribed into tl-syntax test documents by inspection because text parsing is outside tl-rewrite. Equivalence is independently checked with pinned tl-mltl."
 }

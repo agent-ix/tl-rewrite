@@ -145,7 +145,7 @@ fn report_base(
         comparison_id,
         original_sha256: sha256_json(original),
         rewritten_sha256: sha256_json(rewritten),
-        semantic_profile: original.semantic_profile.as_str().to_owned(),
+        semantic_profile: original.semantic_profile().as_str().to_owned(),
         syntax_revision: TL_SYNTAX_REVISION.to_owned(),
         evaluator_revision: TL_MLTL_REVISION.to_owned(),
         west_revision: WEST_REVISION.to_owned(),
@@ -188,8 +188,8 @@ pub fn check_equivalence(
     let Ok(rewritten_formula) = rewritten.validate() else {
         return non_conclusive(report, ConformanceReason::InvalidInput);
     };
-    if original.semantic_profile != rewritten.semantic_profile
-        || original.semantic_profile != SemanticProfile::ClosedTraceV1
+    if original.semantic_profile() != rewritten.semantic_profile()
+        || original.semantic_profile() != SemanticProfile::ClosedTraceV1
     {
         return non_conclusive(report, ConformanceReason::UnsupportedProfile);
     }

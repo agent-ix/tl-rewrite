@@ -33,7 +33,7 @@ fn same(kind: impl FnOnce(NodeId, NodeId) -> NodeKind) -> tl_syntax::FormulaDocu
 }
 
 fn fixture(id: &str) -> tl_syntax::FormulaDocument {
-    let interval = Interval::new(0, 1).unwrap();
+    let interval = Interval::new(1, 2).unwrap();
     let singleton = Interval::new(0, 0).unwrap();
     match id {
         "bool.not.false" => unary(

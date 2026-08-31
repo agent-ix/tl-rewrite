@@ -4,6 +4,7 @@ use std::{fs, path::PathBuf};
 
 use common::{document, proposition, west_document};
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
 use tl_rewrite::{
     check_equivalence, rewrite, ConformanceOptions, ConformanceReason, ConformanceStatus,
     RewriteOptions, RewriteStatus, TL_MLTL_REVISION, WEST_REVISION,
@@ -24,6 +25,7 @@ struct WestCase {
     id: String,
     line: usize,
     source: String,
+    formula_sha256: String,
     expected_rule: String,
 }
 
@@ -133,6 +135,21 @@ fn unsupported_profiles_and_domain_limits_are_nonconclusive() {
         },
     );
     assert_eq!(report.reason, Some(ConformanceReason::TraceDomainLimit));
+
+    let mut deep_nodes = vec![proposition(0)];
+    for operand in 0..513 {
+        deep_nodes.push(Node::new(NodeKind::Not {
+            operand: NodeId(operand),
+        }));
+    }
+    let deep = document(SemanticProfile::ClosedTraceV1, deep_nodes);
+    let report = check_equivalence(
+        &deep,
+        &deep,
+        "evaluator-depth",
+        ConformanceOptions::default(),
+    );
+    assert_eq!(report.reason, Some(ConformanceReason::EvaluatorError));
 }
 
 // Trace: TC-016, FR-004-AC-3, StR-002-VC-2, NFR-002-AC-2
@@ -146,6 +163,25 @@ fn pinned_west_subset_rewrites_and_is_exhaustively_equivalent() {
     assert_eq!(manifest.schema_version, "tl-rewrite.west-corpus/v1");
     assert_eq!(manifest.upstream_revision, WEST_REVISION);
     assert_eq!(manifest.selected_cases.len(), 10);
+
+    let observed_formula_hashes = manifest
+        .selected_cases
+        .iter()
+        .map(|case| {
+            let input = west_document(&case.id);
+            let digest = Sha256::digest(serde_json::to_vec(&input).unwrap())
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>();
+            (case.id.as_str(), digest)
+        })
+        .collect::<Vec<_>>();
+    let expected_formula_hashes = manifest
+        .selected_cases
+        .iter()
+        .map(|case| (case.id.as_str(), case.formula_sha256.clone()))
+        .collect::<Vec<_>>();
+    assert_eq!(observed_formula_hashes, expected_formula_hashes);
 
     for case in manifest.selected_cases {
         assert_eq!(source_lines[case.line - 1], case.source);

@@ -15,14 +15,15 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 PGM01_POLICY_REVISION = "7dac9d8c19952412b56a0347387666e2ca81e01d"
 PGM01_SCHEMA_DIGEST = "0946e235e9e4b0fa79e9b9ec27ae157b303c17de0a9408d3cc04968fb7152256"
-TL_SYNTAX_REVISION = "5e59a26d71b4b5d79623850cda50010e18a90dad"
-TL_MLTL_REVISION = "a9b7847199c1d846abd7b67901cd6836374ccee2"
+TL_SYNTAX_REVISION = "740182f13b84858008d6f176f75136737d405c1b"
+TL_MLTL_REVISION = "fced0e687f9975d1d0e128dc7c92c57b73a0eb97"
 WEST_REVISION = "21cd99ab2e6095a099dd179029cfdeb54268ad3f"
 INPUT_SCHEMA = ROOT / "schemas" / "tl-rewrite-evidence-input-v1.schema.json"
 MANIFEST_SCHEMA = ROOT / "schemas" / "tl-rewrite-evidence-manifest-v1.schema.json"
 COLLECTOR = ROOT / "scripts" / "collect_evidence.sh"
 BUILDER = Path(__file__).resolve()
 VALIDATOR = ROOT / "scripts" / "validate_json_schema.py"
+FINALIZER = ROOT / "scripts" / "finalize_collection.py"
 COMMANDS = (
     "make-ci",
     "make-spec",
@@ -31,6 +32,10 @@ COMMANDS = (
     "default-dependencies",
     "corpus-integrity",
     "diff-integrity",
+    "input-schema",
+    "manifest-schema",
+    "pgm01-schema",
+    "pgm01-validator",
 )
 
 
@@ -54,12 +59,44 @@ def first_line(path: Path) -> str:
     return path.read_text(encoding="utf-8").splitlines()[0]
 
 
-def outcomes(directory: Path) -> list[dict[str, object]]:
+def command_outcomes(directory: Path) -> list[dict[str, object]]:
     values = []
     for name in COMMANDS:
-        code = int((directory / f"{name}.status.txt").read_text().strip())
-        values.append({"name": name, "status": "passed" if code == 0 else "failed", "exitCode": code})
+        status_path = directory / f"{name}.status.txt"
+        stdout_path = directory / f"{name}.stdout"
+        if not status_path.exists():
+            values.append({"name": name, "status": "inconclusive", "exitCode": None})
+            continue
+        code = int(status_path.read_text().strip())
+        skipped = (
+            stdout_path.exists()
+            and stdout_path.read_text(encoding="utf-8").strip() == "skipped-unavailable"
+        )
+        values.append(
+            {
+                "name": name,
+                "status": (
+                    "skipped-unavailable"
+                    if skipped
+                    else "passed" if code == 0 else "failed"
+                ),
+                "exitCode": code,
+            }
+        )
     return values
+
+
+def classify_result(
+    phase: str, outcomes: list[dict[str, object]]
+) -> tuple[str, str]:
+    statuses = {outcome["status"] for outcome in outcomes}
+    if phase == "sealed-failed" or "failed" in statuses:
+        return "error", "one or more retained tl-rewrite checks failed"
+    if phase in {"provisional", "final"}:
+        return "inconclusive", "exact finalized-envelope validation is external or pending"
+    if "inconclusive" in statuses or "skipped-unavailable" in statuses:
+        return "inconclusive", "schema or governance validation is unavailable or pending"
+    return "conclusive", "all retained tl-rewrite checks passed"
 
 
 def parameters_digest() -> str:
@@ -69,11 +106,17 @@ def parameters_digest() -> str:
         ROOT / "Makefile",
         ROOT / "rust-toolchain.toml",
         ROOT / "src" / "catalog.rs",
+        ROOT / "src" / "equivalence.rs",
+        ROOT / "src" / "hash.rs",
+        ROOT / "src" / "lib.rs",
+        ROOT / "src" / "replay.rs",
+        ROOT / "src" / "rewrite.rs",
         ROOT / "corpus" / "west-v1" / "SHA256SUMS",
         ROOT / "corpus" / "west-v1" / "manifest.json",
         COLLECTOR,
         BUILDER,
         VALIDATOR,
+        FINALIZER,
         INPUT_SCHEMA,
         MANIFEST_SCHEMA,
     )
@@ -86,7 +129,7 @@ def parameters_digest() -> str:
     return state.hexdigest()
 
 
-def build(directory: Path) -> None:
+def build(directory: Path, phase: str) -> None:
     directory = directory.resolve()
     relative = str(directory.relative_to(ROOT))
     revision = (directory / "source-revision.txt").read_text().strip()
@@ -98,7 +141,7 @@ def build(directory: Path) -> None:
     collection_input = {
         "schemaVersion": "tl-rewrite.evidence-input/v1",
         "sourceRevision": revision,
-        "sourceState": "clean",
+        "sourceState": (directory / "source-state.txt").read_text().strip(),
         "commands": [
             "make ci",
             "make spec",
@@ -108,6 +151,9 @@ def build(directory: Path) -> None:
             "make check-corpus",
             f"git diff --check origin/main...{revision}",
             "validate local evidence schemas and exact merged PGM-01 envelope",
+            "python3 scripts/build_evidence_envelope.py EVIDENCE_DIR final",
+            "validate exact finalized PGM-01 envelope",
+            "python3 scripts/finalize_collection.py EVIDENCE_DIR",
         ],
         "tools": {
             "cargo": first_line(directory / "cargo-version.txt"),
@@ -143,32 +189,42 @@ def build(directory: Path) -> None:
     write_json(input_path, collection_input)
 
     excluded = {
-        "collection-input.json", "evidence-envelope.json", "evidence-manifest.json",
-        "input-schema.stdout", "input-schema.stderr", "input-schema.status.txt",
-        "manifest-schema.stdout", "manifest-schema.stderr", "manifest-schema.status.txt",
-        "pgm01-schema.stdout", "pgm01-schema.stderr", "pgm01-schema.status.txt",
-        "pgm01-validator.stdout", "pgm01-validator.stderr", "pgm01-validator.status.txt",
+        "collection-input.json",
+        "evidence-envelope.json",
+        "evidence-manifest.json",
+        "collection-summary.json",
     }
     artifacts = [
         {"path": path.name, "sha256": sha256_file(path), "size": path.stat().st_size}
         for path in sorted(directory.iterdir(), key=lambda item: item.name)
         if path.is_file() and path.name not in excluded
     ]
-    command_outcomes = outcomes(directory)
-    passed = all(item["status"] == "passed" for item in command_outcomes)
+    outcomes = command_outcomes(directory)
+    any_failed = any(item["status"] == "failed" for item in outcomes)
+    any_inconclusive = any(
+        item["status"] in {"inconclusive", "skipped-unavailable"} for item in outcomes
+    )
     limitations = [
         "manual-dispatch remote CI is not part of this local envelope",
         "38 enabled closed-trace rules have exhaustive small-domain evidence; two WEST Theorem 3 rules remain excluded",
         "ten selected WEST inputs are exercised without claiming universal proof or WEST qualification",
         "online-prefix rewriting, independent human approval, and the source-release decision remain pending",
     ]
-    if not passed:
+    if any_failed:
         limitations.append("one or more locally collected commands failed")
+    if any_inconclusive:
+        limitations.append("one or more schema or governance checks were unavailable or pending")
+    if phase == "provisional":
+        limitations.append("this provisional envelope precedes its own schema and governance checks")
+    if phase == "final":
+        limitations.append("the exact finalized envelope is validated externally and does not self-attest")
+    if phase == "sealed-failed":
+        limitations.append("validation of the finalized envelope failed; see sealed validation artifacts")
     manifest = {
         "schemaVersion": "tl-rewrite.evidence-manifest/v1",
         "sourceRevision": revision,
         "collectedAt": recorded_at,
-        "outcomes": command_outcomes,
+        "outcomes": outcomes,
         "artifacts": artifacts,
         "limitations": limitations,
     }
@@ -180,6 +236,7 @@ def build(directory: Path) -> None:
         for line in (directory / "rustc-version.txt").read_text().splitlines()
         if line.startswith("host: ")
     )
+    result_status, result_summary = classify_result(phase, outcomes)
     envelope = {
         "schemaVersion": "quire.derivation-evidence/v1",
         "recordId": directory.name,
@@ -219,8 +276,8 @@ def build(directory: Path) -> None:
             "reviewers": ["@kreneskyp"],
         },
         "result": {
-            "status": "conclusive" if passed else "error",
-            "summary": "all local tl-rewrite checks passed; human gates remain pending" if passed else "one or more local tl-rewrite checks failed",
+            "status": result_status,
+            "summary": result_summary,
             "requirementRefs": ["PGM-01-R08", "PGM-01-R09", "MP-001"],
         },
         "extensions": {"dev.agent-ix.tl-rewrite": {
@@ -237,10 +294,14 @@ def build(directory: Path) -> None:
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
-        print("usage: build_evidence_envelope.py EVIDENCE_DIR", file=sys.stderr)
+    if len(sys.argv) not in {2, 3}:
+        print("usage: build_evidence_envelope.py EVIDENCE_DIR [PHASE]", file=sys.stderr)
         return 2
-    build(Path(sys.argv[1]))
+    phase = sys.argv[2] if len(sys.argv) == 3 else "final"
+    if phase not in {"provisional", "final", "sealed-failed"}:
+        print(f"unknown evidence build phase: {phase}", file=sys.stderr)
+        return 2
+    build(Path(sys.argv[1]), phase)
     return 0
 
 
