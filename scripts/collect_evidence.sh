@@ -31,7 +31,9 @@ if [[ -n "${PGM01_SCHEMA:-}" ]] && \
 fi
 
 mkdir -p "$evidence_dir"
-touch "$evidence_dir/.collecting"
+collection_token="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+export TL_REWRITE_COLLECTION_TOKEN="$collection_token"
+python3 scripts/collection_marker.py create "$evidence_dir/.collecting"
 collection_failed=0
 
 run_and_retain() {
@@ -64,11 +66,13 @@ echo clean >"$evidence_dir/source-state.txt"
 rustc --version --verbose >"$evidence_dir/rustc-version.txt"
 cargo --version --verbose >"$evidence_dir/cargo-version.txt"
 python3 --version >"$evidence_dir/python-version.txt"
+python3 -c 'import os, sys; print(os.path.realpath(sys.executable))' >"$evidence_dir/python-path.txt"
 python3 -c 'import importlib.metadata; print(importlib.metadata.version("jsonschema"))' >"$evidence_dir/jsonschema-version.txt"
+python3 -c 'import json; from jsonschema import FormatChecker; print(json.dumps(sorted(FormatChecker().checkers)))' >"$evidence_dir/jsonschema-format-checkers.json"
 quire provenance --pretty >"$evidence_dir/quire-provenance.json"
 cargo metadata --format-version 1 --all-features >"$evidence_dir/metadata.json"
 
-run_and_retain make-ci make ci
+run_and_retain make-ci env -u CARGO -u PYTHON -u QUIRE -u SHA256SUM -u BASH -u MAKEFLAGS make ci
 run_and_retain make-spec make spec
 run_and_retain quire-coverage quire coverage --scope . --strict
 run_and_retain msrv cargo +1.75.0 test --all-targets --all-features

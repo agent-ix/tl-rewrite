@@ -14,9 +14,12 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 REFERENCE = re.compile(r"\b(?:TC|SUITE)-[0-9]{3}\b")
 ALLOWED_DIAGNOSTICS = {
-    "archetype-matches-nothing",
-    "catch-all-universal",
-    "status-column-matches-nothing",
+    "archetype-matches-nothing": ("inspection", "Inspections"),
+    "catch-all-universal": ("criteria", "coverage.specific_shaped"),
+    "status-column-matches-nothing": (
+        "functional-coverage",
+        "configured status column 'Status'",
+    ),
 }
 
 
@@ -57,8 +60,16 @@ def validate_report(report: dict[str, Any]) -> list[str]:
     else:
         for diagnostic in diagnostics:
             reason = diagnostic.get("reason") if isinstance(diagnostic, dict) else None
-            if reason not in ALLOWED_DIAGNOSTICS:
+            expected = ALLOWED_DIAGNOSTICS.get(reason)
+            message = diagnostic.get("message", "") if isinstance(diagnostic, dict) else ""
+            declaration = diagnostic.get("declaration") if isinstance(diagnostic, dict) else None
+            if expected is None:
                 errors.append(f"coverage report contains blocking diagnostic {reason!r}")
+            elif declaration != expected[0] or (
+                expected[1] not in message
+                and diagnostic.get("value") != expected[1]
+            ):
+                errors.append(f"coverage report contains changed diagnostic {reason!r}")
     return errors
 
 

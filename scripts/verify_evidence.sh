@@ -8,17 +8,7 @@ if [[ ! -f evidence/ANCHORS ]]; then
 fi
 sha256sum --check evidence/ANCHORS
 python3 scripts/check_assurance_anchor.py
-while IFS= read -r -d '' record; do
-  checksum="${record}.sha256"
-  if [[ ! -f "$checksum" ]]; then
-    if [[ -f "$record/.collecting" ]] && \
-       ! git ls-files --error-unmatch "$record/.collecting" >/dev/null 2>&1; then
-      continue
-    fi
-    echo "retained evidence directory lacks a checksum manifest: $record" >&2
-    exit 1
-  fi
-done < <(find evidence -mindepth 1 -maxdepth 1 -type d -print0 | sort -z)
+python3 scripts/check_evidence_root.py
 while IFS= read -r -d '' checksum; do
   found=1
   if ! grep -Fqx "$(sha256sum "$checksum")" evidence/ANCHORS; then

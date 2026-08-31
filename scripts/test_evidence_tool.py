@@ -33,6 +33,16 @@ VERIFIER_SPEC.loader.exec_module(VERIFIER)
 
 
 def main() -> int:
+    missing_assurance = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "check_assurance_anchor.py"),
+            "/definitely/missing/tl-rewrite-assurance.md",
+        ],
+        check=False,
+        capture_output=True,
+    )
+    assert missing_assurance.returncode != 0, "assurance gate accepted a missing argument"
     with tempfile.TemporaryDirectory() as directory:
         evidence_dir = Path(directory)
         (evidence_dir / "make-ci.status.txt").write_text("0\n", encoding="utf-8")

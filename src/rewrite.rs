@@ -681,12 +681,6 @@ fn build_pass(
     let mut source_stack = vec![input.root()];
     while let Some(source) = source_stack.pop() {
         let index = source.0 as usize;
-        if index >= relevant_sources.len() || index >= retained_source_operands.len() {
-            // FormulaDocument validation guarantees topological in-range
-            // operands. Match the defensive reachability walk above without
-            // misclassifying an impossible structural violation as a budget.
-            continue;
-        }
         if relevant_sources[index] {
             continue;
         }

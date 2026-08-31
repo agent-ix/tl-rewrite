@@ -2,11 +2,13 @@
 # TL Rewrite Makefile
 # =============================================================================
 
-CARGO ?= cargo
-PYTHON ?= python3
-QUIRE ?= quire
-SHA256SUM ?= sha256sum
-BASH ?= bash
+tl_make_short_flags := $(firstword $(MAKEFLAGS))
+ifneq ($(findstring i,$(tl_make_short_flags)),)
+$(error local CI refuses Make ignore-errors mode)
+endif
+ifneq ($(findstring --ignore-errors,$(MAKEFLAGS)),)
+$(error local CI refuses Make ignore-errors mode)
+endif
 
 .PHONY: help
 help:
@@ -34,56 +36,53 @@ help:
 
 .PHONY: fmt
 fmt:
-	$(CARGO) fmt --all
+	cargo fmt --all
 
 .PHONY: fmt-check
 fmt-check:
-	$(CARGO) fmt --all -- --check
+	cargo fmt --all -- --check
 
 .PHONY: lint
 lint:
-	$(CARGO) clippy --all-targets --all-features -- -D warnings
+	cargo clippy --all-targets --all-features -- -D warnings
 
 .PHONY: test
 test:
-	$(CARGO) test --all-targets --all-features
+	cargo test --all-targets --all-features
 
 .PHONY: check-failure-propagation
 check-failure-propagation:
-	$(PYTHON) scripts/check_failure_propagation.py
+	python3 scripts/check_failure_propagation.py
 
 .PHONY: check-corpus
 check-corpus:
-	cd corpus/west-v1 && $(SHA256SUM) --check SHA256SUMS
+	python3 scripts/check_corpus.py
 
 .PHONY: verify-evidence
 verify-evidence:
-	$(BASH) scripts/verify_evidence.sh
+	bash scripts/verify_evidence.sh
 
 .PHONY: spec
 spec:
-	$(QUIRE) validate --scope . 'spec/**/*.md'
-	$(PYTHON) scripts/check_traceability_coverage.py
+	quire validate --scope . 'spec/**/*.md'
+	python3 scripts/check_traceability_coverage.py
 
 .PHONY: rustdoc
 rustdoc:
-	RUSTDOCFLAGS=-Dwarnings $(CARGO) doc --no-deps --all-features
+	RUSTDOCFLAGS=-Dwarnings cargo doc --no-deps --all-features
 
 .PHONY: evidence-tool
 evidence-tool:
-	$(PYTHON) -m compileall -q scripts
-	$(PYTHON) scripts/test_evidence_tool.py
-	$(PYTHON) scripts/test_failure_propagation.py
-	$(PYTHON) scripts/test_json_schema_gate.py
-	$(PYTHON) scripts/test_traceability_gate.py
+	python3 -m compileall -q scripts
+	python3 scripts/run_policy_tests.py
 
 .PHONY: build
 build:
-	$(CARGO) build --release
+	cargo build --release
 
 .PHONY: clean
 clean:
-	$(CARGO) clean
+	cargo clean
 
 # =============================================================================
 # Supply chain & safety
@@ -91,20 +90,20 @@ clean:
 
 .PHONY: deny
 deny:
-	$(CARGO) deny check licenses
-	$(CARGO) deny check sources
+	cargo deny check licenses
+	cargo deny check sources
 
 .PHONY: cargo-audit
 cargo-audit:
-	$(CARGO) audit
+	cargo audit
 
 .PHONY: audit-unsafe
 audit-unsafe:
-	$(BASH) scripts/check_unsafe_comments.sh
+	bash scripts/check_unsafe_comments.sh
 
 .PHONY: msrv
 msrv:
-	$(CARGO) +1.75.0 test --all-targets --all-features
+	cargo +1.75.0 test --all-targets --all-features
 
 # =============================================================================
 # Composite

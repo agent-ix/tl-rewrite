@@ -119,10 +119,9 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
     for command in [
         "cargo deny check licenses",
         "cargo deny check sources",
-        "python3 scripts/test_evidence_tool.py",
+        "python3 scripts/run_policy_tests.py",
         "scripts/check_failure_propagation.py",
         "scripts/check_traceability_coverage.py",
-        "scripts/test_json_schema_gate.py",
         "bash scripts/verify_evidence.sh",
         "quire validate",
         "cargo doc",
@@ -134,6 +133,10 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
     assert!(!workflow.contains("push:"));
     for script in [
         "scripts/finalize_collection.py",
+        "scripts/check_assurance_anchor.py",
+        "scripts/check_evidence_root.py",
+        "scripts/collection_marker.py",
+        "scripts/run_policy_tests.py",
         "scripts/test_evidence_tool.py",
         "scripts/verify_evidence.sh",
         "scripts/verify_evidence_manifest.py",

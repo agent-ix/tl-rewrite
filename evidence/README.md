@@ -15,7 +15,10 @@ environment uses a different interpreter. Missing external gates are recorded
 with exit status 125 as unavailable, never successful. The collector validates
 the finalized envelope again, then writes a separate post-seal summary so the
 envelope never self-attests. Inputs pin tl-syntax, tl-mltl, WEST, the rule
-catalog, parameters, dependencies, schemas, corpus, and PGM-01.
+catalog, parameters, dependencies, schemas, corpus, and PGM-01. Passing records
+also retain the resolved Python interpreter and active JSON-Schema format-checker
+set; the assurance gate re-derives the source-bound parameter, collector, and
+dependency digests.
 
 The collector architecture is adapted under MIT OR Apache-2.0 from the
 same-program tl-mltl collector at revision

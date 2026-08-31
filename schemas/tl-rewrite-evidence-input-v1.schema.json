@@ -14,11 +14,18 @@
     "tools": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["cargo", "jsonschema", "python", "quire", "rustc"],
+      "required": ["cargo", "jsonschema", "jsonschemaFormatCheckers", "python", "pythonPath", "quire", "rustc"],
       "properties": {
         "cargo": {"type": "string", "minLength": 1},
         "jsonschema": {"type": "string", "minLength": 1},
+        "jsonschemaFormatCheckers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
         "python": {"type": "string", "minLength": 1},
+        "pythonPath": {"type": "string", "pattern": "^/"},
         "quire": {"type": "string", "minLength": 1},
         "rustc": {"type": "string", "minLength": 1}
       }

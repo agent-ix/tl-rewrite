@@ -31,7 +31,7 @@ downstream qualification remain explicitly outside the candidate claim.
 
 | ID | Severity | Summary | Refs |
 |---|---|---|---|
-| FND-301 | medium | The installed process module expects `Status` while the validated functional-coverage contract requires `Coverage Status`; the two module contracts cannot share one header. Aggregate status classification is skipped and disclosed, while every underlying criterion and test row is independently backed. | TM-001, SUITE-003 |
+| FND-301 | medium | The installed process module requires `Coverage Status` for structural validation while its traceability model selects `Status`; renaming the columns was executed and rejected by `quire validate`. The schema-valid header remains, and the local policy independently requires every status cell, every report total/group/census, and zero unbacked rows, status lies, or untracked symbols. | TM-001, SUITE-003 |
 | FND-302 | low | Optional inspection-archetype and generic property-shape diagnostics are advisory and create neither an unbacked row nor a contradicted status. | SUITE-003 |
 | FND-303 | medium | Exhaustive evidence is complete only for each reported finite formula/domain pair; it is not a universal mechanized proof of the 38 rule schemas. Their stated derivations and independent bounded populations must be reviewed together. | FR-001, FR-004, AP-001 |
 | FND-304 | medium | Online-prefix rules and nested WEST Until/Release transformations are excluded; enabling either requires a new catalog revision, conformance population, code/gap review, and human approval. | FR-001, AA-001 |

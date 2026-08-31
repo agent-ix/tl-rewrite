@@ -30,6 +30,7 @@ COMMANDS = (
     "make-spec",
     "quire-coverage",
     "msrv",
+    "msrv",
     "rustdoc",
     "default-dependencies",
     "corpus-integrity",
@@ -97,8 +98,8 @@ def classify_result(
     return "conclusive", "all retained tl-rewrite checks passed"
 
 
-def parameters_digest() -> str:
-    paths = (
+def parameter_paths() -> tuple[Path, ...]:
+    fixed = (
         ROOT / "Cargo.toml",
         ROOT / "Cargo.lock",
         ROOT / "Makefile",
@@ -110,19 +111,22 @@ def parameters_digest() -> str:
         ROOT / "src" / "rewrite.rs",
         ROOT / "corpus" / "west-v1" / "SHA256SUMS",
         ROOT / "corpus" / "west-v1" / "manifest.json",
-        COLLECTOR,
-        BUILDER,
-        VALIDATOR,
-        FINALIZER,
-        EVIDENCE_VERIFIER,
         INPUT_SCHEMA,
         MANIFEST_SCHEMA,
     )
+    scripts = tuple(sorted((ROOT / "scripts").glob("*.py"))) + tuple(
+        sorted((ROOT / "scripts").glob("*.sh"))
+    )
+    return tuple(sorted(set(fixed + scripts), key=lambda path: str(path.relative_to(ROOT))))
+
+
+def parameters_digest(read_bytes: Any | None = None) -> str:
+    reader = read_bytes or (lambda path: path.read_bytes())
     state = hashlib.sha256()
-    for path in paths:
+    for path in parameter_paths():
         state.update(str(path.relative_to(ROOT)).encode())
         state.update(b"\0")
-        state.update(path.read_bytes())
+        state.update(reader(path))
         state.update(b"\0")
     return state.hexdigest()
 
@@ -156,7 +160,11 @@ def build(directory: Path, phase: str) -> None:
         "tools": {
             "cargo": first_line(directory / "cargo-version.txt"),
             "jsonschema": (directory / "jsonschema-version.txt").read_text().strip(),
+            "jsonschemaFormatCheckers": json.loads(
+                (directory / "jsonschema-format-checkers.json").read_text()
+            ),
             "python": (directory / "python-version.txt").read_text().strip(),
+            "pythonPath": (directory / "python-path.txt").read_text().strip(),
             "quire": quire_version,
             "rustc": first_line(directory / "rustc-version.txt"),
         },
