@@ -2,7 +2,7 @@
 id: Task-006
 title: "Exact-candidate evidence"
 type: Task
-status: not_started
+status: done
 track: Evidence
 priority: P0
 relationships:
@@ -20,7 +20,7 @@ PGM-01 checks, and explicit limitations in a checksummed evidence record.
 
 ## Completion Evidence
 
-A passing post-seal collection summary, two passing sealed PGM-01 validations,
-and a checksum manifest verify every artifact for the exact clean candidate.
-The envelope itself remains non-self-attesting; the post-seal summary records
-the external validation result.
+The retained `b9cd1764ef70` record has a passing post-seal collection summary,
+two passing sealed PGM-01 validations, and a checksum manifest that verifies
+every artifact. The envelope itself remains non-self-attesting; the post-seal
+summary records the external validation result.

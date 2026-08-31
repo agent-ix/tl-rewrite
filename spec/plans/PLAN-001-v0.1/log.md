@@ -7,6 +7,9 @@ description: "Chronological changes to the tl-rewrite v0.1 plan bundle."
 
 ## History
 
+- **2026-08-31** - Sealed passing exact-candidate evidence for source revision
+  `b9cd1764ef70`; all 13 collected and post-seal checks passed and the retained
+  checksum manifest verifies.
 - **2026-08-31** - Repinned the amended syntax and evaluator candidates,
   exercised nonzero-lower-bound Until/Release properties, bound WEST source
   text to typed fixtures, and hardened compaction, trace, cycle, evidence, and
