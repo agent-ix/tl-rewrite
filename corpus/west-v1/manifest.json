@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "tl-rewrite.west-corpus/v1",
+  "upstream": "https://github.com/zwang271/WEST",
+  "upstreamRevision": "21cd99ab2e6095a099dd179029cfdeb54268ad3f",
+  "upstreamPath": "experiments/verification/verify_formulas/formulas_d1.txt",
+  "license": "MIT",
+  "licenseFile": "LICENSE",
+  "formulaFile": "formulas_d1.txt",
+  "selectedCases": [
+    {"id": "west-d1-and-idempotent", "line": 6, "source": "(~p1&~p1)", "expectedRule": "bool.and.idempotent"},
+    {"id": "west-d1-or-true", "line": 9, "source": "(~p1vT)", "expectedRule": "bool.or.true-right"},
+    {"id": "west-d1-and-true", "line": 10, "source": "(~p0&T)", "expectedRule": "bool.and.true-right"},
+    {"id": "west-d1-globally-true", "line": 11, "source": "G[0:2]T", "expectedRule": "temporal.globally.true"},
+    {"id": "west-d1-future-true", "line": 12, "source": "F[0:2]T", "expectedRule": "temporal.future.true"},
+    {"id": "west-d1-until-true", "line": 14, "source": "(TU[0:2]~p1)", "expectedRule": "temporal.until.true-left"},
+    {"id": "west-d1-or-false", "line": 15, "source": "(!vp0)", "expectedRule": "bool.or.false-left"},
+    {"id": "west-d1-and-true-left", "line": 16, "source": "(T&p1)", "expectedRule": "bool.and.true-left"},
+    {"id": "west-d1-false-or", "line": 19, "source": "(!v!)", "expectedRule": "bool.or.false-left"},
+    {"id": "west-d1-false-and", "line": 20, "source": "(!&!)", "expectedRule": "bool.and.false-left"}
+  ],
+  "limitations": "Selected source formulas are transcribed into tl-syntax test documents by inspection because text parsing is outside tl-rewrite. Equivalence is independently checked with pinned tl-mltl."
+}
