@@ -7,6 +7,10 @@ description: "Chronological changes to the tl-rewrite v0.1 plan bundle."
 
 ## History
 
+- **2026-08-31** - Replaced transitive provenance-set unions with a budgeted linear reachability
+  walk, removed the unreachable catalog-failure wire status, made sealed-summary verification
+  mandatory, retained the failed validator-environment attempt honestly, and sealed passing source
+  `9e736b25dcc1` after restoring the pinned validator packages.
 - **2026-08-31** - Sealed passing follow-up evidence for source revision
   `54763ed4f67b`; all 13 outcomes and both post-seal PGM-01 validations passed,
   and AA-001 anchors the checksum manifest outside the retained archive.
