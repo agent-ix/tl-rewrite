@@ -2,12 +2,17 @@
 # TL Rewrite Makefile
 # =============================================================================
 
-tl_make_short_flags := $(firstword $(MAKEFLAGS))
-ifneq ($(findstring i,$(tl_make_short_flags)),)
-$(error local CI refuses Make ignore-errors mode)
+ifneq ($(filter ci,$(MAKECMDGOALS)),)
+ifneq ($(strip $(MAKEFLAGS)),)
+$(error local CI refuses non-empty MAKEFLAGS)
 endif
-ifneq ($(findstring --ignore-errors,$(MAKEFLAGS)),)
-$(error local CI refuses Make ignore-errors mode)
+ifneq ($(strip $(PYTHONOPTIMIZE)),)
+$(error local CI refuses optimized Python policy execution)
+endif
+tl_ci_static_status := $(shell env -u PYTHONOPTIMIZE MAKEFLAGS= /usr/bin/python3 scripts/check_failure_propagation.py --makefile '$(firstword $(MAKEFILE_LIST))' --static-only >/dev/null 2>&1; echo $$?)
+ifneq ($(tl_ci_static_status),0)
+$(error local CI refuses unsafe Make recipe controls)
+endif
 endif
 
 .PHONY: help
@@ -52,11 +57,11 @@ test:
 
 .PHONY: check-failure-propagation
 check-failure-propagation:
-	python3 scripts/check_failure_propagation.py
+	/usr/bin/python3 scripts/check_failure_propagation.py
 
 .PHONY: check-corpus
 check-corpus:
-	python3 scripts/check_corpus.py
+	/usr/bin/python3 scripts/check_corpus.py
 
 .PHONY: verify-evidence
 verify-evidence:
@@ -65,7 +70,7 @@ verify-evidence:
 .PHONY: spec
 spec:
 	quire validate --scope . 'spec/**/*.md'
-	python3 scripts/check_traceability_coverage.py
+	/usr/bin/python3 scripts/check_traceability_coverage.py
 
 .PHONY: rustdoc
 rustdoc:
@@ -73,8 +78,8 @@ rustdoc:
 
 .PHONY: evidence-tool
 evidence-tool:
-	python3 -m compileall -q scripts
-	python3 scripts/run_policy_tests.py
+	/usr/bin/python3 -m compileall -q scripts
+	/usr/bin/python3 scripts/run_policy_tests.py
 
 .PHONY: build
 build:

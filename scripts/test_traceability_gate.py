@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -53,6 +55,11 @@ def main() -> int:
     try:
         requirement.write_text(original.replace("TC-021", "TC-999"), encoding="utf-8")
         assert MODULE.validate_verification_references()
+        actual = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "check_traceability_coverage.py")],
+            cwd=ROOT, check=False, capture_output=True,
+        )
+        assert actual.returncode != 0, "traceability gate exit contract accepted bad target"
     finally:
         requirement.write_text(original, encoding="utf-8")
     print("strict traceability coverage behavior is valid")

@@ -30,6 +30,40 @@ def git_bytes(revision: str, path: Path) -> bytes:
     ).stdout
 
 
+def historical_parameters_digest(revision: str) -> str:
+    """Recreate the builder's parameter set from the retained source tree."""
+    tree = set(
+        subprocess.run(
+            ["git", "ls-tree", "-r", "--name-only", revision],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.splitlines()
+    )
+    fixed = {
+        str(path.relative_to(ROOT))
+        for path in builder.parameter_paths()
+        if path.parent != ROOT / "scripts"
+    }
+    scripts = {
+        path
+        for path in tree
+        if path.startswith("scripts/") and Path(path).suffix in {".py", ".sh"}
+    }
+    paths = sorted(fixed | scripts)
+    missing = [path for path in paths if path not in tree]
+    if missing:
+        raise OSError(f"source revision lacks parameter paths: {', '.join(missing)}")
+    state = hashlib.sha256()
+    for relative in paths:
+        state.update(relative.encode())
+        state.update(b"\0")
+        state.update(git_bytes(revision, ROOT / relative))
+        state.update(b"\0")
+    return state.hexdigest()
+
+
 def main() -> int:
     assurance_path = Path(sys.argv[1]) if len(sys.argv) == 2 else ROOT / "spec" / "assurance" / "AA-001.md"
     if len(sys.argv) > 2:
@@ -90,7 +124,8 @@ def main() -> int:
         errors.append("envelope review state is not pending human review")
     try:
         source_collector = git_bytes(source_revision, builder.COLLECTOR)
-        if b"jsonschema-format-checkers.json" in source_collector:
+        profile = collection_input.get("qualificationProfile")
+        if profile in {None, "tl-rewrite.evidence-qualification/v2"}:
             tools = collection_input["tools"]
             retained_path = (record_dir / "python-path.txt").read_text(encoding="utf-8").strip()
             retained_checkers = json.loads(
@@ -100,9 +135,7 @@ def main() -> int:
                 errors.append("record does not retain its resolved Python interpreter path")
             if tools.get("jsonschemaFormatCheckers") != retained_checkers or "date-time" not in retained_checkers:
                 errors.append("record does not retain an active date-time format checker")
-            expected_parameters = builder.parameters_digest(
-                lambda path: git_bytes(source_revision, path)
-            )
+            expected_parameters = historical_parameters_digest(source_revision)
             if envelope.get("parametersDigest", {}).get("value") != expected_parameters:
                 errors.append("envelope parameters digest does not match the source revision")
             if envelope.get("producer", {}).get("executableDigest", {}).get("value") != hashlib.sha256(source_collector).hexdigest():
@@ -110,6 +143,8 @@ def main() -> int:
             lock_digest = hashlib.sha256(git_bytes(source_revision, ROOT / "Cargo.lock")).hexdigest()
             if envelope.get("environment", {}).get("dependenciesDigest", {}).get("value") != lock_digest:
                 errors.append("envelope dependency digest does not match the source revision")
+        else:
+            errors.append("assured evidence uses an unrecognized qualification profile")
     except (KeyError, OSError, json.JSONDecodeError, subprocess.CalledProcessError) as error:
         errors.append(f"cannot rederive assured evidence identities: {error}")
     for error in errors:

@@ -21,8 +21,8 @@ misreported as proof undermine both resource planning and semantic confidence.
 
 | ID | Criteria | Validation |
 |---|---|---|
-| StR-002-VC-1 | Identical input, catalog, strategy, and budgets produce identical success or explicit non-conclusive status. | Test |
-| StR-002-VC-2 | Conformance reports identify the complete enumerated trace domain, evaluator, dependencies, catalog, and external corpus revisions. | Test |
+| StR-002-VC-1 | Identical input, catalog, strategy, and budgets produce identical success or explicit non-conclusive status. | Test (TC-005) |
+| StR-002-VC-2 | Conformance reports identify the complete enumerated trace domain, evaluator, dependencies, catalog, and external corpus revisions. | Test (TC-016) |
 
 ## Stakeholders
 

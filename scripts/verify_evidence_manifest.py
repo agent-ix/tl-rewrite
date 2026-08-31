@@ -24,6 +24,7 @@ def verify(evidence_dir: Path) -> list[str]:
     errors: list[str] = []
     checksum_path = evidence_dir.with_suffix(".sha256")
     expected_files: set[Path] = set()
+    listed_paths: set[Path] = set()
     try:
         checksum_lines = checksum_path.read_text(encoding="utf-8").splitlines()
     except OSError as error:
@@ -34,11 +35,18 @@ def verify(evidence_dir: Path) -> list[str]:
             errors.append(f"malformed checksum line {number}: {line!r}")
             continue
         path = Path(match.group(2))
+        if path.is_absolute() or ".." in path.parts or path in listed_paths:
+            errors.append(f"unsafe or duplicate checksum path on line {number}: {path}")
+            continue
+        listed_paths.add(path)
         try:
             relative = path.relative_to(evidence_dir)
         except ValueError:
-            errors.append(f"checksum path escapes evidence directory: {path}")
-            continue
+            if len(path.parts) == 1:
+                relative = path
+            else:
+                errors.append(f"checksum path escapes evidence directory: {path}")
+                continue
         expected_files.add(relative)
     actual_files = {
         path.relative_to(evidence_dir)

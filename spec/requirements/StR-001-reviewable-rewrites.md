@@ -21,8 +21,8 @@ revision silently changes its finite-trace meaning.
 
 | ID | Criteria | Validation |
 |---|---|---|
-| StR-001-VC-1 | Every enabled rule identifies a derivation or primary source, profiles, preconditions, and revision. | Inspection |
-| StR-001-VC-2 | A reviewer can replay every successful output-changing step and detect substituted inputs, rules, options, or intermediates. | Test |
+| StR-001-VC-1 | Every enabled rule identifies a derivation or primary source, profiles, preconditions, and revision. | Inspection (TC-019) |
+| StR-001-VC-2 | A reviewer can replay every successful output-changing step and detect substituted inputs, rules, options, or intermediates. | Test (TC-010) |
 
 ## Stakeholders
 

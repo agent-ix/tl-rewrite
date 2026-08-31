@@ -7,6 +7,7 @@ import argparse
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -111,9 +112,9 @@ def probe_command_positions(makefile: Path) -> list[str]:
     """Substitute false at every mandatory recipe position and require Make to fail."""
     _, recipes = parse_makefile(makefile.read_text(encoding="utf-8"))
     errors: list[str] = []
-    make = shlex.split(os.environ.get("MAKE", "make"))
-    if not make:
-        return ["MAKE does not identify an executable"]
+    make = shutil.which("make")
+    if make != "/usr/bin/make":
+        return [f"Make must resolve to /usr/bin/make, got {make}"]
     clean_env = dict(os.environ)
     clean_env.pop("MAKEFLAGS", None)
     with tempfile.TemporaryDirectory() as directory:
@@ -127,7 +128,7 @@ def probe_command_positions(makefile: Path) -> list[str]:
                     lines.append(f"\t{modifiers}{'false' if index == selected else 'true'}")
                 probe.write_text("\n".join(lines) + "\n", encoding="utf-8")
                 result = subprocess.run(
-                    [*make, "--no-print-directory", "-f", str(probe), target],
+                    [make, "--no-print-directory", "-f", str(probe), target],
                     check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                     env=clean_env,
                 )
@@ -138,15 +139,36 @@ def probe_command_positions(makefile: Path) -> list[str]:
     return errors
 
 
+def inspect_toolchain() -> list[str]:
+    expected = {
+        "cargo": str(Path.home() / ".cargo" / "bin" / "cargo"),
+        "make": "/usr/bin/make",
+        "python3": "/usr/bin/python3",
+        "quire": str(Path.home() / ".npm-global" / "bin" / "quire"),
+    }
+    return [
+        f"{name} must resolve to {path}, got {shutil.which(name)}"
+        for name, path in expected.items()
+        if shutil.which(name) != path
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--makefile", type=Path, default=ROOT / "Makefile")
     parser.add_argument("--inspect-only", action="store_true")
+    parser.add_argument("--static-only", action="store_true")
     args = parser.parse_args()
     errors = inspect(args.makefile)
-    if makeflags_ignore_errors(os.environ.get("MAKEFLAGS", "")):
-        errors.append("ambient MAKEFLAGS enables ignored recipe failures")
-    if not args.inspect_only and not errors:
+    if os.environ.get("MAKEFLAGS"):
+        errors.append("ambient MAKEFLAGS is not permitted for local CI")
+    if os.environ.get("MAKE"):
+        errors.append("ambient MAKE override is not permitted")
+    if os.environ.get("PYTHONOPTIMIZE") or sys.flags.optimize:
+        errors.append("optimized Python disables policy assertions")
+    if not args.static_only:
+        errors.extend(inspect_toolchain())
+    if not args.inspect_only and not args.static_only and not errors:
         errors.extend(probe_command_positions(args.makefile))
     for error in errors:
         print(error, file=sys.stderr)

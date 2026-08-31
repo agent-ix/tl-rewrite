@@ -15,15 +15,18 @@ LINE = re.compile(r"^([0-9a-f]{64})  ([^/]+)$")
 
 
 def main() -> int:
+    corpus = Path(sys.argv[2]) if len(sys.argv) == 3 and sys.argv[1] == "--directory" else CORPUS
+    if len(sys.argv) not in {1, 3}:
+        return 2
     errors: list[str] = []
     for number, line in enumerate(
-        (CORPUS / "SHA256SUMS").read_text(encoding="utf-8").splitlines(), start=1
+        (corpus / "SHA256SUMS").read_text(encoding="utf-8").splitlines(), start=1
     ):
         match = LINE.fullmatch(line)
         if match is None:
             errors.append(f"malformed corpus checksum line {number}")
             continue
-        path = CORPUS / match.group(2)
+        path = corpus / match.group(2)
         if not path.is_file() or path.is_symlink():
             errors.append(f"missing or unsafe corpus artifact: {path.name}")
             continue

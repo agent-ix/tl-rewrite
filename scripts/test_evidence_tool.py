@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -32,7 +33,13 @@ VERIFIER = importlib.util.module_from_spec(VERIFIER_SPEC)
 VERIFIER_SPEC.loader.exec_module(VERIFIER)
 
 
+def healthy_ci_output() -> str:
+    return "test result: ok. 1 passed; 0 failed; 0 ignored\n" * 16
+
+
 def main() -> int:
+    if sys.flags.optimize or os.environ.get("PYTHONOPTIMIZE"):
+        return 2
     missing_assurance = subprocess.run(
         [
             sys.executable,
@@ -45,8 +52,12 @@ def main() -> int:
     assert missing_assurance.returncode != 0, "assurance gate accepted a missing argument"
     with tempfile.TemporaryDirectory() as directory:
         evidence_dir = Path(directory)
+        (evidence_dir / "collection-input.json").write_text(
+            json.dumps({"qualificationProfile": "tl-rewrite.evidence-qualification/v2"}),
+            encoding="utf-8",
+        )
         (evidence_dir / "make-ci.status.txt").write_text("0\n", encoding="utf-8")
-        (evidence_dir / "make-ci.stdout").write_text("passed\n", encoding="utf-8")
+        (evidence_dir / "make-ci.stdout").write_text(healthy_ci_output(), encoding="utf-8")
         (evidence_dir / "pgm01-schema.status.txt").write_text("125\n", encoding="utf-8")
         (evidence_dir / "pgm01-schema.stdout").write_text(
             "ordinary-output\n", encoding="utf-8"
@@ -84,6 +95,10 @@ def main() -> int:
             (evidence_dir / f"{name}.status.txt").write_text("0\n", encoding="utf-8")
         retained = FINALIZER.summary(evidence_dir)
         assert retained["overallStatus"] == "passed"
+        assert FINALIZER.positive_make_ci(healthy_ci_output())
+        (evidence_dir / "make-ci.stdout").write_text("", encoding="utf-8")
+        assert FINALIZER.summary(evidence_dir)["overallStatus"] == "failed"
+        (evidence_dir / "make-ci.stdout").write_text(healthy_ci_output(), encoding="utf-8")
         assert retained["finalEnvelopeValidated"] is True
         (evidence_dir / "pgm01-validator.stderr").write_text(
             "governance validation error\n", encoding="utf-8"
@@ -162,7 +177,7 @@ def main() -> int:
         checksum = evidence_dir.with_suffix(".sha256")
         checksum.write_text(
             "".join(
-                f"{VERIFIER.sha256(path)}  {path}\n"
+                f"{VERIFIER.sha256(path)}  {path.name}\n"
                 for path in sorted(evidence_dir.iterdir())
                 if path.is_file()
             ),
@@ -179,6 +194,33 @@ def main() -> int:
         symlink.unlink()
         artifact.write_text("FABRICATED\n", encoding="utf-8")
         assert VERIFIER.verify(evidence_dir)
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        failing = root / "test_fails.py"
+        failing.write_text("raise SystemExit(7)\n", encoding="utf-8")
+        runner = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "run_policy_tests.py"),
+             "--directory", str(root)], check=False, capture_output=True,
+        )
+        assert runner.returncode != 0, "policy runner swallowed a failing test"
+        corpus = root / "corpus"
+        corpus.mkdir()
+        (corpus / "SHA256SUMS").write_text("0" * 64 + "  missing.txt\n", encoding="utf-8")
+        checker = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "check_corpus.py"),
+             "--directory", str(corpus)], check=False, capture_output=True,
+        )
+        assert checker.returncode != 0, "corpus checker exit contract accepted missing data"
+    planted = ROOT / "evidence" / f"PLANTED-EXIT-CONTRACT-{os.getpid()}.txt"
+    planted.write_text("FABRICATED\n", encoding="utf-8")
+    try:
+        shell = subprocess.run(
+            ["bash", "scripts/verify_evidence.sh"], cwd=ROOT, check=False,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        assert shell.returncode != 0, "evidence shell verifier exit contract was gutted"
+    finally:
+        planted.unlink(missing_ok=True)
     print("evidence outcome behavior is valid")
     return 0
 

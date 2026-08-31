@@ -30,10 +30,26 @@ CHECKS = (
 CONTRADICTION = re.compile(
     r"test result: FAILED|Error [0-9]+ \(ignored\)|\b[1-9][0-9]* ignored\b"
 )
+TEST_SUCCESS = re.compile(r"^test result: ok\. ([1-9][0-9]*) passed; 0 failed; 0 ignored", re.MULTILINE)
 
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def positive_census_required(evidence_dir: Path) -> bool:
+    try:
+        collection_input = json.loads(
+            (evidence_dir / "collection-input.json").read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError):
+        return True
+    profile = collection_input.get("qualificationProfile")
+    return profile is not None
+
+
+def positive_make_ci(output: str) -> bool:
+    return len(TEST_SUCCESS.findall(output)) >= 16
 
 
 def summary(evidence_dir: Path) -> dict[str, object]:
@@ -64,6 +80,13 @@ def summary(evidence_dir: Path) -> dict[str, object]:
             and CONTRADICTION.search(path.read_text(encoding="utf-8", errors="replace"))
             for path in (evidence_dir / f"{name}.stdout", evidence_dir / f"{name}.stderr")
         )
+        positive_missing = (
+            exit_code == 0 and name == "make-ci" and positive_census_required(evidence_dir)
+            and not positive_make_ci(
+                (evidence_dir / "make-ci.stdout").read_text(encoding="utf-8", errors="replace")
+                if (evidence_dir / "make-ci.stdout").exists() else ""
+            )
+        )
         outcomes.append(
             {
                 "name": name,
@@ -71,7 +94,7 @@ def summary(evidence_dir: Path) -> dict[str, object]:
                     "skipped-unavailable"
                     if skipped
                     else "failed"
-                    if validator_error or output_contradiction
+                    if validator_error or output_contradiction or positive_missing
                     else "passed"
                     if exit_code == 0
                     else "failed"

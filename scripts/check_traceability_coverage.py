@@ -105,13 +105,32 @@ def validate_verification_references() -> list[str]:
     suites = (ROOT / "spec" / "evidence" / "suites.md").read_text(encoding="utf-8")
     declared = set(REFERENCE.findall(matrix)) | set(REFERENCE.findall(suites))
     errors: list[str] = []
+    requirement_ids: set[str] = set()
     for path in sorted((ROOT / "spec" / "requirements").glob("*.md")):
+        identity = re.search(r"^id:\s*((?:FR|NFR|StR)-[0-9]{3})\s*$", path.read_text(encoding="utf-8"), re.MULTILINE)
+        if identity:
+            requirement_ids.add(identity.group(1))
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
             if not line.startswith("|") or not re.search(r"-(?:AC|VC)-[0-9]+\s*\|", line):
                 continue
-            for target in REFERENCE.findall(line):
+            targets = REFERENCE.findall(line)
+            if not targets:
+                errors.append(f"{path}:{number} declares no catalogued verification target")
+            for target in targets:
                 if target not in declared:
                     errors.append(f"{path}:{number} references nonexistent verification target {target}")
+    matrix_ids = {
+        cells[0]
+        for line in matrix.splitlines()
+        if line.startswith("|")
+        for cells in [[cell.strip() for cell in line.strip().strip("|").split("|")]]
+        if cells and re.fullmatch(r"(?:FR|NFR|StR)-[0-9]{3}", cells[0])
+    }
+    if matrix_ids != requirement_ids:
+        errors.append(
+            f"requirement matrix census drift: missing={sorted(requirement_ids - matrix_ids)}, "
+            f"extra={sorted(matrix_ids - requirement_ids)}"
+        )
     return errors
 
 

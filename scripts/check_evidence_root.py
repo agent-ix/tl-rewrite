@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import os
-import subprocess
 import sys
 from pathlib import Path
 
@@ -13,15 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 ALLOWED_FILES = {"ANCHORS", "README.md", "REQUIRED"}
 
 
-def current_revision() -> str:
-    return subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=ROOT, check=True, capture_output=True, text=True
-    ).stdout.strip()
-
-
-def check(evidence: Path, revision: str, token: str | None) -> list[str]:
-    from collection_marker import marker_valid
-
+def check(evidence: Path) -> list[str]:
     errors: list[str] = []
     for entry in sorted(evidence.iterdir(), key=lambda path: path.name):
         if entry.is_symlink():
@@ -29,8 +19,7 @@ def check(evidence: Path, revision: str, token: str | None) -> list[str]:
         elif entry.is_file() and entry.name not in ALLOWED_FILES and entry.suffix != ".sha256":
             errors.append(f"unrecognized evidence-root file: {entry}")
         elif entry.is_dir() and not entry.with_suffix(".sha256").is_file():
-            if not marker_valid(entry / ".collecting", token, revision):
-                errors.append(f"retained evidence directory lacks a checksum manifest: {entry}")
+            errors.append(f"retained evidence directory lacks a checksum manifest: {entry}")
     return errors
 
 
@@ -40,7 +29,7 @@ def main() -> int:
         print("usage: check_evidence_root.py [EVIDENCE_ROOT]", file=sys.stderr)
         return 2
     try:
-        errors = check(evidence, current_revision(), os.environ.get("TL_REWRITE_COLLECTION_TOKEN"))
+        errors = check(evidence)
     except OSError as error:
         print(f"cannot inspect evidence root: {error}", file=sys.stderr)
         return 2

@@ -6,6 +6,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -35,6 +36,12 @@ def main() -> int:
             path = Path(directory) / f"Makefile.{index}"
             path.write_text(mutated, encoding="utf-8")
             assert MODULE.inspect(path), f"mutation {index} escaped inspection"
+            actual = subprocess.run(
+                [sys.executable, str(ROOT / "scripts" / "check_failure_propagation.py"),
+                 "--makefile", str(path), "--static-only"],
+                check=False, capture_output=True,
+            )
+            assert actual.returncode != 0, f"checker exit contract accepted mutation {index}"
         ignored = Path(directory) / "tests" / "ignored.rs"
         ignored.parent.mkdir()
         ignored.write_text("#[test]\n#[cfg_attr(test, ignore)]\nfn disabled() {}\n", encoding="utf-8")
@@ -48,6 +55,19 @@ def main() -> int:
         env={key: value for key, value in os.environ.items() if key != "MAKEFLAGS"},
     )
     assert ignored_make.returncode != 0
+    with tempfile.TemporaryDirectory() as directory:
+        shim = Path(directory) / "cargo"
+        shim.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        shim.chmod(0o755)
+        shadowed_env = dict(os.environ)
+        shadowed_env.pop("MAKEFLAGS", None)
+        shadowed_env["PATH"] = f"{directory}:{shadowed_env['PATH']}"
+        shadowed = subprocess.run(
+            ["/usr/bin/make", "--no-print-directory", "ci"], cwd=ROOT,
+            check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            env=shadowed_env,
+        )
+        assert shadowed.returncode != 0, "PATH-shadowed cargo bypassed local CI"
     print("failure-propagation policy behavior is valid")
     return 0
 

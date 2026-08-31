@@ -162,7 +162,7 @@ fn report_base(
         counterexample: None,
         original_verdict: None,
         rewritten_verdict: None,
-        limitation: "bounded agreement applies only to this formula pair and complete reported domain; it does not prove arbitrary rewrite schemas or qualify a consuming tool".to_owned(),
+        limitation: "bounded agreement enumerates only trace_length == horizon + 1 under the declared closed-trace profile; shorter traces are outside the reported domain and may differ from textbook finite-trace MLTL; this does not prove arbitrary rewrite schemas or qualify a consuming tool".to_owned(),
     }
 }
 

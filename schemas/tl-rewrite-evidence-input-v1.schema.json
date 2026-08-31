@@ -14,7 +14,7 @@
     "tools": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["cargo", "jsonschema", "jsonschemaFormatCheckers", "python", "pythonPath", "quire", "rustc"],
+      "required": ["cargo", "jsonschema", "python", "quire", "rustc"],
       "properties": {
         "cargo": {"type": "string", "minLength": 1},
         "jsonschema": {"type": "string", "minLength": 1},
@@ -30,6 +30,7 @@
         "rustc": {"type": "string", "minLength": 1}
       }
     },
+    "qualificationProfile": {"const": "tl-rewrite.evidence-qualification/v2"},
     "pgm01": {
       "type": "object",
       "additionalProperties": false,

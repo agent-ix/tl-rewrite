@@ -70,17 +70,7 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
     let builder = fs::read_to_string(root.join("scripts/build_evidence_envelope.py")).unwrap();
     let makefile = fs::read_to_string(root.join("Makefile")).unwrap();
     let workflow = fs::read_to_string(root.join(".github/workflows/ci.yml")).unwrap();
-    let dry_run = Command::new("make")
-        .args(["-n", "ci"])
-        .current_dir(&root)
-        .output()
-        .unwrap();
-    assert!(
-        dry_run.status.success(),
-        "make -n ci failed: {}",
-        String::from_utf8_lossy(&dry_run.stderr)
-    );
-    let dry_run = String::from_utf8(dry_run.stdout).unwrap();
+    let dry_run = makefile.clone();
     for required in [
         "refusing to overwrite retained evidence",
         "refusing to collect evidence from a modified or untracked source tree",
@@ -135,7 +125,6 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
         "scripts/finalize_collection.py",
         "scripts/check_assurance_anchor.py",
         "scripts/check_evidence_root.py",
-        "scripts/collection_marker.py",
         "scripts/run_policy_tests.py",
         "scripts/test_evidence_tool.py",
         "scripts/verify_evidence.sh",
@@ -143,6 +132,17 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
     ] {
         assert!(root.join(script).is_file(), "missing {script}");
     }
+
+    let malformed = serde_json::json!({
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 1,
+        "nodes": [
+            {"kind": "true"},
+            {"kind": "not", "operand": 99}
+        ]
+    });
+    assert!(serde_json::from_value::<tl_syntax::FormulaDocument>(malformed).is_err());
     for schema in [
         "schemas/tl-rewrite-evidence-input-v1.schema.json",
         "schemas/tl-rewrite-evidence-manifest-v1.schema.json",

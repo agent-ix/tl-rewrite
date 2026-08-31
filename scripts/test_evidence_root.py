@@ -4,7 +4,8 @@
 from __future__ import annotations
 
 import importlib.util
-import os
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -17,25 +18,23 @@ SPEC.loader.exec_module(MODULE)
 
 
 def main() -> int:
-    revision = MODULE.current_revision()
     with tempfile.TemporaryDirectory() as directory:
         evidence = Path(directory)
         (evidence / "ANCHORS").write_text("", encoding="utf-8")
         orphan = evidence / "tl-rewrite-v01-deadbeefcafe-20000101T000000Z"
         orphan.mkdir()
-        assert MODULE.check(evidence, revision, None)
+        assert MODULE.check(evidence)
         (orphan / ".collecting").write_text("", encoding="utf-8")
-        assert MODULE.check(evidence, revision, None), "empty marker bypassed the census"
+        assert MODULE.check(evidence), "empty marker bypassed the census"
         unknown = evidence / "fabricated.txt"
         unknown.write_text("x", encoding="utf-8")
-        assert any("unrecognized" in error for error in MODULE.check(evidence, revision, None))
+        assert any("unrecognized" in error for error in MODULE.check(evidence))
         unknown.unlink()
-        token = "test-token"
-        (orphan / ".collecting").write_text(
-            '{"pid": %d, "sourceRevision": "%s", "token": "%s"}\n'
-            % (os.getpid(), revision, token), encoding="utf-8"
+        script = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "check_evidence_root.py"), str(evidence)],
+            check=False, capture_output=True,
         )
-        assert MODULE.check(evidence, revision, token) == []
+        assert script.returncode != 0, "evidence-root gate exit contract accepted an orphan"
     print("evidence-root census behavior is valid")
     return 0
 

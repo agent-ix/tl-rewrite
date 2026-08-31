@@ -142,6 +142,7 @@ def build(directory: Path, phase: str) -> None:
 
     collection_input = {
         "schemaVersion": "tl-rewrite.evidence-input/v1",
+        "qualificationProfile": "tl-rewrite.evidence-qualification/v2",
         "sourceRevision": revision,
         "sourceState": (directory / "source-state.txt").read_text().strip(),
         "commands": [
