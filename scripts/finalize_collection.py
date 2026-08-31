@@ -39,13 +39,19 @@ def summary(evidence_dir: Path) -> dict[str, object]:
             continue
         exit_code = int(status_path.read_text(encoding="utf-8").strip())
         skipped = exit_code == 125
+        stderr_path = evidence_dir / f"{name}.stderr"
+        validator_error = (
+            name in {"pgm01-validator", "sealed-pgm01-validator"}
+            and stderr_path.exists()
+            and bool(stderr_path.read_text(encoding="utf-8").strip())
+        )
         outcomes.append(
             {
                 "name": name,
                 "status": (
                     "skipped-unavailable"
                     if skipped
-                    else "passed" if exit_code == 0 else "failed"
+                    else "passed" if exit_code == 0 and not validator_error else "failed"
                 ),
                 "exitCode": exit_code,
             }
@@ -73,7 +79,8 @@ def summary(evidence_dir: Path) -> dict[str, object]:
 
 def main() -> int:
     check = len(sys.argv) == 3 and sys.argv[1] == "--check"
-    if len(sys.argv) != 2 and not check:
+    write = len(sys.argv) == 2 and sys.argv[1] != "--check"
+    if not check and not write:
         print("usage: finalize_collection.py [--check] EVIDENCE_DIR", file=sys.stderr)
         return 2
     evidence_dir = Path(sys.argv[2] if check else sys.argv[1])

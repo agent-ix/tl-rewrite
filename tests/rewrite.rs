@@ -102,6 +102,27 @@ fn iteration_application_and_work_budgets_fail_closed() {
     assert!(report.output.is_none());
 }
 
+// Trace: TC-021, FR-002-AC-2, NFR-001-AC-3
+#[test]
+fn retained_source_selection_is_charged_to_the_work_budget() {
+    let input = document(SemanticProfile::ClosedTraceV1, vec![proposition(0)]);
+    let report = rewrite(
+        &input,
+        "retained-source-work",
+        RewriteOptions {
+            budgets: RewriteBudgets {
+                max_work_units: 2,
+                ..RewriteBudgets::default()
+            },
+            ..RewriteOptions::default()
+        },
+        "source",
+    );
+    assert_eq!(report.status, RewriteStatus::BudgetExhausted);
+    assert_eq!(report.exhausted_budget, Some(BudgetKind::WorkUnits));
+    assert!(report.output.is_none());
+}
+
 // Trace: TC-007, FR-002-AC-2, NFR-001-AC-2
 #[test]
 fn node_growth_limit_fails_before_emission() {

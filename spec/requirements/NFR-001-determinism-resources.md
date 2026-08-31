@@ -38,6 +38,7 @@ exercise every budget and checked-cardinality boundary.
 |---|---|---|
 | NFR-001-AC-1 | Repeated catalog, rewrite, replay, conformance, and serialization operations are byte-for-byte stable. | Test (TC-004, TC-005, TC-017) |
 | NFR-001-AC-2 | Work, iteration, node, application, horizon, proposition, and trace-domain excess are explicit non-success outcomes. | Test (TC-006, TC-007, TC-015) |
+| NFR-001-AC-3 | Retained-source provenance visits each source node at most once and charges each visit to the logical-work budget. | Test (TC-021) |
 
 ## Dependencies
 

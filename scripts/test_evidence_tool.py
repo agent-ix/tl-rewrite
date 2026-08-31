@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -73,10 +75,40 @@ def main() -> int:
         retained = FINALIZER.summary(evidence_dir)
         assert retained["overallStatus"] == "passed"
         assert retained["finalEnvelopeValidated"] is True
+        (evidence_dir / "pgm01-validator.stderr").write_text(
+            "governance validation error\n", encoding="utf-8"
+        )
+        contradicted = FINALIZER.summary(evidence_dir)
+        assert contradicted["overallStatus"] == "failed"
+        (evidence_dir / "pgm01-validator.stderr").unlink()
         (evidence_dir / "rustdoc.status.txt").write_text("1\n", encoding="utf-8")
         rederived = FINALIZER.summary(evidence_dir)
         assert rederived["overallStatus"] == "failed"
         assert rederived != retained
+
+        missing_summary = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "finalize_collection.py"),
+                "--check",
+                str(evidence_dir),
+            ],
+            check=False,
+            capture_output=True,
+        )
+        assert missing_summary.returncode != 0
+
+        missing_check_directory = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "finalize_collection.py"),
+                "--check",
+            ],
+            check=False,
+            capture_output=True,
+        )
+        assert missing_check_directory.returncode == 2
+        assert b"usage:" in missing_check_directory.stderr
 
         artifact = evidence_dir / "make-ci.stdout"
         artifact.write_text("passed\n", encoding="utf-8")

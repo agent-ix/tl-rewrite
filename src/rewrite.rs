@@ -85,8 +85,6 @@ pub enum RewriteStatus {
     NonConvergent,
     /// The owned input document failed structural validation.
     InvalidInput,
-    /// An executable rewrite identity was absent from the immutable catalog.
-    InvalidCatalog,
     /// No enabled v1 rule is approved for the input profile.
     UnsupportedProfile,
 }
@@ -186,7 +184,6 @@ pub struct ReplayReport {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Abort {
     Budget(BudgetKind),
-    InvalidCatalog(&'static str),
 }
 
 struct PassState {
@@ -393,8 +390,8 @@ fn is_true(state: &PassState, id: NodeId) -> bool {
 fn applied(
     rule: &'static str,
     replacement: NodeId,
-) -> Result<Option<(&'static str, NodeId)>, Abort> {
-    Ok(Some((rule, replacement)))
+) -> Result<Option<(&'static str, u32, NodeId)>, Abort> {
+    Ok(Some((rule, 1, replacement)))
 }
 
 fn applied_kind(
@@ -402,16 +399,16 @@ fn applied_kind(
     rule: &'static str,
     kind: NodeKind,
     span: Option<SourceSpan>,
-) -> Result<Option<(&'static str, NodeId)>, Abort> {
+) -> Result<Option<(&'static str, u32, NodeId)>, Abort> {
     let replacement = state.emit(kind, span)?;
-    Ok(Some((rule, replacement)))
+    Ok(Some((rule, 1, replacement)))
 }
 
 fn apply_not(
     state: &mut PassState,
     operand: NodeId,
     span: Option<SourceSpan>,
-) -> Result<Option<(&'static str, NodeId)>, Abort> {
+) -> Result<Option<(&'static str, u32, NodeId)>, Abort> {
     match state.kind(operand) {
         NodeKind::False => applied_kind(state, "bool.not.false", NodeKind::True, span),
         NodeKind::True => applied_kind(state, "bool.not.true", NodeKind::False, span),
@@ -425,7 +422,7 @@ fn apply_not(
                 },
                 span,
             )?;
-            Ok(Some(("neg.future.dual", output)))
+            Ok(Some(("neg.future.dual", 1, output)))
         }
         NodeKind::Globally { interval, operand } => {
             let negated = state.emit(NodeKind::Not { operand }, None)?;
@@ -436,7 +433,7 @@ fn apply_not(
                 },
                 span,
             )?;
-            Ok(Some(("neg.globally.dual", output)))
+            Ok(Some(("neg.globally.dual", 1, output)))
         }
         NodeKind::Until {
             interval,
@@ -453,7 +450,7 @@ fn apply_not(
                 },
                 span,
             )?;
-            Ok(Some(("neg.until.dual", output)))
+            Ok(Some(("neg.until.dual", 1, output)))
         }
         NodeKind::Release {
             interval,
@@ -470,7 +467,7 @@ fn apply_not(
                 },
                 span,
             )?;
-            Ok(Some(("neg.release.dual", output)))
+            Ok(Some(("neg.release.dual", 1, output)))
         }
         _ => Ok(None),
     }
@@ -480,7 +477,7 @@ fn apply_first(
     state: &mut PassState,
     kind: NodeKind,
     span: Option<SourceSpan>,
-) -> Result<Option<(&'static str, NodeId)>, Abort> {
+) -> Result<Option<(&'static str, u32, NodeId)>, Abort> {
     match kind {
         NodeKind::Not { operand } => apply_not(state, operand, span),
         NodeKind::And { left, right: _ } if is_false(state, left) => {
@@ -536,7 +533,7 @@ fn apply_first(
                 },
                 span,
             )?;
-            Ok(Some(("bool.implies.eliminate", output)))
+            Ok(Some(("bool.implies.eliminate", 1, output)))
         }
         NodeKind::Equivalent { left, right } if left == right => {
             applied_kind(state, "bool.equivalent.reflexive", NodeKind::True, span)
@@ -653,25 +650,16 @@ fn build_pass(
 
     state.nodes.clear();
     state.interner.clear();
-    let catalog = catalog();
     let mut mapped = Vec::with_capacity(input.nodes().len());
-    let mut contributors: Vec<BTreeSet<u32>> = Vec::with_capacity(input.nodes().len());
+    let mut retained_source_operands = Vec::with_capacity(input.nodes().len());
     let mut pending_steps = Vec::new();
     for (index, node) in input.nodes().iter().enumerate() {
         state.work()?;
         let before = remap(node.kind, &mapped);
         let replacement = apply_first(state, before, node.span)?;
-        let output = if let Some((rule_id, output)) = replacement {
+        let output = if let Some((rule_id, rule_revision, output)) = replacement {
             let before_sha256 = sha256_json(&before);
             let after_sha256 = sha256_json(&state.nodes[output.0 as usize]);
-            let Some(rule_revision) = catalog
-                .rules
-                .iter()
-                .find(|rule| rule.id == rule_id)
-                .map(|rule| rule.revision)
-            else {
-                return Err(Abort::InvalidCatalog(rule_id));
-            };
             pending_steps.push(PendingStep {
                 source_node: index as u32,
                 source_span: node.span,
@@ -680,27 +668,29 @@ fn build_pass(
                 before_sha256,
                 after_sha256,
             });
-            let mut retained = BTreeSet::from([index as u32]);
-            for source in retained_operands(rule_id, node.kind).into_iter().flatten() {
-                retained.extend(contributors[source.0 as usize].iter().copied());
-            }
-            contributors.push(retained);
+            retained_source_operands.push(retained_operands(rule_id, node.kind));
             output
         } else {
-            let mut retained = BTreeSet::new();
-            for source in operands(node.kind).into_iter().flatten() {
-                retained.extend(contributors[source.0 as usize].iter().copied());
-            }
-            contributors.push(retained);
+            retained_source_operands.push(operands(node.kind));
             state.emit(before, node.span)?
         };
         mapped.push(output);
     }
     let root = mapped[input.root().0 as usize];
-    let relevant_sources = &contributors[input.root().0 as usize];
+    let mut relevant_sources = vec![false; input.nodes().len()];
+    let mut source_stack = vec![input.root()];
+    while let Some(source) = source_stack.pop() {
+        let index = source.0 as usize;
+        if relevant_sources[index] {
+            continue;
+        }
+        state.work()?;
+        relevant_sources[index] = true;
+        source_stack.extend(retained_source_operands[index].into_iter().flatten());
+    }
     for pending in pending_steps
         .into_iter()
-        .filter(|pending| relevant_sources.contains(&pending.source_node))
+        .filter(|pending| relevant_sources[pending.source_node as usize])
     {
         if steps.len() as u64 >= state.budgets.max_rule_applications {
             return Err(Abort::Budget(BudgetKind::RuleApplications));
@@ -811,17 +801,6 @@ where
                 report.exhausted_budget = Some(budget);
                 report.partial_sha256 = Some(sha256_json(&current));
                 report.detail = Some(format!("rewrite exhausted {budget:?} budget"));
-                report.work_units = state.work_units;
-                report.rule_applications = steps.len() as u64;
-                report.steps = steps;
-                return report;
-            }
-            Err(Abort::InvalidCatalog(rule_id)) => {
-                report.status = RewriteStatus::InvalidCatalog;
-                report.partial_sha256 = Some(sha256_json(&current));
-                report.detail = Some(format!(
-                    "executable rewrite identity {rule_id} is absent from the catalog"
-                ));
                 report.work_units = state.work_units;
                 report.rule_applications = steps.len() as u64;
                 report.steps = steps;

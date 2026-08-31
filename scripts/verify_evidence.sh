@@ -14,7 +14,9 @@ while IFS= read -r -d '' checksum; do
   sha256sum --check "$checksum"
   evidence_dir="${checksum%.sha256}"
   python3 scripts/verify_evidence_manifest.py "$evidence_dir"
-  if [[ -e "$evidence_dir/collection-summary.json" ]]; then
+  if [[ -e "$evidence_dir/collection-summary.json" || \
+        -e "$evidence_dir/sealed-pgm01-schema.status.txt" || \
+        -e "$evidence_dir/sealed-pgm01-validator.status.txt" ]]; then
     python3 scripts/finalize_collection.py --check "$evidence_dir"
   fi
 done < <(find evidence -maxdepth 1 -type f -name '*.sha256' -print0 | sort -z)
