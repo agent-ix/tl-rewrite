@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 
 import build_evidence_envelope as builder
+from evidence_profile import resolve_profile
+import tool_identity
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -23,7 +25,7 @@ def sha256(path: Path) -> str:
 def git_bytes(revision: str, path: Path) -> bytes:
     relative = path.relative_to(ROOT)
     return subprocess.run(
-        ["git", "show", f"{revision}:{relative}"],
+        ["/usr/bin/git", "show", f"{revision}:{relative}"],
         cwd=ROOT,
         check=True,
         capture_output=True,
@@ -34,7 +36,7 @@ def historical_parameters_digest(revision: str) -> str:
     """Recreate the builder's parameter set from the retained source tree."""
     tree = set(
         subprocess.run(
-            ["git", "ls-tree", "-r", "--name-only", revision],
+            ["/usr/bin/git", "ls-tree", "-r", "--name-only", revision],
             cwd=ROOT,
             check=True,
             capture_output=True,
@@ -46,6 +48,11 @@ def historical_parameters_digest(revision: str) -> str:
         for path in builder.parameter_paths()
         if path.parent != ROOT / "scripts"
     }
+    source_builder = git_bytes(revision, builder.BUILDER)
+    if b"TOOLS_LOCK" not in source_builder:
+        fixed.discard("tools.lock")
+    if b"EVIDENCE_RETRACTIONS" not in source_builder:
+        fixed.discard("evidence/RETRACTIONS.json")
     scripts = {
         path
         for path in tree
@@ -124,8 +131,8 @@ def main() -> int:
         errors.append("envelope review state is not pending human review")
     try:
         source_collector = git_bytes(source_revision, builder.COLLECTOR)
-        profile = collection_input.get("qualificationProfile")
-        if profile in {None, "tl-rewrite.evidence-qualification/v2"}:
+        profile = resolve_profile(record_dir)
+        if profile == "v2":
             tools = collection_input["tools"]
             retained_path = (record_dir / "python-path.txt").read_text(encoding="utf-8").strip()
             retained_checkers = json.loads(
@@ -143,7 +150,14 @@ def main() -> int:
             lock_digest = hashlib.sha256(git_bytes(source_revision, ROOT / "Cargo.lock")).hexdigest()
             if envelope.get("environment", {}).get("dependenciesDigest", {}).get("value") != lock_digest:
                 errors.append("envelope dependency digest does not match the source revision")
-        else:
+            try:
+                source_tool_lock = json.loads(git_bytes(source_revision, builder.TOOLS_LOCK))
+                expected_tools = tool_identity.validate_lock(source_tool_lock)
+            except (OSError, ValueError, json.JSONDecodeError, subprocess.CalledProcessError):
+                expected_tools = None
+            if expected_tools is not None and tools.get("identities") != expected_tools:
+                errors.append("record tool identities do not match the source tool lock")
+        elif profile != "legacy":
             errors.append("assured evidence uses an unrecognized qualification profile")
     except (KeyError, OSError, json.JSONDecodeError, subprocess.CalledProcessError) as error:
         errors.append(f"cannot rederive assured evidence identities: {error}")

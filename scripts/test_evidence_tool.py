@@ -33,8 +33,45 @@ VERIFIER = importlib.util.module_from_spec(VERIFIER_SPEC)
 VERIFIER_SPEC.loader.exec_module(VERIFIER)
 
 
+def healthy_test_output(repetitions: int) -> str:
+    markers = ["Running unittests src/lib.rs"] + [
+        f"Running tests/{path.name}"
+        for path in sorted((ROOT / "tests").glob("*.rs"))
+    ]
+    counts = (1, 3, 4, 1, 6, 9, 1, 4)
+    assert len(markers) == len(counts)
+    return "".join(
+        "".join(
+            f"{marker}\ntest result: ok. {count} passed; 0 failed; 0 ignored\n"
+            for marker, count in zip(markers, counts, strict=True)
+        )
+        for _ in range(repetitions)
+    )
+
+
 def healthy_ci_output() -> str:
-    return "test result: ok. 1 passed; 0 failed; 0 ignored\n" * 16
+    return healthy_test_output(2) + (
+        "all 11 mandatory local-CI targets propagate failures\n"
+        "all 5 evidence-policy behavior tests passed\n"
+        "strict traceability coverage is complete: 52/52\n"
+        "licenses ok\nsources ok\n"
+        "Generated /tmp/doc/tl_rewrite/index.html\n"
+        "fmt-check gate passed\n"
+        "lint gate passed\n"
+        "Rust test gate passed\n"
+        "corpus-integrity gate passed\n"
+        "deny gate passed\n"
+        "audit-unsafe gate passed\n"
+        "evidence-tool gate passed\n"
+        "spec gate passed\n"
+        "msrv gate passed\n"
+        "rustdoc gate passed\n"
+        "verify-evidence gate passed\n"
+    )
+
+
+def healthy_msrv_output() -> str:
+    return healthy_test_output(1)
 
 
 def main() -> int:
@@ -50,12 +87,19 @@ def main() -> int:
         capture_output=True,
     )
     assert missing_assurance.returncode != 0, "assurance gate accepted a missing argument"
-    with tempfile.TemporaryDirectory() as directory:
-        evidence_dir = Path(directory)
+    with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+        evidence_dir = Path(directory) / "record"
+        evidence_dir.mkdir()
+        verification_dir = evidence_dir.relative_to(ROOT)
         (evidence_dir / "collection-input.json").write_text(
             json.dumps({"qualificationProfile": "tl-rewrite.evidence-qualification/v2"}),
             encoding="utf-8",
         )
+        revision = subprocess.run(
+            ["/usr/bin/git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
+            capture_output=True, text=True,
+        ).stdout.strip()
+        (evidence_dir / "source-revision.txt").write_text(revision + "\n", encoding="utf-8")
         (evidence_dir / "make-ci.status.txt").write_text("0\n", encoding="utf-8")
         (evidence_dir / "make-ci.stdout").write_text(healthy_ci_output(), encoding="utf-8")
         (evidence_dir / "pgm01-schema.status.txt").write_text("125\n", encoding="utf-8")
@@ -93,12 +137,60 @@ def main() -> int:
         (evidence_dir / "evidence-envelope.json").write_text("{}\n", encoding="utf-8")
         for name in FINALIZER.CHECKS:
             (evidence_dir / f"{name}.status.txt").write_text("0\n", encoding="utf-8")
+            output = (
+                '{"errors": [], "valid": true}\n'
+                if name in {
+                    "input-schema", "manifest-schema", "pgm01-schema", "pgm01-validator",
+                    "sealed-pgm01-schema", "sealed-pgm01-validator",
+                }
+                else "verified\n"
+            )
+            (evidence_dir / f"{name}.stdout").write_text(output, encoding="utf-8")
+            (evidence_dir / f"{name}.stderr").write_text("", encoding="utf-8")
+        (evidence_dir / "make-ci.stdout").write_text(healthy_ci_output(), encoding="utf-8")
+        (evidence_dir / "msrv.stdout").write_text(healthy_msrv_output(), encoding="utf-8")
+        (evidence_dir / "rustdoc.stderr").write_text(
+            "Generated /tmp/doc/tl_rewrite/index.html\n", encoding="utf-8"
+        )
+        (evidence_dir / "quire-coverage.stdout").write_text(
+            "Coverage: 52/52 rows backed (100%)\n", encoding="utf-8"
+        )
+        (evidence_dir / "make-spec.stdout").write_text(
+            "strict traceability coverage is complete: 52/52\n", encoding="utf-8"
+        )
+        (evidence_dir / "default-dependencies.stdout").write_text(
+            "tl-rewrite v0.1.0\n", encoding="utf-8"
+        )
+        (evidence_dir / "corpus-integrity.stdout").write_text(
+            "WEST corpus checksum census passed\n", encoding="utf-8"
+        )
         retained = FINALIZER.summary(evidence_dir)
         assert retained["overallStatus"] == "passed"
-        assert FINALIZER.positive_make_ci(healthy_ci_output())
+        assert FINALIZER.positive_output(evidence_dir, "make-ci")
+        fabricated = "test result: ok. 1 passed; 0 failed; 0 ignored\n" * 16
+        (evidence_dir / "make-ci.stdout").write_text(fabricated, encoding="utf-8")
+        assert not FINALIZER.positive_output(evidence_dir, "make-ci")
+        (evidence_dir / "make-ci.stdout").write_text(healthy_ci_output(), encoding="utf-8")
         (evidence_dir / "make-ci.stdout").write_text("", encoding="utf-8")
         assert FINALIZER.summary(evidence_dir)["overallStatus"] == "failed"
         (evidence_dir / "make-ci.stdout").write_text(healthy_ci_output(), encoding="utf-8")
+        (evidence_dir / "rustdoc.stderr").write_text("", encoding="utf-8")
+        assert FINALIZER.summary(evidence_dir)["overallStatus"] == "failed"
+        (evidence_dir / "rustdoc.stderr").write_text(
+            "Generated /tmp/doc/tl_rewrite/index.html\n", encoding="utf-8"
+        )
+        profile_input = evidence_dir / "collection-input.json"
+        profile_input.write_text("{}\n", encoding="utf-8")
+        try:
+            FINALIZER.summary(evidence_dir)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("v2-era record without qualificationProfile passed")
+        profile_input.write_text(
+            json.dumps({"qualificationProfile": "tl-rewrite.evidence-qualification/v2"}),
+            encoding="utf-8",
+        )
         assert retained["finalEnvelopeValidated"] is True
         (evidence_dir / "pgm01-validator.stderr").write_text(
             "governance validation error\n", encoding="utf-8"
@@ -177,23 +269,28 @@ def main() -> int:
         checksum = evidence_dir.with_suffix(".sha256")
         checksum.write_text(
             "".join(
-                f"{VERIFIER.sha256(path)}  {path.name}\n"
+                f"{VERIFIER.sha256(path)}  {verification_dir / path.name}\n"
                 for path in sorted(evidence_dir.iterdir())
                 if path.is_file()
             ),
             encoding="utf-8",
         )
-        assert VERIFIER.verify(evidence_dir) == []
+        assert VERIFIER.verify(verification_dir) == []
         added = evidence_dir / "reviewer-attestation.txt"
         added.write_text("FABRICATED\n", encoding="utf-8")
-        assert any("unlisted" in error for error in VERIFIER.verify(evidence_dir))
+        assert any("unlisted" in error for error in VERIFIER.verify(verification_dir))
         added.unlink()
         symlink = evidence_dir / "symlink.txt"
         symlink.symlink_to(artifact)
-        assert any("symlink" in error for error in VERIFIER.verify(evidence_dir))
+        assert any("symlink" in error for error in VERIFIER.verify(verification_dir))
         symlink.unlink()
         artifact.write_text("FABRICATED\n", encoding="utf-8")
-        assert VERIFIER.verify(evidence_dir)
+        assert VERIFIER.verify(verification_dir)
+        rejected = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "verify_evidence_manifest.py"),
+             str(verification_dir)], check=False, capture_output=True,
+        )
+        assert rejected.returncode != 0, "manifest verifier main accepted corrupt evidence"
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         failing = root / "test_fails.py"
@@ -211,11 +308,18 @@ def main() -> int:
              "--directory", str(corpus)], check=False, capture_output=True,
         )
         assert checker.returncode != 0, "corpus checker exit contract accepted missing data"
-    planted = ROOT / "evidence" / f"PLANTED-EXIT-CONTRACT-{os.getpid()}.txt"
+        builder = subprocess.run(
+            [sys.executable, str(ROOT / "scripts" / "build_evidence_envelope.py"),
+             str(root / "missing"), "final"],
+            check=False, capture_output=True,
+        )
+        assert builder.returncode != 0, "evidence builder main accepted missing artifacts"
+    record = next(path for path in (ROOT / "evidence").glob("tl-rewrite-v01-*") if path.is_dir())
+    planted = record / f"PLANTED-EXIT-CONTRACT-{os.getpid()}.txt"
     planted.write_text("FABRICATED\n", encoding="utf-8")
     try:
         shell = subprocess.run(
-            ["bash", "scripts/verify_evidence.sh"], cwd=ROOT, check=False,
+            ["/usr/bin/bash", "scripts/verify_evidence.sh"], cwd=ROOT, check=False,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
         assert shell.returncode != 0, "evidence shell verifier exit contract was gutted"

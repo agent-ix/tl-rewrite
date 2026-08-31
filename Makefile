@@ -2,7 +2,7 @@
 # TL Rewrite Makefile
 # =============================================================================
 
-ifneq ($(filter ci,$(MAKECMDGOALS)),)
+ifneq ($(filter ci ci-for-evidence,$(MAKECMDGOALS)),)
 ifneq ($(strip $(MAKEFLAGS)),)
 $(error local CI refuses non-empty MAKEFLAGS)
 endif
@@ -33,6 +33,7 @@ help:
 	@echo "  make rustdoc          - Build warning-free public documentation"
 	@echo "  make msrv             - Test all targets and features with Rust 1.75"
 	@echo "  make evidence-tool    - Syntax-check evidence tooling and schemas"
+	@echo "  make ci-for-evidence  - Candidate gates before assurance self-binding"
 	@echo "  make ci               - All CI gates locally (fmt-check + lint + test + deny + audit-unsafe)"
 
 # =============================================================================
@@ -46,14 +47,17 @@ fmt:
 .PHONY: fmt-check
 fmt-check:
 	cargo fmt --all -- --check
+	@/usr/bin/printf 'fmt-check gate passed\n'
 
 .PHONY: lint
 lint:
 	cargo clippy --all-targets --all-features -- -D warnings
+	@/usr/bin/printf 'lint gate passed\n'
 
 .PHONY: test
 test:
 	cargo test --all-targets --all-features
+	@/usr/bin/printf 'Rust test gate passed\n'
 
 .PHONY: check-failure-propagation
 check-failure-propagation:
@@ -62,24 +66,29 @@ check-failure-propagation:
 .PHONY: check-corpus
 check-corpus:
 	/usr/bin/python3 scripts/check_corpus.py
+	@/usr/bin/printf 'corpus-integrity gate passed\n'
 
 .PHONY: verify-evidence
 verify-evidence:
-	bash scripts/verify_evidence.sh
+	/usr/bin/bash scripts/verify_evidence.sh
+	@/usr/bin/printf 'verify-evidence gate passed\n'
 
 .PHONY: spec
 spec:
 	quire validate --scope . 'spec/**/*.md'
 	/usr/bin/python3 scripts/check_traceability_coverage.py
+	@/usr/bin/printf 'spec gate passed\n'
 
 .PHONY: rustdoc
 rustdoc:
 	RUSTDOCFLAGS=-Dwarnings cargo doc --no-deps --all-features
+	@/usr/bin/printf 'rustdoc gate passed\n'
 
 .PHONY: evidence-tool
 evidence-tool:
 	/usr/bin/python3 -m compileall -q scripts
 	/usr/bin/python3 scripts/run_policy_tests.py
+	@/usr/bin/printf 'evidence-tool gate passed\n'
 
 .PHONY: build
 build:
@@ -97,6 +106,7 @@ clean:
 deny:
 	cargo deny check licenses
 	cargo deny check sources
+	@/usr/bin/printf 'deny gate passed\n'
 
 .PHONY: cargo-audit
 cargo-audit:
@@ -104,15 +114,19 @@ cargo-audit:
 
 .PHONY: audit-unsafe
 audit-unsafe:
-	bash scripts/check_unsafe_comments.sh
+	/usr/bin/bash scripts/check_unsafe_comments.sh
+	@/usr/bin/printf 'audit-unsafe gate passed\n'
 
 .PHONY: msrv
 msrv:
 	cargo +1.75.0 test --all-targets --all-features
+	@/usr/bin/printf 'msrv gate passed\n'
 
 # =============================================================================
 # Composite
 # =============================================================================
 
-.PHONY: ci
+.PHONY: ci ci-for-evidence
+ci-for-evidence: check-failure-propagation fmt-check lint test check-corpus deny audit-unsafe evidence-tool spec msrv rustdoc
+
 ci: check-failure-propagation fmt-check lint test check-corpus deny audit-unsafe evidence-tool spec msrv rustdoc verify-evidence

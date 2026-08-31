@@ -50,6 +50,15 @@ def main() -> int:
             encoding="utf-8",
         )
         assert MODULE.validate_matrix_statuses(matrix)
+        matrix.write_text(
+            "## Functional Requirement Coverage\n\n"
+            "| Functional Req | Acceptance Criteria | Test Cases | Coverage Status |\n"
+            "|---|---|---|---|\n| FR-001 | | TC-001 | ✅ covered |\n",
+            encoding="utf-8",
+        )
+        assert MODULE.validate_matrix_statuses(matrix), (
+            "an empty acceptance-criteria cell escaped validation"
+        )
     requirement = ROOT / "spec" / "requirements" / "NFR-001-determinism-resources.md"
     original = requirement.read_text(encoding="utf-8")
     try:

@@ -34,7 +34,10 @@ def main() -> int:
             errors.append(f"corpus checksum mismatch: {path.name}")
     for error in errors:
         print(error, file=sys.stderr)
-    return 1 if errors else 0
+    if errors:
+        return 1
+    print("WEST corpus checksum census passed")
+    return 0
 
 
 if __name__ == "__main__":

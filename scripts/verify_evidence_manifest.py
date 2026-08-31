@@ -42,11 +42,8 @@ def verify(evidence_dir: Path) -> list[str]:
         try:
             relative = path.relative_to(evidence_dir)
         except ValueError:
-            if len(path.parts) == 1:
-                relative = path
-            else:
-                errors.append(f"checksum path escapes evidence directory: {path}")
-                continue
+            errors.append(f"checksum path escapes evidence directory: {path}")
+            continue
         expected_files.add(relative)
     actual_files = {
         path.relative_to(evidence_dir)

@@ -13,17 +13,22 @@ import sys
 import tempfile
 from pathlib import Path
 
+import tool_identity
+
 
 ROOT = Path(__file__).resolve().parent.parent
 PROBES = {
     "fmt-check", "lint", "test", "check-corpus", "deny", "audit-unsafe",
     "evidence-tool", "spec", "msrv", "rustdoc", "verify-evidence",
 }
+COLLECTION_PROBES = PROBES - {"verify-evidence"}
 GUARD_TARGET = "check-failure-propagation"
 TARGET = re.compile(r"^([A-Za-z0-9_.-]+):(?:\s+(.*?))?\s*$")
-SHELL_CONTROL = re.compile(r"&&|\|\||[;|]")
+SHELL_CONTROL = re.compile(r"&&|\|\||&(?!&)|[;|]")
 IGNORE_ATTRIBUTE = re.compile(r"#\s*\[[^\]]*\bignore\b[^\]]*\]")
-MAKEFLAGS_ASSIGNMENT = re.compile(r"^\s*MAKEFLAGS\s*(?::|\+|\?)?=\s*(.*)$")
+MAKEFLAGS_ASSIGNMENT = re.compile(
+    r"^\s*(?:(?:export|override|unexport)\s+)*MAKEFLAGS\s*(?::|\+|\?)?=\s*(.*)$"
+)
 
 
 def parse_makefile(text: str) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
@@ -79,6 +84,14 @@ def inspect(makefile: Path, root: Path = ROOT) -> list[str]:
             "ci prerequisite census drift: "
             f"missing={sorted(required - observed)}, extra={sorted(observed - required)}"
         )
+    candidate_required = COLLECTION_PROBES | {GUARD_TARGET}
+    candidate_observed = set(dependencies.get("ci-for-evidence", []))
+    if candidate_observed != candidate_required:
+        errors.append(
+            "candidate CI prerequisite census drift: "
+            f"missing={sorted(candidate_required - candidate_observed)}, "
+            f"extra={sorted(candidate_observed - candidate_required)}"
+        )
     for number, line in enumerate(text.splitlines(), start=1):
         if re.match(r"^\s*\.(?:IGNORE|SILENT)\s*(?::|$)", line):
             errors.append(f"Makefile:{number} declares a global recipe-control directive")
@@ -98,13 +111,11 @@ def inspect(makefile: Path, root: Path = ROOT) -> list[str]:
                 errors.append(
                     f"mandatory target {target} uses forbidden shell control operators: {command}"
                 )
-    for directory in ("src", "tests", "fuzz"):
-        source_root = root / directory
-        if not source_root.exists():
+    for source in root.rglob("*.rs"):
+        if ".git" in source.parts or "target" in source.parts:
             continue
-        for source in source_root.rglob("*.rs"):
-            if IGNORE_ATTRIBUTE.search(source.read_text(encoding="utf-8")):
-                errors.append(f"{source.relative_to(root)} disables a Rust test with #[ignore]")
+        if IGNORE_ATTRIBUTE.search(source.read_text(encoding="utf-8")):
+            errors.append(f"{source.relative_to(root)} disables a Rust test with #[ignore]")
     return errors
 
 
@@ -139,18 +150,18 @@ def probe_command_positions(makefile: Path) -> list[str]:
     return errors
 
 
+def clean_environment() -> dict[str, str]:
+    value, tools = tool_identity.load_lock()
+    return tool_identity.qualified_environment(value, tools)
+
+
 def inspect_toolchain() -> list[str]:
-    expected = {
-        "cargo": str(Path.home() / ".cargo" / "bin" / "cargo"),
-        "make": "/usr/bin/make",
-        "python3": "/usr/bin/python3",
-        "quire": str(Path.home() / ".npm-global" / "bin" / "quire"),
-    }
-    return [
-        f"{name} must resolve to {path}, got {shutil.which(name)}"
-        for name, path in expected.items()
-        if shutil.which(name) != path
-    ]
+    try:
+        value, tools = tool_identity.load_lock()
+    except (OSError, ValueError) as error:
+        return [f"qualified tool lock is unavailable: {error}"]
+    unavailable, mismatches = tool_identity.verify_live(value, tools)
+    return unavailable + mismatches
 
 
 def main() -> int:

@@ -16,8 +16,10 @@ ROOT = Path(__file__).resolve().parent.parent
 PGM01_POLICY_REVISION = "7dac9d8c19952412b56a0347387666e2ca81e01d"
 PGM01_SCHEMA_DIGEST = "0946e235e9e4b0fa79e9b9ec27ae157b303c17de0a9408d3cc04968fb7152256"
 TL_SYNTAX_REVISION = "740182f13b84858008d6f176f75136737d405c1b"
-TL_MLTL_REVISION = "da2c7704a5347d063398c852acf6aa5bf9b5752d"
+TL_MLTL_REVISION = "fe1c620d7baa743d9c6b4dda27f40d207721fcc9"
 WEST_REVISION = "21cd99ab2e6095a099dd179029cfdeb54268ad3f"
+TOOLS_LOCK = ROOT / "tools.lock"
+EVIDENCE_RETRACTIONS = ROOT / "evidence" / "RETRACTIONS.json"
 INPUT_SCHEMA = ROOT / "schemas" / "tl-rewrite-evidence-input-v1.schema.json"
 MANIFEST_SCHEMA = ROOT / "schemas" / "tl-rewrite-evidence-manifest-v1.schema.json"
 COLLECTOR = ROOT / "scripts" / "collect_evidence.sh"
@@ -111,6 +113,8 @@ def parameter_paths() -> tuple[Path, ...]:
         ROOT / "src" / "rewrite.rs",
         ROOT / "corpus" / "west-v1" / "SHA256SUMS",
         ROOT / "corpus" / "west-v1" / "manifest.json",
+        TOOLS_LOCK,
+        EVIDENCE_RETRACTIONS,
         INPUT_SCHEMA,
         MANIFEST_SCHEMA,
     )
@@ -146,7 +150,7 @@ def build(directory: Path, phase: str) -> None:
         "sourceRevision": revision,
         "sourceState": (directory / "source-state.txt").read_text().strip(),
         "commands": [
-            "make ci",
+            "make ci-for-evidence (candidate gates; final make ci adds assurance self-binding)",
             "make spec",
             "quire coverage --scope . --strict",
             "RUSTDOCFLAGS=-Dwarnings cargo doc --no-deps --all-features",
@@ -168,6 +172,15 @@ def build(directory: Path, phase: str) -> None:
             "pythonPath": (directory / "python-path.txt").read_text().strip(),
             "quire": quire_version,
             "rustc": first_line(directory / "rustc-version.txt"),
+            "identities": {
+                name: {
+                    "path": (directory / f"tool-{name}-path.txt").read_text().strip(),
+                    "sha256": (directory / f"tool-{name}-sha256.txt").read_text().strip(),
+                }
+                for name in (
+                    "bash", "cargo", "git", "make", "python3", "quire", "rustc", "sha256sum"
+                )
+            },
         },
         "pgm01": {
             "policy": "ix://agent-ix/quire-contract-ir/PGM-01",

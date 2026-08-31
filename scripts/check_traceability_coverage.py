@@ -94,8 +94,12 @@ def validate_matrix_statuses(path: Path) -> list[str]:
         if status_name not in header or len(cells) != len(header):
             errors.append(f"{path}:{number} has no parseable status column")
             continue
+        status_index = header.index(status_name)
+        for index, cell in enumerate(cells):
+            if index != status_index and not cell:
+                errors.append(f"{path}:{number} has an empty {header[index]!r} cell")
         expected = "✅ implemented" if section == "Test Case Summary" else "✅ covered"
-        if cells[header.index(status_name)] != expected:
+        if cells[status_index] != expected:
             errors.append(f"{path}:{number} does not carry required status {expected!r}")
     return errors
 

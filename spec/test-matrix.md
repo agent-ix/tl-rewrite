@@ -32,6 +32,7 @@ relationships:
 |---|---|---|---|
 | NFR-001 | deterministic and resource-bound tests | TC-004 through TC-008, TC-015, TC-017, TC-021 | ✅ covered |
 | NFR-002 | catalog, corpus, and evidence inspection | TC-001, TC-002, TC-016, TC-018, TC-019 | ✅ covered |
+| NFR-003 | qualified-toolchain, profile, and positive-output mutation tests | TC-018 | ✅ covered |
 
 ## Test Case Summary
 
@@ -54,7 +55,7 @@ relationships:
 | TC-015 | Keep bounded-resource and profile cases non-conclusive | Integration | P0 | FR-004-AC-2, NFR-001-AC-2 | ✅ implemented |
 | TC-016 | Exercise pinned WEST and independent fixtures | Integration | P0 | FR-004-AC-3, StR-002-VC-2, NFR-002-AC-2 | ✅ implemented |
 | TC-017 | Round trip and reject versioned wire records | Integration | P0 | FR-005-AC-1, NFR-001-AC-1 | ✅ implemented |
-| TC-018 | Verify immutable evidence contract and schemas | Integration | P0 | FR-005-AC-2, NFR-002-AC-2 | ✅ implemented |
+| TC-018 | Verify immutable evidence contract and schemas | Integration | P0 | FR-005-AC-2, NFR-002-AC-2, NFR-003-AC-1..NFR-003-AC-3 | ✅ implemented |
 | TC-019 | Inspect human authority and qualification boundary | Integration | P0 | FR-005-AC-3, StR-001-VC-1, NFR-002-AC-2 | ✅ implemented |
 | TC-020 | Detect repeated complete states through the rewrite engine | Unit | P0 | FR-002-AC-2, NFR-001-AC-2 | ✅ implemented |
 | TC-021 | Charge retained-source provenance traversal to the work budget | Unit | P0 | FR-002-AC-2, NFR-001-AC-3 | ✅ implemented |

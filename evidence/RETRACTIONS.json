@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "tl-rewrite.evidence-retractions/v1",
+  "records": {
+    "tl-rewrite-v01-4b716afa9d0f-20260831T145617Z": {"reason": "legacy record without the active qualification profile"},
+    "tl-rewrite-v01-54763ed4f67b-20260831T053834Z": {"reason": "legacy record without the active qualification profile"},
+    "tl-rewrite-v01-548748b2fb12-20260831T061600Z": {"reason": "legacy record without the active qualification profile"},
+    "tl-rewrite-v01-9d28279332ef-20260831T025640Z": {"reason": "legacy record without the active qualification profile"},
+    "tl-rewrite-v01-9e736b25dcc1-20260831T145754Z": {"reason": "legacy record without the active qualification profile"},
+    "tl-rewrite-v01-a889382df7fd-20260831T191229Z": {"reason": "legacy record without the active qualification profile"},
+    "tl-rewrite-v01-b9cd1764ef70-20260831T044339Z": {"reason": "legacy record without the active qualification profile"},
+    "tl-rewrite-v01-bf2db16c4dfe-20260831T053711Z": {"reason": "legacy record without the active qualification profile"},
+    "tl-rewrite-v01-d52abed6b30d-20260831T180259Z": {"reason": "legacy record without the active qualification profile"},
+    "tl-rewrite-v01-fb7835e10929-20260831T171514Z": {"reason": "legacy record without the active qualification profile"}
+  }
+}

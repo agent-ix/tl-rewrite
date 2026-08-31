@@ -6,10 +6,13 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 from build_evidence_envelope import classify_result
+from evidence_profile import resolve_profile
+import tool_identity
 
 
 CHECKS = (
@@ -30,7 +33,9 @@ CHECKS = (
 CONTRADICTION = re.compile(
     r"test result: FAILED|Error [0-9]+ \(ignored\)|\b[1-9][0-9]* ignored\b"
 )
-TEST_SUCCESS = re.compile(r"^test result: ok\. ([1-9][0-9]*) passed; 0 failed; 0 ignored", re.MULTILINE)
+TEST_SUCCESS = re.compile(
+    r"^test result: ok\. ([1-9][0-9]*) passed; 0 failed; 0 ignored", re.MULTILINE
+)
 
 
 def sha256(path: Path) -> str:
@@ -38,21 +43,114 @@ def sha256(path: Path) -> str:
 
 
 def positive_census_required(evidence_dir: Path) -> bool:
-    try:
-        collection_input = json.loads(
-            (evidence_dir / "collection-input.json").read_text(encoding="utf-8")
-        )
-    except (OSError, json.JSONDecodeError):
+    return resolve_profile(evidence_dir) == "v2"
+
+
+def source_revision(evidence_dir: Path) -> str:
+    return (evidence_dir / "source-revision.txt").read_text(encoding="utf-8").strip()
+
+
+def expected_test_markers(evidence_dir: Path) -> tuple[str, ...]:
+    revision = source_revision(evidence_dir)
+    paths = subprocess.run(
+        ["/usr/bin/git", "ls-tree", "-r", "--name-only", revision, "--", "src/lib.rs", "tests"],
+        cwd=Path(__file__).resolve().parent.parent,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    tests = sorted(
+        path for path in paths
+        if Path(path).parent == Path("tests") and Path(path).suffix == ".rs"
+    )
+    if "src/lib.rs" not in paths or not tests:
+        raise ValueError("cannot derive the Rust test-suite census from the source revision")
+    return ("Running unittests src/lib.rs",) + tuple(f"Running {path}" for path in tests)
+
+
+def positive_test_census(evidence_dir: Path, output: str, repetitions: int) -> bool:
+    markers = expected_test_markers(evidence_dir)
+    revision = source_revision(evidence_dir)
+    test_count = 0
+    for relative in subprocess.run(
+        ["/usr/bin/git", "ls-tree", "-r", "--name-only", revision, "--", "src", "tests"],
+        cwd=Path(__file__).resolve().parent.parent, check=True,
+        capture_output=True, text=True,
+    ).stdout.splitlines():
+        if not relative.endswith(".rs"):
+            continue
+        source = subprocess.run(
+            ["/usr/bin/git", "show", f"{revision}:{relative}"],
+            cwd=Path(__file__).resolve().parent.parent, check=True,
+            capture_output=True, text=True,
+        ).stdout
+        test_count += len(re.findall(r"(?m)^\s*#\[test\]\s*$", source))
+    passed = [int(value) for value in TEST_SUCCESS.findall(output)]
+    return (
+        len(passed) == len(markers) * repetitions
+        and test_count > 0
+        and sum(passed) == test_count * repetitions
+        and all(output.count(marker) >= repetitions for marker in markers)
+    )
+
+
+def complete_fraction(output: str, prefix: str) -> bool:
+    for backed, total in re.findall(prefix + r"\s*([0-9]+)/([0-9]+)", output):
+        if int(total) > 0 and backed == total:
+            return True
+    return False
+
+
+def positive_output(evidence_dir: Path, name: str) -> bool:
+    output = "\n".join(
+        path.read_text(encoding="utf-8", errors="replace")
+        for path in (evidence_dir / f"{name}.stdout", evidence_dir / f"{name}.stderr")
+        if path.exists()
+    )
+    if name == "diff-integrity":
         return True
-    profile = collection_input.get("qualificationProfile")
-    return profile is not None
-
-
-def positive_make_ci(output: str) -> bool:
-    return len(TEST_SUCCESS.findall(output)) >= 16
+    if name == "make-ci":
+        gate_signatures = (
+            "fmt-check gate passed", "lint gate passed", "Rust test gate passed",
+            "corpus-integrity gate passed", "deny gate passed",
+            "audit-unsafe gate passed", "evidence-tool gate passed",
+            "spec gate passed", "msrv gate passed", "rustdoc gate passed",
+        )
+        return (
+            positive_test_census(evidence_dir, output, 2)
+            and "all 11 mandatory local-CI targets propagate failures" in output
+            and re.search(r"all [1-9][0-9]* evidence-policy behavior tests passed", output) is not None
+            and complete_fraction(output, r"strict traceability coverage is complete:")
+            and "licenses ok" in output
+            and "sources ok" in output
+            and "Generated " in output and "/doc/tl_rewrite/index.html" in output
+            and all(signature in output for signature in gate_signatures)
+        )
+    if name == "msrv":
+        return positive_test_census(evidence_dir, output, 1)
+    if name == "rustdoc":
+        return "Generated " in output and "/doc/tl_rewrite/index.html" in output
+    if name == "quire-coverage":
+        return complete_fraction(output, r"Coverage:")
+    if name == "make-spec":
+        return complete_fraction(output, r"strict traceability coverage is complete:")
+    if name == "default-dependencies":
+        return "tl-rewrite v0.1.0" in output
+    if name == "corpus-integrity":
+        return "WEST corpus checksum census passed" in output
+    if name in {
+        "input-schema", "manifest-schema", "pgm01-schema", "pgm01-validator",
+        "sealed-pgm01-schema", "sealed-pgm01-validator",
+    }:
+        return bool(re.search(r'"errors"\s*:\s*\[\]\s*,?\s*"valid"\s*:\s*true', output))
+    return False
 
 
 def summary(evidence_dir: Path) -> dict[str, object]:
+    profile = resolve_profile(evidence_dir)
+    if profile == "retracted":
+        raise ValueError("retracted evidence cannot produce an active qualification summary")
+    require_positive = profile == "v2"
     outcomes = []
     observed = {
         path.name[: -len(".status.txt")]
@@ -80,12 +178,8 @@ def summary(evidence_dir: Path) -> dict[str, object]:
             and CONTRADICTION.search(path.read_text(encoding="utf-8", errors="replace"))
             for path in (evidence_dir / f"{name}.stdout", evidence_dir / f"{name}.stderr")
         )
-        positive_missing = (
-            exit_code == 0 and name == "make-ci" and positive_census_required(evidence_dir)
-            and not positive_make_ci(
-                (evidence_dir / "make-ci.stdout").read_text(encoding="utf-8", errors="replace")
-                if (evidence_dir / "make-ci.stdout").exists() else ""
-            )
+        positive_missing = exit_code == 0 and require_positive and not positive_output(
+            evidence_dir, name
         )
         outcomes.append(
             {
@@ -103,6 +197,8 @@ def summary(evidence_dir: Path) -> dict[str, object]:
             }
         )
     statuses = {item["status"] for item in outcomes}
+    if profile == "inconclusive":
+        statuses.add("inconclusive")
     if "failed" in statuses:
         overall = "failed"
     elif "skipped-unavailable" in statuses or "inconclusive" in statuses:
@@ -156,6 +252,28 @@ def validate_envelope_result(evidence_dir: Path, value: dict[str, object]) -> li
     return [] if observed == expected else [f"envelope result disagrees with retained outcomes: {evidence_dir}"]
 
 
+def validate_tool_identity(evidence_dir: Path) -> list[str]:
+    revision = source_revision(evidence_dir)
+    root = Path(__file__).resolve().parent.parent
+    lock_result = subprocess.run(
+        ["/usr/bin/git", "show", f"{revision}:tools.lock"], cwd=root,
+        check=False, capture_output=True,
+    )
+    if lock_result.returncode != 0:
+        return []
+    try:
+        expected = tool_identity.validate_lock(json.loads(lock_result.stdout))
+        collection_input = json.loads(
+            (evidence_dir / "collection-input.json").read_text(encoding="utf-8")
+        )
+        observed = collection_input["tools"]["identities"]
+    except (KeyError, OSError, ValueError, json.JSONDecodeError) as error:
+        return [f"cannot rederive retained tool identities: {error}"]
+    return [] if observed == expected else [
+        f"retained tool identities disagree with source tools.lock: {evidence_dir}"
+    ]
+
+
 def main() -> int:
     check = len(sys.argv) == 3 and sys.argv[1] == "--check"
     write = len(sys.argv) == 2 and sys.argv[1] != "--check"
@@ -164,11 +282,23 @@ def main() -> int:
         return 2
     evidence_dir = Path(sys.argv[2] if check else sys.argv[1])
     try:
+        profile = resolve_profile(evidence_dir)
+    except (OSError, ValueError, json.JSONDecodeError, subprocess.CalledProcessError) as error:
+        print(f"cannot resolve evidence qualification profile: {error}", file=sys.stderr)
+        return 2
+    if profile == "retracted":
+        if not check:
+            print(f"refusing to rewrite explicitly retracted evidence: {evidence_dir}", file=sys.stderr)
+            return 2
+        print(f"retained evidence is explicitly retracted: {evidence_dir}")
+        return 0
+    try:
         value = summary(evidence_dir)
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"cannot derive retained collection summary: {error}", file=sys.stderr)
         return 2
     envelope_errors = validate_envelope_result(evidence_dir, value)
+    envelope_errors.extend(validate_tool_identity(evidence_dir))
     if envelope_errors:
         for error in envelope_errors:
             print(error, file=sys.stderr)

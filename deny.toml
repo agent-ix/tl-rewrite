@@ -22,8 +22,9 @@ version = 2
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-# Temporary exact-source exceptions until the upstream PRs merge or 2026-09-07,
-# whichever comes first. AA-001 blocks source release while either is open.
+# Exact-source exceptions for the merged tl-mltl revision and the temporary
+# tl-syntax candidate. AA-001 blocks source release on the latter until merge
+# or 2026-09-07, whichever comes first.
 allow-git = [
     "https://github.com/agent-ix/tl-mltl.git",
     "https://github.com/agent-ix/tl-syntax.git",

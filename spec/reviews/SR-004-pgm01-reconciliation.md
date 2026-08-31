@@ -18,8 +18,8 @@ Envelope schema: `quire.derivation-evidence/v1`, SHA-256
 `0946e235e9e4b0fa79e9b9ec27ae157b303c17de0a9408d3cc04968fb7152256`.
 
 The collector architecture is adapted under MIT OR Apache-2.0 from the
-same-program tl-mltl collector at immutable revision
-`da2c7704a5347d063398c852acf6aa5bf9b5752d`. The adaptation records catalog,
+same-program tl-mltl collector at immutable merged revision
+`fe1c620d7baa743d9c6b4dda27f40d207721fcc9`. The adaptation records catalog,
 rewrite, replay, bounded equivalence, WEST provenance/license, complete command
 failures, canonical validation, overwrite refusal, external checksums, and a
 separate post-seal summary for exact finalized-envelope validation.
@@ -37,7 +37,7 @@ Human review remains pending.
 |---|---|---|
 | PGM-01-R01 schema compatibility | Catalog, rewrite, replay, conformance, local evidence input, and manifest records use explicit closed v1 identities and reject unknown fields. | FR-003, FR-005; serde and evidence schemas |
 | PGM-01-R02 exact pins | Candidate evidence records source, merged policy/schema, toolchain, syntax/evaluator dependencies, catalog source, WEST source/license, parameters, inputs, and outputs. | Collection input, manifest, canonical envelope |
-| PGM-01-R03 release order | tl-rewrite pins exact reviewed tl-syntax and tl-mltl source candidates; downstream repositories must pin the eventual human-reviewed tl-rewrite revision. | Cargo.toml, Cargo.lock; human decision remains open |
+| PGM-01-R03 release order | tl-rewrite pins the exact reviewed tl-syntax candidate and the merged tl-mltl revision; downstream repositories must pin the eventual human-reviewed tl-rewrite revision. | Cargo.toml, Cargo.lock; human decision remains open |
 | PGM-01-R04 licensing and provenance | Crate, schemas, collector adaptation, and derived fixtures are MIT OR Apache-2.0; copied WEST bytes retain the byte-identical upstream MIT license. | Cargo.toml, corpus/README.md, corpus checksums, evidence/README.md |
 | PGM-01-R05 clean-room boundary | The crate consumes typed graphs and does not add a text grammar, parser table, or copied grammar implementation. | MRS-001 and repository inspection |
 | PGM-01-R06 human authority | Agent-produced rules, implementation, and evidence remain separate from independent human review and release. | AP-001, AA-001, envelope provenance |

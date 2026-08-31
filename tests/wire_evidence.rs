@@ -61,7 +61,8 @@ fn versioned_records_round_trip_and_reject_unknown_fields() {
     assert!(serde_json::from_value::<ConformanceReport>(add_unknown(conformance_value)).is_err());
 }
 
-// Trace: TC-018, FR-005-AC-2, NFR-002-AC-2, SUITE-001, SUITE-002, SUITE-003
+// Trace: TC-018, FR-005-AC-2, NFR-002-AC-2, NFR-003-AC-1, NFR-003-AC-2, NFR-003-AC-3
+// Trace: SUITE-001, SUITE-002, SUITE-003
 // Trace: SUITE-004, SUITE-005, SUITE-006, SUITE-007
 #[test]
 fn immutable_evidence_contract_and_schemas_are_complete() {
@@ -70,7 +71,30 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
     let builder = fs::read_to_string(root.join("scripts/build_evidence_envelope.py")).unwrap();
     let makefile = fs::read_to_string(root.join("Makefile")).unwrap();
     let workflow = fs::read_to_string(root.join(".github/workflows/ci.yml")).unwrap();
-    let dry_run = makefile.clone();
+    let makefile_text = makefile.clone();
+    let ci_line = makefile_text
+        .lines()
+        .find(|line| line.starts_with("ci:"))
+        .expect("Makefile has a composite CI target");
+    for target in [
+        "check-failure-propagation",
+        "fmt-check",
+        "lint",
+        "test",
+        "check-corpus",
+        "deny",
+        "audit-unsafe",
+        "evidence-tool",
+        "spec",
+        "msrv",
+        "rustdoc",
+        "verify-evidence",
+    ] {
+        assert!(
+            ci_line.split_whitespace().any(|item| item == target),
+            "CI prerequisite expansion omits {target}"
+        );
+    }
     for required in [
         "refusing to overwrite retained evidence",
         "refusing to collect evidence from a modified or untracked source tree",
@@ -112,11 +136,14 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
         "python3 scripts/run_policy_tests.py",
         "scripts/check_failure_propagation.py",
         "scripts/check_traceability_coverage.py",
-        "bash scripts/verify_evidence.sh",
+        "/usr/bin/bash scripts/verify_evidence.sh",
         "quire validate",
         "cargo doc",
     ] {
-        assert!(dry_run.contains(command), "complete gate omits {command}");
+        assert!(
+            makefile_text.contains(command),
+            "complete gate omits {command}"
+        );
     }
     assert!(workflow.contains("workflow_dispatch:"));
     assert!(!workflow.contains("pull_request:"));

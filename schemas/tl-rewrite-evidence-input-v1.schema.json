@@ -6,6 +6,12 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "sourceRevision", "sourceState", "commands", "tools", "pgm01", "dependencies", "catalog", "corpus"],
+  "allOf": [
+    {
+      "if": {"required": ["qualificationProfile"]},
+      "then": {"properties": {"tools": {"required": ["identities"]}}}
+    }
+  ],
   "properties": {
     "schemaVersion": {"const": "tl-rewrite.evidence-input/v1"},
     "sourceRevision": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
@@ -27,7 +33,12 @@
         "python": {"type": "string", "minLength": 1},
         "pythonPath": {"type": "string", "pattern": "^/"},
         "quire": {"type": "string", "minLength": 1},
-        "rustc": {"type": "string", "minLength": 1}
+        "rustc": {"type": "string", "minLength": 1},
+        "identities": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/definitions/toolIdentity"},
+          "required": ["bash", "cargo", "git", "make", "python3", "quire", "rustc", "sha256sum"]
+        }
       }
     },
     "qualificationProfile": {"const": "tl-rewrite.evidence-qualification/v2"},
@@ -82,6 +93,15 @@
       "properties": {
         "algorithm": {"const": "sha256"},
         "value": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "toolIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^/"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
       }
     }
   }
