@@ -1,0 +1,64 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.05s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s
+     Running unittests src/lib.rs (target/debug/deps/tl_rewrite-fc0eab86f3fe73a2)
+     Running tests/catalog.rs (target/debug/deps/catalog-ed879823fb7fbbca)
+     Running tests/equivalence.rs (target/debug/deps/equivalence-2664bafe454b1c1b)
+     Running tests/property.rs (target/debug/deps/property-68a47a30e81b8689)
+     Running tests/replay.rs (target/debug/deps/replay-e9fb65b286ee4d4d)
+     Running tests/rewrite.rs (target/debug/deps/rewrite-6ecc8f4c402798b0)
+     Running tests/rule_evidence.rs (target/debug/deps/rule_evidence-1f232fa21869e4e7)
+     Running tests/wire_evidence.rs (target/debug/deps/wire_evidence-bd56c5f9abd9f9bc)
+warning[license-not-encountered]: license was not encountered
+  ┌─ /home/peter/dev/tl-rewrite/deny.toml:6:6
+  │
+6 │     "BSD-2-Clause",
+  │      ━━━━━━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+  ┌─ /home/peter/dev/tl-rewrite/deny.toml:7:6
+  │
+7 │     "BSD-3-Clause",
+  │      ━━━━━━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+  ┌─ /home/peter/dev/tl-rewrite/deny.toml:8:6
+  │
+8 │     "CDLA-Permissive-2.0",
+  │      ━━━━━━━━━━━━━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+  ┌─ /home/peter/dev/tl-rewrite/deny.toml:9:6
+  │
+9 │     "ISC",
+  │      ━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /home/peter/dev/tl-rewrite/deny.toml:11:6
+   │
+11 │     "Zlib",
+   │      ━━━━ unmatched license allowance
+
+DuplicateArchetype: 'ADR' contributed by modules ["spec-artifacts-process", "spec-artifacts-process"]; first-wins
+DuplicateArchetype: 'Plan' contributed by modules ["spec-artifacts-process", "spec-artifacts-process"]; first-wins
+DuplicateArchetype: 'Review' contributed by modules ["spec-artifacts-process", "spec-artifacts-process"]; first-wins
+DuplicateArchetype: 'SpecReview' contributed by modules ["spec-artifacts-process", "spec-artifacts-process"]; first-wins
+DuplicateArchetype: 'Standard' contributed by modules ["spec-artifacts-process", "spec-artifacts-process"]; first-wins
+DuplicateInverseEdge: inverse label 'part_of' declared by verbs ["aggregates", "contains"]; first-wins
+DuplicateArchetype: 'ADR' contributed by modules ["spec-artifacts-process", "spec-artifacts-process"]; first-wins
+DuplicateArchetype: 'Plan' contributed by modules ["spec-artifacts-process", "spec-artifacts-process"]; first-wins
+DuplicateArchetype: 'Review' contributed by modules ["spec-artifacts-process", "spec-artifacts-process"]; first-wins
+DuplicateArchetype: 'SpecReview' contributed by modules ["spec-artifacts-process", "spec-artifacts-process"]; first-wins
+DuplicateArchetype: 'Standard' contributed by modules ["spec-artifacts-process", "spec-artifacts-process"]; first-wins
+DuplicateInverseEdge: inverse label 'part_of' declared by verbs ["aggregates", "contains"]; first-wins
+    Finished test [unoptimized + debuginfo] target(s) in 0.05s
+     Running unittests src/lib.rs (target/debug/deps/tl_rewrite-25c996a0e818a8fe)
+     Running tests/catalog.rs (target/debug/deps/catalog-911862c00fefc545)
+     Running tests/equivalence.rs (target/debug/deps/equivalence-d3302c7d6ded00ad)
+     Running tests/property.rs (target/debug/deps/property-90cd33eb221065af)
+     Running tests/replay.rs (target/debug/deps/replay-176ce207c5741d51)
+     Running tests/rewrite.rs (target/debug/deps/rewrite-acb6c58606d98bcc)
+     Running tests/rule_evidence.rs (target/debug/deps/rule_evidence-7631a373baebd990)
+     Running tests/wire_evidence.rs (target/debug/deps/wire_evidence-73242b8fd28bae25)
+ Documenting tl-rewrite v0.1.0 (/home/peter/dev/tl-rewrite)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.51s
+   Generated /home/peter/dev/tl-rewrite/target/doc/tl_rewrite/index.html
