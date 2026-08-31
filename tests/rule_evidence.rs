@@ -275,6 +275,14 @@ fn every_enabled_rule_has_positive_exhaustive_bounded_evidence() {
             "{} was not exercised",
             rule.id
         );
+        assert!(
+            rewritten
+                .steps
+                .iter()
+                .any(|step| { step.rule_id == rule.id && step.rule_revision == rule.revision }),
+            "{} did not emit its catalog revision",
+            rule.id
+        );
         let conformance = check_equivalence(
             &input,
             rewritten.output.as_ref().unwrap(),

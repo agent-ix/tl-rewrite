@@ -681,6 +681,9 @@ fn build_pass(
     let mut source_stack = vec![input.root()];
     while let Some(source) = source_stack.pop() {
         let index = source.0 as usize;
+        if index >= relevant_sources.len() || index >= retained_source_operands.len() {
+            return Err(Abort::Budget(BudgetKind::Nodes));
+        }
         if relevant_sources[index] {
             continue;
         }

@@ -1,0 +1,73 @@
+{
+  "finalEnvelopeSha256": "fe1d5282a9a346fd90519ddc888a6b498cca0c84ed0402dacf0011a509403556",
+  "finalEnvelopeValidated": false,
+  "outcomes": [
+    {
+      "exitCode": 0,
+      "name": "make-ci",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "name": "make-spec",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "name": "quire-coverage",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "name": "rustdoc",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "name": "default-dependencies",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "name": "corpus-integrity",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "name": "diff-integrity",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "name": "input-schema",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "name": "manifest-schema",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "name": "pgm01-schema",
+      "status": "passed"
+    },
+    {
+      "exitCode": 0,
+      "name": "pgm01-validator",
+      "status": "passed"
+    },
+    {
+      "exitCode": null,
+      "name": "sealed-pgm01-schema",
+      "status": "inconclusive"
+    },
+    {
+      "exitCode": null,
+      "name": "sealed-pgm01-validator",
+      "status": "inconclusive"
+    }
+  ],
+  "overallStatus": "inconclusive",
+  "schemaVersion": "tl-rewrite.collection-summary/v1"
+}

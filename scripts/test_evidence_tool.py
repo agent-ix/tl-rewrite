@@ -85,6 +85,10 @@ def main() -> int:
         rederived = FINALIZER.summary(evidence_dir)
         assert rederived["overallStatus"] == "failed"
         assert rederived != retained
+        (evidence_dir / "newgate.status.txt").write_text("1\n", encoding="utf-8")
+        censused = FINALIZER.summary(evidence_dir)
+        assert any(item["name"] == "newgate" for item in censused["outcomes"])
+        assert censused["overallStatus"] == "failed"
 
         missing_summary = subprocess.run(
             [
@@ -124,7 +128,20 @@ def main() -> int:
         (evidence_dir / "evidence-manifest.json").write_text(
             json.dumps(manifest), encoding="utf-8"
         )
+        checksum = evidence_dir.with_suffix(".sha256")
+        checksum.write_text(
+            "".join(
+                f"{VERIFIER.sha256(path)}  {path}\n"
+                for path in sorted(evidence_dir.iterdir())
+                if path.is_file()
+            ),
+            encoding="utf-8",
+        )
         assert VERIFIER.verify(evidence_dir) == []
+        added = evidence_dir / "reviewer-attestation.txt"
+        added.write_text("FABRICATED\n", encoding="utf-8")
+        assert any("unlisted" in error for error in VERIFIER.verify(evidence_dir))
+        added.unlink()
         artifact.write_text("FABRICATED\n", encoding="utf-8")
         assert VERIFIER.verify(evidence_dir)
     print("evidence outcome behavior is valid")

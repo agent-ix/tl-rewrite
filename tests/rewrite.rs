@@ -121,6 +121,23 @@ fn retained_source_selection_is_charged_to_the_work_budget() {
     assert_eq!(report.status, RewriteStatus::BudgetExhausted);
     assert_eq!(report.exhausted_budget, Some(BudgetKind::WorkUnits));
     assert!(report.output.is_none());
+
+    let mut nodes = vec![proposition(0)];
+    for index in 0..20 {
+        nodes.push(Node::new(NodeKind::And {
+            left: NodeId(index),
+            right: NodeId(index),
+        }));
+    }
+    let shared = document(SemanticProfile::ClosedTraceV1, nodes);
+    let report = rewrite(
+        &shared,
+        "retained-source-dedup",
+        RewriteOptions::default(),
+        "source",
+    );
+    assert_eq!(report.status, RewriteStatus::Normalized);
+    assert_eq!(report.work_units, 46);
 }
 
 // Trace: TC-007, FR-002-AC-2, NFR-001-AC-2

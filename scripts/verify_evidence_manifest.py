@@ -5,8 +5,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
+
+
+CHECKSUM_LINE = re.compile(r"^([0-9a-f]{64})  (.+)$")
 
 
 def sha256(path: Path) -> str:
@@ -17,7 +21,34 @@ def verify(evidence_dir: Path) -> list[str]:
     manifest = json.loads(
         (evidence_dir / "evidence-manifest.json").read_text(encoding="utf-8")
     )
-    errors = []
+    errors: list[str] = []
+    checksum_path = evidence_dir.with_suffix(".sha256")
+    expected_files: set[Path] = set()
+    try:
+        checksum_lines = checksum_path.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        return [f"cannot read exact-membership manifest: {error}"]
+    for number, line in enumerate(checksum_lines, start=1):
+        match = CHECKSUM_LINE.fullmatch(line)
+        if match is None:
+            errors.append(f"malformed checksum line {number}: {line!r}")
+            continue
+        path = Path(match.group(2))
+        try:
+            relative = path.relative_to(evidence_dir)
+        except ValueError:
+            errors.append(f"checksum path escapes evidence directory: {path}")
+            continue
+        expected_files.add(relative)
+    actual_files = {
+        path.relative_to(evidence_dir)
+        for path in evidence_dir.rglob("*")
+        if path.is_file() and not path.is_symlink()
+    }
+    for relative in sorted(actual_files - expected_files):
+        errors.append(f"unlisted retained artifact: {relative}")
+    for relative in sorted(expected_files - actual_files):
+        errors.append(f"missing retained artifact: {relative}")
     for artifact in manifest["artifacts"]:
         relative = Path(artifact["path"])
         if relative.is_absolute() or ".." in relative.parts:
