@@ -43,7 +43,9 @@ collection_failed=0
 /usr/bin/python3 scripts/tool_identity.py --verify-live
 trusted_path="$(/usr/bin/python3 scripts/tool_identity.py --trusted-path)"
 qualified_home="$(/usr/bin/python3 scripts/tool_identity.py --home)"
-clean_env=(/usr/bin/env -i PATH="$trusted_path" HOME="$qualified_home" USER="${USER:-}" LANG="${LANG:-C}" PGM01_SCHEMA="${PGM01_SCHEMA:-}" PGM01_VALIDATOR="${PGM01_VALIDATOR:-}" PGM01_PYTHON="${PGM01_PYTHON:-}")
+qualified_target="$(/usr/bin/python3 -c 'import json; print(json.load(open("tools.lock"))["environment"]["cargoTargetDir"])')"
+qualified_toolchain="$(/usr/bin/python3 -c 'import json; print(json.load(open("tools.lock"))["environment"]["rustupToolchain"])')"
+clean_env=(/usr/bin/env -i PATH="$trusted_path" HOME="$qualified_home" USER="qualified" LANG="C.UTF-8" LC_ALL="C.UTF-8" CARGO_TARGET_DIR="$qualified_target" RUSTUP_TOOLCHAIN="$qualified_toolchain" PGM01_SCHEMA="${PGM01_SCHEMA:-}" PGM01_VALIDATOR="${PGM01_VALIDATOR:-}" PGM01_PYTHON="${PGM01_PYTHON:-}")
 
 run_and_retain() {
   local name="$1"
@@ -81,20 +83,24 @@ echo clean >"$evidence_dir/source-state.txt"
 "${clean_env[@]}" python3 -c 'import json; from jsonschema import FormatChecker; print(json.dumps(sorted(FormatChecker().checkers)))' >"$evidence_dir/jsonschema-format-checkers.json"
 "${clean_env[@]}" quire provenance --pretty >"$evidence_dir/quire-provenance.json"
 "${clean_env[@]}" cargo metadata --format-version 1 --all-features >"$evidence_dir/metadata.json"
-for tool in bash cargo git make python3 quire rustc sha256sum; do
+for tool in bash cargo git make node python3 quire rustc sha256sum; do
   resolved="$(PATH="$trusted_path" command -v "$tool")"
   printf '%s\n' "$resolved" >"$evidence_dir/tool-${tool}-path.txt"
   /usr/bin/sha256sum "$resolved" | /usr/bin/cut -d' ' -f1 >"$evidence_dir/tool-${tool}-sha256.txt"
+done
+for tool in cargo rustc; do
+  /usr/bin/python3 -c 'import json,sys; print(json.load(open("tools.lock"))["runtimeIdentities"][sys.argv[1]]["path"])' "$tool" >"$evidence_dir/runtime-${tool}-path.txt"
+  /usr/bin/python3 -c 'import json,sys; print(json.load(open("tools.lock"))["runtimeIdentities"][sys.argv[1]]["sha256"])' "$tool" >"$evidence_dir/runtime-${tool}-sha256.txt"
 done
 
 run_and_retain make-ci "${clean_env[@]}" make ci-for-evidence
 run_and_retain make-spec "${clean_env[@]}" make spec
 run_and_retain quire-coverage "${clean_env[@]}" quire coverage --scope . --strict
 run_and_retain msrv "${clean_env[@]}" cargo +1.75.0 test --all-targets --all-features
-run_and_retain rustdoc "${clean_env[@]}" env RUSTDOCFLAGS=-Dwarnings cargo doc --no-deps --all-features
+run_and_retain rustdoc "${clean_env[@]}" /usr/bin/env RUSTDOCFLAGS=-Dwarnings /usr/bin/bash scripts/check_rustdoc.sh
 run_and_retain default-dependencies "${clean_env[@]}" cargo tree --no-default-features --edges normal
 run_and_retain corpus-integrity "${clean_env[@]}" make check-corpus
-run_and_retain diff-integrity "${clean_env[@]}" git diff --check "origin/main...$source_revision"
+run_and_retain diff-integrity "${clean_env[@]}" python3 scripts/check_diff_integrity.py "$source_revision"
 "${clean_env[@]}" python3 scripts/build_evidence_envelope.py "$evidence_dir" provisional
 run_and_retain input-schema "${clean_env[@]}" python3 scripts/validate_json_schema.py schemas/tl-rewrite-evidence-input-v1.schema.json "$evidence_dir/collection-input.json"
 run_and_retain manifest-schema "${clean_env[@]}" python3 scripts/validate_json_schema.py schemas/tl-rewrite-evidence-manifest-v1.schema.json "$evidence_dir/evidence-manifest.json"

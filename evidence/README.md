@@ -8,6 +8,14 @@ retains stdout, stderr, exit status, identities, limitations, a canonical
 `evidence/ANCHORS` binds every retained outer manifest. The complete local gate
 requires an anchor for every record before checking the retained files,
 manifest-to-artifact identities, and the summary re-derived from status files.
+Retraction entries bind the exact outer-manifest digest, source revision, date,
+reviewer, and supported reason. A documented legacy reseal is bound in the same
+entry and checked against its Git introduction.
+
+`make ci` is portable and does not require one workstation's `tools.lock` paths.
+Evidence collection uses `make ci-for-evidence`, which additionally verifies
+the declared host's launchers, Node runtime, and underlying Rust binaries. That
+host-scoped result does not claim independent reproduction elsewhere.
 
 Set `PGM01_SCHEMA` and `PGM01_VALIDATOR` to the exact merged PGM-01 Draft 7
 schema and validator. Set `PGM01_PYTHON` when the validator's exact dependency

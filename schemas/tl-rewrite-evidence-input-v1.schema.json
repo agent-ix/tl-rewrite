@@ -9,7 +9,7 @@
   "allOf": [
     {
       "if": {"required": ["qualificationProfile"]},
-      "then": {"properties": {"tools": {"required": ["identities"]}}}
+      "then": {"properties": {"tools": {"required": ["identities", "runtimeIdentities"]}}}
     }
   ],
   "properties": {
@@ -37,7 +37,16 @@
         "identities": {
           "type": "object",
           "additionalProperties": {"$ref": "#/definitions/toolIdentity"},
-          "required": ["bash", "cargo", "git", "make", "python3", "quire", "rustc", "sha256sum"]
+          "required": ["bash", "cargo", "git", "make", "node", "python3", "quire", "rustc", "sha256sum"]
+        },
+        "runtimeIdentities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cargo", "rustc"],
+          "properties": {
+            "cargo": {"$ref": "#/definitions/toolIdentity"},
+            "rustc": {"$ref": "#/definitions/toolIdentity"}
+          }
         }
       }
     },

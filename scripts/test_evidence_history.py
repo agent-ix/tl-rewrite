@@ -24,6 +24,7 @@ SPEC.loader.exec_module(MODULE)
 def main() -> int:
     if sys.flags.optimize or os.environ.get("PYTHONOPTIMIZE"):
         return 2
+    assert MODULE.verify(ROOT) == [], "checked-in reseal disposition is not history-bound"
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         evidence = root / "evidence"

@@ -42,12 +42,19 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def positive_census_required(evidence_dir: Path) -> bool:
-    return resolve_profile(evidence_dir) == "v2"
-
-
 def source_revision(evidence_dir: Path) -> str:
     return (evidence_dir / "source-revision.txt").read_text(encoding="utf-8").strip()
+
+
+def source_text(evidence_dir: Path, relative: str) -> str | None:
+    result = subprocess.run(
+        ["/usr/bin/git", "show", f"{source_revision(evidence_dir)}:{relative}"],
+        cwd=Path(__file__).resolve().parent.parent,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout if result.returncode == 0 else None
 
 
 def expected_test_markers(evidence_dir: Path) -> tuple[str, ...]:
@@ -108,17 +115,22 @@ def positive_output(evidence_dir: Path, name: str) -> bool:
         if path.exists()
     )
     if name == "diff-integrity":
-        return True
+        checker = source_text(evidence_dir, "scripts/check_diff_integrity.py")
+        return checker is None or (
+            f"diff-integrity gate passed for origin/main...{source_revision(evidence_dir)}" in output
+        )
     if name == "make-ci":
-        gate_signatures = (
-            "fmt-check gate passed", "lint gate passed", "Rust test gate passed",
-            "corpus-integrity gate passed", "deny gate passed",
-            "audit-unsafe gate passed", "evidence-tool gate passed",
+        makefile = source_text(evidence_dir, "Makefile") or ""
+        known_signatures = (
+            "qualified-tool-identities gate passed", "fmt-check gate passed",
+            "lint gate passed", "Rust test gate passed", "corpus-integrity gate passed",
+            "deny gate passed", "audit-unsafe gate passed", "evidence-tool gate passed",
             "spec gate passed", "msrv gate passed", "rustdoc gate passed",
         )
+        gate_signatures = tuple(signature for signature in known_signatures if signature in makefile)
         return (
             positive_test_census(evidence_dir, output, 2)
-            and "all 11 mandatory local-CI targets propagate failures" in output
+            and re.search(r"all [1-9][0-9]* mandatory local-CI targets propagate failures", output) is not None
             and re.search(r"all [1-9][0-9]* evidence-policy behavior tests passed", output) is not None
             and complete_fraction(output, r"strict traceability coverage is complete:")
             and "licenses ok" in output
@@ -129,15 +141,31 @@ def positive_output(evidence_dir: Path, name: str) -> bool:
     if name == "msrv":
         return positive_test_census(evidence_dir, output, 1)
     if name == "rustdoc":
-        return "Generated " in output and "/doc/tl_rewrite/index.html" in output
+        checker = source_text(evidence_dir, "scripts/check_rustdoc.sh")
+        return (
+            "Generated " in output and "/doc/tl_rewrite/index.html" in output
+            and (
+                checker is None
+                or re.search(r"rustdoc index SHA-256 [0-9a-f]{64}", output) is not None
+            )
+        )
     if name == "quire-coverage":
         return complete_fraction(output, r"Coverage:")
     if name == "make-spec":
         return complete_fraction(output, r"strict traceability coverage is complete:")
     if name == "default-dependencies":
-        return "tl-rewrite v0.1.0" in output
+        manifest = source_text(evidence_dir, "Cargo.toml") or ""
+        revisions = re.findall(r'git\s*=\s*"[^"]+"\s*,\s*rev\s*=\s*"([0-9a-f]{40})"', manifest)
+        return (
+            "tl-rewrite v0.1.0" in output
+            and len(revisions) >= 2
+            and all(revision[:8] in output for revision in revisions)
+        )
     if name == "corpus-integrity":
-        return "WEST corpus checksum census passed" in output
+        checker = source_text(evidence_dir, "scripts/check_corpus.py") or ""
+        return "WEST corpus checksum census passed" not in checker or (
+            "WEST corpus checksum census passed" in output
+        )
     if name in {
         "input-schema", "manifest-schema", "pgm01-schema", "pgm01-validator",
         "sealed-pgm01-schema", "sealed-pgm01-validator",
@@ -266,12 +294,29 @@ def validate_tool_identity(evidence_dir: Path) -> list[str]:
         collection_input = json.loads(
             (evidence_dir / "collection-input.json").read_text(encoding="utf-8")
         )
-        observed = collection_input["tools"]["identities"]
+        observed = {"tools": collection_input["tools"]["identities"]}
+        if "runtimeIdentities" in expected:
+            observed["runtimeIdentities"] = collection_input["tools"]["runtimeIdentities"]
     except (KeyError, OSError, ValueError, json.JSONDecodeError) as error:
         return [f"cannot rederive retained tool identities: {error}"]
     return [] if observed == expected else [
         f"retained tool identities disagree with source tools.lock: {evidence_dir}"
     ]
+
+
+def validate_content_digests(evidence_dir: Path) -> list[str]:
+    try:
+        envelope = json.loads((evidence_dir / "evidence-envelope.json").read_text())
+        input_digest = envelope["inputs"][0]["contentDigest"]["value"]
+        output_digest = envelope["outputs"][0]["contentDigest"]["value"]
+    except (IndexError, KeyError, OSError, TypeError, json.JSONDecodeError) as error:
+        return [f"cannot read retained envelope content digests: {error}"]
+    errors = []
+    if input_digest != sha256(evidence_dir / "collection-input.json"):
+        errors.append(f"envelope input content digest disagrees: {evidence_dir}")
+    if output_digest != sha256(evidence_dir / "evidence-manifest.json"):
+        errors.append(f"envelope output content digest disagrees: {evidence_dir}")
+    return errors
 
 
 def main() -> int:
@@ -299,6 +344,7 @@ def main() -> int:
         return 2
     envelope_errors = validate_envelope_result(evidence_dir, value)
     envelope_errors.extend(validate_tool_identity(evidence_dir))
+    envelope_errors.extend(validate_content_digests(evidence_dir))
     if envelope_errors:
         for error in envelope_errors:
             print(error, file=sys.stderr)

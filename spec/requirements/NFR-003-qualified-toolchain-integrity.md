@@ -43,9 +43,9 @@ transcripts; every mutation must fail closed.
 
 | ID | Criteria | Verification |
 |---|---|---|
-| NFR-003-AC-1 | CI and collection derive HOME and PATH from a source-locked qualification manifest, verify every mandatory executable's absolute path and SHA-256, and re-derive active retained identities from that source lock. | Test (TC-018) |
-| NFR-003-AC-2 | A retained record with an absent or unrecognized qualification profile is inconclusive unless it is explicitly named in the immutable retraction registry; a v2-era omission is rejected. | Test (TC-018) |
-| NFR-003-AC-3 | Every non-silent successful v2 retained command has command-specific positive output, including source-derived Rust suite and exact passing-test counts; the silent diff-integrity lane is established by its exact exit status. | Test (TC-018) |
+| NFR-003-AC-1 | Host-scoped qualification derives HOME, PATH, CARGO_TARGET_DIR, and RUSTUP_TOOLCHAIN from a source-locked manifest, verifies launcher, runtime, and Node executable identities, and re-derives active retained identities. Portable CI does not assert one host's lock. | Test (TC-022) |
+| NFR-003-AC-2 | A retained record with an absent or unrecognized qualification profile is inconclusive unless it has a validated, record-digest-bound retraction; a v2-era omission and retraction of the assured record are rejected. | Test (TC-022) |
+| NFR-003-AC-3 | Every non-silent successful v2 retained command has source-revision-applicable positive output, including source-derived Rust suite and exact passing-test counts; new diff-integrity records emit a positive completion signature. | Test (TC-022) |
 
 ## Dependencies
 

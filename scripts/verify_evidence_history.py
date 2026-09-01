@@ -13,12 +13,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 NAME = re.compile(r"^tl-rewrite-v01-([0-9a-f]{12})-([0-9]{8}T[0-9]{6}Z)$")
-LEGACY_RESEALED_MANIFESTS = {
-    Path("evidence/tl-rewrite-v01-9d28279332ef-20260831T025640Z.sha256"):
-        "5681723e27504d01b8f9361ac85283d087a5e8da75057c2a1231c71fef54cc0f",
-}
-
-
 def git_output(root: Path, *args: str) -> str:
     return subprocess.run(
         ["/usr/bin/git", *args], cwd=root, check=True, capture_output=True, text=True
@@ -39,6 +33,10 @@ def verify(root: Path = ROOT) -> list[str]:
         if path.is_file() and not path.is_symlink()
     }
     errors: list[str] = []
+    try:
+        retractions = json.loads((evidence / "RETRACTIONS.json").read_text())["records"]
+    except (KeyError, OSError, json.JSONDecodeError, TypeError):
+        retractions = {}
     for manifest in sorted(manifests):
         record_id = manifest.name.removesuffix(".sha256")
         match = NAME.fullmatch(record_id)
@@ -77,6 +75,7 @@ def verify(root: Path = ROOT) -> list[str]:
         )
     for manifest in sorted(manifests):
         try:
+            record_id = manifest.name.removesuffix(".sha256")
             commits = git_output(
                 root, "log", "--diff-filter=A", "--format=%H", "HEAD", "--", str(manifest)
             ).splitlines()
@@ -88,8 +87,14 @@ def verify(root: Path = ROOT) -> list[str]:
                 cwd=root, check=True, capture_output=True,
             ).stdout
             current_digest = sha256(root / manifest)
-            expected_digest = LEGACY_RESEALED_MANIFESTS.get(
-                manifest, hashlib.sha256(introduced).hexdigest()
+            introduced_digest = hashlib.sha256(introduced).hexdigest()
+            disposition = retractions.get(record_id, {}).get("reseal")
+            if disposition is not None and disposition.get("introducedManifestSha256") != introduced_digest:
+                errors.append(f"record reseal disposition disagrees with introduction: {manifest}")
+                continue
+            expected_digest = (
+                retractions[record_id]["manifestSha256"]
+                if disposition is not None else introduced_digest
             )
             if expected_digest != current_digest:
                 errors.append(f"record manifest changed after introduction: {manifest}")

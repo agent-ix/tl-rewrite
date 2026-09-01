@@ -155,9 +155,14 @@ def main() -> int:
                 expected_tools = tool_identity.validate_lock(source_tool_lock)
             except (OSError, ValueError, json.JSONDecodeError, subprocess.CalledProcessError):
                 expected_tools = None
-            if expected_tools is not None and tools.get("identities") != expected_tools:
+            observed_tools = {"tools": tools.get("identities")}
+            if expected_tools is not None and "runtimeIdentities" in expected_tools:
+                observed_tools["runtimeIdentities"] = tools.get("runtimeIdentities")
+            if expected_tools is not None and observed_tools != expected_tools:
                 errors.append("record tool identities do not match the source tool lock")
-        elif profile != "legacy":
+        elif profile == "retracted":
+            errors.append("assured evidence is explicitly retracted")
+        elif profile != "inconclusive":
             errors.append("assured evidence uses an unrecognized qualification profile")
     except (KeyError, OSError, json.JSONDecodeError, subprocess.CalledProcessError) as error:
         errors.append(f"cannot rederive assured evidence identities: {error}")

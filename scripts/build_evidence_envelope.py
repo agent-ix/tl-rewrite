@@ -32,7 +32,6 @@ COMMANDS = (
     "make-spec",
     "quire-coverage",
     "msrv",
-    "msrv",
     "rustdoc",
     "default-dependencies",
     "corpus-integrity",
@@ -41,6 +40,8 @@ COMMANDS = (
     "manifest-schema",
     "pgm01-schema",
     "pgm01-validator",
+    "sealed-pgm01-schema",
+    "sealed-pgm01-validator",
 )
 
 
@@ -178,8 +179,15 @@ def build(directory: Path, phase: str) -> None:
                     "sha256": (directory / f"tool-{name}-sha256.txt").read_text().strip(),
                 }
                 for name in (
-                    "bash", "cargo", "git", "make", "python3", "quire", "rustc", "sha256sum"
+                    "bash", "cargo", "git", "make", "node", "python3", "quire", "rustc", "sha256sum"
                 )
+            },
+            "runtimeIdentities": {
+                name: {
+                    "path": (directory / f"runtime-{name}-path.txt").read_text().strip(),
+                    "sha256": (directory / f"runtime-{name}-sha256.txt").read_text().strip(),
+                }
+                for name in ("cargo", "rustc")
             },
         },
         "pgm01": {
@@ -226,6 +234,7 @@ def build(directory: Path, phase: str) -> None:
     )
     limitations = [
         "manual-dispatch remote CI is not part of this local envelope",
+        "qualified executable identities are host-scoped to the declared tools.lock environment and are not a portable-CI claim",
         "38 enabled closed-trace rules have exhaustive small-domain evidence; two WEST Theorem 3 rules remain excluded",
         "ten selected WEST inputs are exercised without claiming universal proof or WEST qualification",
         "online-prefix rewriting, independent human approval, and the source-release decision remain pending",

@@ -9,7 +9,7 @@ endif
 ifneq ($(strip $(PYTHONOPTIMIZE)),)
 $(error local CI refuses optimized Python policy execution)
 endif
-tl_ci_static_status := $(shell env -u PYTHONOPTIMIZE MAKEFLAGS= /usr/bin/python3 scripts/check_failure_propagation.py --makefile '$(firstword $(MAKEFILE_LIST))' --static-only >/dev/null 2>&1; echo $$?)
+tl_ci_static_status := $(shell /usr/bin/env -u PYTHONOPTIMIZE MAKEFLAGS= /usr/bin/python3 scripts/check_failure_propagation.py --makefile '$(firstword $(MAKEFILE_LIST))' --static-only >/dev/null; echo $$?)
 ifneq ($(tl_ci_static_status),0)
 $(error local CI refuses unsafe Make recipe controls)
 endif
@@ -33,8 +33,9 @@ help:
 	@echo "  make rustdoc          - Build warning-free public documentation"
 	@echo "  make msrv             - Test all targets and features with Rust 1.75"
 	@echo "  make evidence-tool    - Syntax-check evidence tooling and schemas"
+	@echo "  make check-tool-identities - Verify host-scoped qualification executables"
 	@echo "  make ci-for-evidence  - Candidate gates before assurance self-binding"
-	@echo "  make ci               - All CI gates locally (fmt-check + lint + test + deny + audit-unsafe)"
+	@echo "  make ci               - Portable complete gate, including retained evidence"
 
 # =============================================================================
 # Format / Lint / Test
@@ -81,7 +82,7 @@ spec:
 
 .PHONY: rustdoc
 rustdoc:
-	RUSTDOCFLAGS=-Dwarnings cargo doc --no-deps --all-features
+	RUSTDOCFLAGS=-Dwarnings /usr/bin/bash scripts/check_rustdoc.sh
 	@/usr/bin/printf 'rustdoc gate passed\n'
 
 .PHONY: evidence-tool
@@ -89,6 +90,11 @@ evidence-tool:
 	/usr/bin/python3 -m compileall -q scripts
 	/usr/bin/python3 scripts/run_policy_tests.py
 	@/usr/bin/printf 'evidence-tool gate passed\n'
+
+.PHONY: check-tool-identities
+check-tool-identities:
+	/usr/bin/python3 scripts/tool_identity.py --verify-live
+	@/usr/bin/printf 'qualified-tool-identities gate passed\n'
 
 .PHONY: build
 build:
@@ -104,6 +110,7 @@ clean:
 
 .PHONY: deny
 deny:
+	cargo deny check advisories
 	cargo deny check licenses
 	cargo deny check sources
 	@/usr/bin/printf 'deny gate passed\n'
@@ -127,6 +134,6 @@ msrv:
 # =============================================================================
 
 .PHONY: ci ci-for-evidence
-ci-for-evidence: check-failure-propagation fmt-check lint test check-corpus deny audit-unsafe evidence-tool spec msrv rustdoc
+ci-for-evidence: check-failure-propagation check-tool-identities fmt-check lint test check-corpus deny audit-unsafe evidence-tool spec msrv rustdoc
 
 ci: check-failure-propagation fmt-check lint test check-corpus deny audit-unsafe evidence-tool spec msrv rustdoc verify-evidence

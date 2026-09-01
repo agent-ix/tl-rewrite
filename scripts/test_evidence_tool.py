@@ -6,6 +6,8 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -34,12 +36,12 @@ VERIFIER_SPEC.loader.exec_module(VERIFIER)
 
 
 def healthy_test_output(repetitions: int) -> str:
-    markers = ["Running unittests src/lib.rs"] + [
-        f"Running tests/{path.name}"
-        for path in sorted((ROOT / "tests").glob("*.rs"))
-    ]
-    counts = (1, 3, 4, 1, 6, 9, 1, 4)
-    assert len(markers) == len(counts)
+    paths = sorted((ROOT / "tests").glob("*.rs"))
+    markers = ["Running unittests src/lib.rs"] + [f"Running tests/{path.name}" for path in paths]
+    counts = [
+        sum(path.read_text(encoding="utf-8").count("#[test]") for path in (ROOT / "src").glob("*.rs"))
+    ] + [path.read_text(encoding="utf-8").count("#[test]") for path in paths]
+    assert all(count > 0 for count in counts)
     return "".join(
         "".join(
             f"{marker}\ntest result: ok. {count} passed; 0 failed; 0 ignored\n"
@@ -52,7 +54,7 @@ def healthy_test_output(repetitions: int) -> str:
 def healthy_ci_output() -> str:
     return healthy_test_output(2) + (
         "all 11 mandatory local-CI targets propagate failures\n"
-        "all 5 evidence-policy behavior tests passed\n"
+        "all 8 evidence-policy behavior tests passed\n"
         "strict traceability coverage is complete: 52/52\n"
         "licenses ok\nsources ok\n"
         "Generated /tmp/doc/tl_rewrite/index.html\n"
@@ -66,6 +68,8 @@ def healthy_ci_output() -> str:
         "spec gate passed\n"
         "msrv gate passed\n"
         "rustdoc gate passed\n"
+        "qualified-tool-identities gate passed\n"
+        f"rustdoc index SHA-256 {'a' * 64}\n"
         "verify-evidence gate passed\n"
     )
 
@@ -77,6 +81,16 @@ def healthy_msrv_output() -> str:
 def main() -> int:
     if sys.flags.optimize or os.environ.get("PYTHONOPTIMIZE"):
         return 2
+    assured = ROOT / "evidence" / "tl-rewrite-v01-1b08a6c9e7bc-20260831T203039Z"
+    assert FINALIZER.validate_content_digests(assured) == []
+    with tempfile.TemporaryDirectory() as directory:
+        digest_fixture = Path(directory)
+        for name in ("collection-input.json", "evidence-manifest.json", "evidence-envelope.json"):
+            shutil.copy2(assured / name, digest_fixture / name)
+        (digest_fixture / "collection-input.json").write_text("{}\n", encoding="utf-8")
+        assert FINALIZER.validate_content_digests(digest_fixture), (
+            "envelope input contentDigest was not rederived"
+        )
     missing_assurance = subprocess.run(
         [
             sys.executable,
@@ -150,7 +164,9 @@ def main() -> int:
         (evidence_dir / "make-ci.stdout").write_text(healthy_ci_output(), encoding="utf-8")
         (evidence_dir / "msrv.stdout").write_text(healthy_msrv_output(), encoding="utf-8")
         (evidence_dir / "rustdoc.stderr").write_text(
-            "Generated /tmp/doc/tl_rewrite/index.html\n", encoding="utf-8"
+            f"Generated /tmp/doc/tl_rewrite/index.html\n"
+            f"rustdoc index SHA-256 {'a' * 64}\n",
+            encoding="utf-8",
         )
         (evidence_dir / "quire-coverage.stdout").write_text(
             "Coverage: 52/52 rows backed (100%)\n", encoding="utf-8"
@@ -159,10 +175,22 @@ def main() -> int:
             "strict traceability coverage is complete: 52/52\n", encoding="utf-8"
         )
         (evidence_dir / "default-dependencies.stdout").write_text(
-            "tl-rewrite v0.1.0\n", encoding="utf-8"
+            "tl-rewrite v0.1.0\n"
+            + "\n".join(
+                revision[:8]
+                for revision in re.findall(
+                    r'rev\s*=\s*"([0-9a-f]{40})"',
+                    (ROOT / "Cargo.toml").read_text(encoding="utf-8"),
+                )
+            )
+            + "\n",
+            encoding="utf-8",
         )
         (evidence_dir / "corpus-integrity.stdout").write_text(
             "WEST corpus checksum census passed\n", encoding="utf-8"
+        )
+        (evidence_dir / "diff-integrity.stdout").write_text(
+            f"diff-integrity gate passed for origin/main...{revision}\n", encoding="utf-8"
         )
         retained = FINALIZER.summary(evidence_dir)
         assert retained["overallStatus"] == "passed"
@@ -177,7 +205,9 @@ def main() -> int:
         (evidence_dir / "rustdoc.stderr").write_text("", encoding="utf-8")
         assert FINALIZER.summary(evidence_dir)["overallStatus"] == "failed"
         (evidence_dir / "rustdoc.stderr").write_text(
-            "Generated /tmp/doc/tl_rewrite/index.html\n", encoding="utf-8"
+            f"Generated /tmp/doc/tl_rewrite/index.html\n"
+            f"rustdoc index SHA-256 {'a' * 64}\n",
+            encoding="utf-8",
         )
         profile_input = evidence_dir / "collection-input.json"
         profile_input.write_text("{}\n", encoding="utf-8")
@@ -314,17 +344,35 @@ def main() -> int:
             check=False, capture_output=True,
         )
         assert builder.returncode != 0, "evidence builder main accepted missing artifacts"
-    record = next(path for path in (ROOT / "evidence").glob("tl-rewrite-v01-*") if path.is_dir())
-    planted = record / f"PLANTED-EXIT-CONTRACT-{os.getpid()}.txt"
-    planted.write_text("FABRICATED\n", encoding="utf-8")
-    try:
+    with tempfile.TemporaryDirectory() as directory:
+        clone = Path(directory) / "repository"
+        subprocess.run(
+            ["/usr/bin/git", "clone", "--quiet", "--no-hardlinks", str(ROOT), str(clone)],
+            check=True,
+        )
+        for script in (ROOT / "scripts").iterdir():
+            if script.suffix in {".py", ".sh"}:
+                shutil.copy2(script, clone / "scripts" / script.name)
+        shutil.copy2(ROOT / "evidence" / "RETRACTIONS.json", clone / "evidence" / "RETRACTIONS.json")
+        with (clone / ".gitignore").open("a", encoding="utf-8") as ignore:
+            ignore.write("\nevidence/**/PLANTED-EXIT-CONTRACT-*\n")
+        subprocess.run(["/usr/bin/git", "add", "scripts", "evidence/RETRACTIONS.json", ".gitignore"], cwd=clone, check=True)
+        subprocess.run(
+            ["/usr/bin/git", "-c", "user.name=Policy Test", "-c",
+             "user.email=policy@example.invalid", "commit", "-qm", "test current verifier"],
+            cwd=clone, check=True,
+        )
+        record = next(path for path in (clone / "evidence").glob("tl-rewrite-v01-*") if path.is_dir())
+        planted = record / f"PLANTED-EXIT-CONTRACT-{os.getpid()}.txt"
+        planted.write_text("FABRICATED\n", encoding="utf-8")
         shell = subprocess.run(
-            ["/usr/bin/bash", "scripts/verify_evidence.sh"], cwd=ROOT, check=False,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            ["/usr/bin/bash", "scripts/verify_evidence.sh"], cwd=clone, check=False,
+            capture_output=True, text=True,
         )
         assert shell.returncode != 0, "evidence shell verifier exit contract was gutted"
-    finally:
-        planted.unlink(missing_ok=True)
+        assert "unlisted retained artifact" in shell.stderr, (
+            f"clean-tree preflight stopped the census-loop behavior test: {shell.stderr}"
+        )
     print("evidence outcome behavior is valid")
     return 0
 

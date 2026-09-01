@@ -17,7 +17,9 @@ make check-corpus   # verify retained WEST bytes
 make spec           # validate and cover specifications
 make evidence-tool  # test evidence behavior and schemas
 make verify-evidence # verify retained evidence checksum manifests
-make ci             # complete local gate
+make check-tool-identities # host-scoped qualification identity gate
+make ci-for-evidence # portable candidate gates plus the host-scoped identity gate
+make ci             # portable complete gate, including retained evidence
 ```
 
 ## Safety scaffolding

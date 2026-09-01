@@ -32,7 +32,7 @@ relationships:
 |---|---|---|---|
 | NFR-001 | deterministic and resource-bound tests | TC-004 through TC-008, TC-015, TC-017, TC-021 | ✅ covered |
 | NFR-002 | catalog, corpus, and evidence inspection | TC-001, TC-002, TC-016, TC-018, TC-019 | ✅ covered |
-| NFR-003 | qualified-toolchain, profile, and positive-output mutation tests | TC-018 | ✅ covered |
+| NFR-003 | qualified-toolchain, profile, retraction, and positive-output mutation tests | TC-022 | ✅ covered |
 
 ## Test Case Summary
 
@@ -59,3 +59,4 @@ relationships:
 | TC-019 | Inspect human authority and qualification boundary | Integration | P0 | FR-005-AC-3, StR-001-VC-1, NFR-002-AC-2 | ✅ implemented |
 | TC-020 | Detect repeated complete states through the rewrite engine | Unit | P0 | FR-002-AC-2, NFR-001-AC-2 | ✅ implemented |
 | TC-021 | Charge retained-source provenance traversal to the work budget | Unit | P0 | FR-002-AC-2, NFR-001-AC-3 | ✅ implemented |
+| TC-022 | Reject qualified-tool, profile, retraction, census-loop, and positive-output mutations | Integration | P0 | NFR-003-AC-1..NFR-003-AC-3 | ✅ implemented |

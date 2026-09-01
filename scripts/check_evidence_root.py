@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-ALLOWED_FILES = {"ANCHORS", "README.md", "REQUIRED", "RETRACTIONS.json"}
+ALLOWED_FILES = {"ANCHORS", "README.md", "RETRACTIONS.json"}
 
 
 def check(evidence: Path) -> list[str]:

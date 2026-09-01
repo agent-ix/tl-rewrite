@@ -138,7 +138,7 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
         "scripts/check_traceability_coverage.py",
         "/usr/bin/bash scripts/verify_evidence.sh",
         "quire validate",
-        "cargo doc",
+        "scripts/check_rustdoc.sh",
     ] {
         assert!(
             makefile_text.contains(command),
@@ -212,12 +212,13 @@ fn immutable_evidence_contract_and_schemas_are_complete() {
     }
 }
 
-// Trace: TC-018, FR-005-AC-2, NFR-002-AC-2
+// Trace: TC-018, TC-022, FR-005-AC-2, NFR-002-AC-2
+// Trace: NFR-003-AC-1, NFR-003-AC-2, NFR-003-AC-3
 #[test]
 fn evidence_producer_rejects_false_success_classifications() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let output = Command::new("python3")
-        .arg("scripts/test_evidence_tool.py")
+    let output = Command::new("/usr/bin/python3")
+        .arg("scripts/run_policy_tests.py")
         .current_dir(root)
         .output()
         .unwrap();
