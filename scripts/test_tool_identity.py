@@ -7,6 +7,8 @@ import hashlib
 import importlib.util
 import json
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -53,9 +55,17 @@ def main() -> int:
         }
         lock = root / "tools.lock"
         lock.write_text(json.dumps(value), encoding="utf-8")
+        copied_script = root / "scripts" / "tool_identity.py"
+        copied_script.parent.mkdir()
+        shutil.copy2(ROOT / "scripts" / "tool_identity.py", copied_script)
         loaded, identities = MODULE.load_lock(lock)
         assert loaded == value
         assert MODULE.verify_live(loaded, identities) == ([], [])
+        passed = subprocess.run(
+            [sys.executable, str(copied_script), "--verify-live"],
+            check=False, capture_output=True, text=True,
+        )
+        assert passed.returncode == 0, passed.stderr
 
         shadow = root / "shadow"
         shadow.mkdir()
@@ -74,6 +84,19 @@ def main() -> int:
 
         identities["tools"]["cargo"]["sha256"] = "0" * 64
         assert MODULE.verify_live(loaded, identities)[1]
+        cargo_path = Path(tools["cargo"]["path"])
+        cargo_path.write_text("#!/bin/sh\necho changed\n", encoding="utf-8")
+        mismatched = subprocess.run(
+            [sys.executable, str(copied_script), "--verify-live"],
+            check=False, capture_output=True, text=True,
+        )
+        assert mismatched.returncode == 1 and "digest mismatch" in mismatched.stderr
+        cargo_path.unlink()
+        unavailable = subprocess.run(
+            [sys.executable, str(copied_script), "--verify-live"],
+            check=False, capture_output=True, text=True,
+        )
+        assert unavailable.returncode == 2 and "cannot read locked tool" in unavailable.stderr
         try:
             MODULE.validate_lock({**value, "environment": {"home": "relative"}})
         except ValueError:

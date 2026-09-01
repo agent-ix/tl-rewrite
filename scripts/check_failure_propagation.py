@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -25,11 +24,22 @@ PROBE_TARGETS = PROBES | {QUALIFICATION_TARGET}
 TARGET = re.compile(r"^([A-Za-z0-9_.-]+):(?:\s+(.*?))?\s*$")
 SHELL_CONTROL = re.compile(r"&&|\|\||&(?!&)|[;|]")
 IGNORE_ATTRIBUTE = re.compile(r"#\s*\[[^\]]*\bignore\b[^\]]*\]")
-MAKEFLAGS_ASSIGNMENT = re.compile(
+EXECUTION_CONTROL_ASSIGNMENT = re.compile(
     r"^\s*(?:[^=\s]+(?:\s+[^=\s]+)*\s*:\s*)?"
-    r"(?:(?:export|override|unexport)\s+)*MAKEFLAGS\s*(?:::|:::|:|\+|\?|!)?=\s*(.*)$"
+    r"(?:(?:export|override|private|unexport)\s+)*"
+    r"(?P<name>MAKEFLAGS|MAKE|SHELL|\.SHELLFLAGS)\s*"
+    r"(?:::|:::|:|\+|\?|!)?=\s*(?P<value>.*)$"
 )
-MAKEFLAGS_DEFINE = re.compile(r"^\s*(?:override\s+)?define\s+MAKEFLAGS(?:\s|$)")
+EXECUTION_CONTROL_DEFINE = re.compile(
+    r"^\s*(?:(?:export|override|private|unexport)\s+)*"
+    r"define\s+(?:MAKEFLAGS|MAKE|SHELL|\.SHELLFLAGS)(?:\s|$)"
+)
+EXECUTION_CONTROL_EVAL = re.compile(r"\$(?:\(|\{)\s*eval(?:\s|[)}])")
+EXECUTION_CONTROL_DIRECTIVE = re.compile(
+    r"^\s*\.(?:IGNORE|SILENT|ONESHELL|DEFAULT)\s*(?::|$)"
+)
+MAKEFILE_IMPORT = re.compile(r"^\s*(?:-?include|sinclude)\s+")
+MAKEFILE_IMPORT_EVAL = re.compile(r"\$(?:\(|\{)\s*eval\s+(?:-?include|sinclude)\b")
 
 
 def parse_makefile(text: str) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
@@ -50,19 +60,6 @@ def parse_makefile(text: str) -> tuple[dict[str, list[str]], dict[str, list[str]
         current = match.group(1)
         dependencies[current] = (match.group(2) or "").split()
     return dependencies, recipes
-
-
-def makeflags_ignore_errors(value: str) -> bool:
-    try:
-        tokens = shlex.split(value)
-    except ValueError:
-        return True
-    return any(
-        token == "--ignore-errors"
-        or (token.startswith("-") and not token.startswith("--") and "i" in token[1:])
-        or (token and not token.startswith("-") and "=" not in token and "i" in token)
-        for token in tokens
-    )
 
 
 def command_parts(command: str) -> tuple[str, str]:
@@ -94,13 +91,19 @@ def inspect(makefile: Path, root: Path = ROOT) -> list[str]:
             f"extra={sorted(candidate_observed - candidate_required)}"
         )
     for number, line in enumerate(text.splitlines(), start=1):
-        if re.match(r"^\s*\.(?:IGNORE|SILENT)\s*(?::|$)", line):
+        if EXECUTION_CONTROL_DIRECTIVE.match(line):
             errors.append(f"Makefile:{number} declares a global recipe-control directive")
-        if MAKEFLAGS_DEFINE.match(line):
-            errors.append(f"Makefile:{number} defines MAKEFLAGS with a multiline assignment")
-        assignment = MAKEFLAGS_ASSIGNMENT.match(line)
-        if assignment is not None and makeflags_ignore_errors(assignment.group(1)):
-            errors.append(f"Makefile:{number} enables MAKEFLAGS ignore-errors")
+        if EXECUTION_CONTROL_DEFINE.match(line):
+            errors.append(f"Makefile:{number} defines a multiline recipe execution control")
+        assignment = EXECUTION_CONTROL_ASSIGNMENT.match(line)
+        if assignment is not None:
+            errors.append(
+                f"Makefile:{number} assigns recipe execution control {assignment.group('name')}"
+            )
+        if EXECUTION_CONTROL_EVAL.search(line):
+            errors.append(f"Makefile:{number} evaluates a recipe execution control")
+        if MAKEFILE_IMPORT.match(line) or MAKEFILE_IMPORT_EVAL.search(line):
+            errors.append(f"Makefile:{number} imports unchecked Make execution controls")
     for target in sorted(required | candidate_required):
         commands = recipes.get(target, [])
         if not commands:
@@ -124,7 +127,27 @@ def inspect(makefile: Path, root: Path = ROOT) -> list[str]:
 
 def probe_command_positions(makefile: Path) -> list[str]:
     """Substitute false at every mandatory recipe position and require Make to fail."""
-    _, recipes = parse_makefile(makefile.read_text(encoding="utf-8"))
+    text = makefile.read_text(encoding="utf-8")
+    _, recipes = parse_makefile(text)
+    prelude: list[str] = []
+    in_control_define = False
+    for line in text.splitlines():
+        if in_control_define:
+            prelude.append(line)
+            if line.strip() == "endef":
+                in_control_define = False
+            continue
+        if EXECUTION_CONTROL_DEFINE.match(line):
+            prelude.append(line)
+            in_control_define = True
+        elif (
+            EXECUTION_CONTROL_DIRECTIVE.match(line)
+            or EXECUTION_CONTROL_ASSIGNMENT.match(line)
+            or EXECUTION_CONTROL_EVAL.search(line)
+            or MAKEFILE_IMPORT.match(line)
+            or MAKEFILE_IMPORT_EVAL.search(line)
+        ):
+            prelude.append(line)
     errors: list[str] = []
     make = shutil.which("make")
     if make != "/usr/bin/make":
@@ -136,7 +159,7 @@ def probe_command_positions(makefile: Path) -> list[str]:
         for target in sorted(PROBE_TARGETS):
             commands = recipes.get(target, [])
             for selected in range(len(commands)):
-                lines = [f".PHONY: {target}", f"{target}:"]
+                lines = prelude + [f".PHONY: {target}", f"{target}:"]
                 for index, command in enumerate(commands):
                     modifiers, _ = command_parts(command)
                     lines.append(f"\t{modifiers}{'false' if index == selected else 'true'}")

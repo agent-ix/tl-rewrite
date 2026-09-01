@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import re
@@ -32,6 +33,62 @@ def git_bytes(revision: str, path: Path) -> bytes:
     ).stdout
 
 
+def historical_fixed_parameter_paths(source_builder: bytes) -> set[str]:
+    """Read the historical builder's fixed parameter tuple without executing it."""
+    module = ast.parse(source_builder.decode("utf-8"))
+    bindings: dict[str, Path] = {}
+
+    def path_value(node: ast.AST) -> Path | None:
+        if isinstance(node, ast.Name):
+            if node.id == "ROOT":
+                return Path()
+            return bindings.get(node.id)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return Path(node.value)
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+            left = path_value(node.left)
+            right = path_value(node.right)
+            if left is not None and right is not None:
+                return left / right
+        return None
+
+    parameter_function: ast.FunctionDef | None = None
+    for statement in module.body:
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if statement.name == "parameter_paths" and isinstance(statement, ast.FunctionDef):
+                parameter_function = statement
+            continue
+        if (
+            isinstance(statement, ast.Assign)
+            and len(statement.targets) == 1
+            and isinstance(statement.targets[0], ast.Name)
+        ):
+            value = path_value(statement.value)
+            if value is not None:
+                bindings[statement.targets[0].id] = value
+    if parameter_function is None:
+        raise ValueError("historical builder has no parameter_paths function")
+    fixed_value: ast.AST | None = None
+    for statement in parameter_function.body:
+        if (
+            isinstance(statement, ast.Assign)
+            and len(statement.targets) == 1
+            and isinstance(statement.targets[0], ast.Name)
+            and statement.targets[0].id == "fixed"
+        ):
+            fixed_value = statement.value
+            break
+    if not isinstance(fixed_value, (ast.Tuple, ast.List)):
+        raise ValueError("historical builder has no literal fixed parameter census")
+    paths: set[str] = set()
+    for item in fixed_value.elts:
+        value = path_value(item)
+        if value is None or value.is_absolute() or value == Path():
+            raise ValueError("historical builder has an unsupported fixed parameter expression")
+        paths.add(str(value))
+    return paths
+
+
 def historical_parameters_digest(revision: str) -> str:
     """Recreate the builder's parameter set from the retained source tree."""
     tree = set(
@@ -43,16 +100,8 @@ def historical_parameters_digest(revision: str) -> str:
             text=True,
         ).stdout.splitlines()
     )
-    fixed = {
-        str(path.relative_to(ROOT))
-        for path in builder.parameter_paths()
-        if path.parent != ROOT / "scripts"
-    }
     source_builder = git_bytes(revision, builder.BUILDER)
-    if b"TOOLS_LOCK" not in source_builder:
-        fixed.discard("tools.lock")
-    if b"EVIDENCE_RETRACTIONS" not in source_builder:
-        fixed.discard("evidence/RETRACTIONS.json")
+    fixed = historical_fixed_parameter_paths(source_builder)
     scripts = {
         path
         for path in tree
@@ -81,11 +130,14 @@ def main() -> int:
     except OSError as error:
         print(f"cannot read assurance argument: {error}", file=sys.stderr)
         return 2
+    record_matches = re.findall(r"`(evidence/tl-rewrite-v01-[^`]+)`", assurance)
     record_match = re.search(r"`(evidence/tl-rewrite-v01-[^`]+)`", assurance)
     outer_match = re.search(r"checksum-manifest\s+SHA-256\s+`([0-9a-f]{64})`", assurance, re.DOTALL)
     envelope_match = re.search(r"final envelope SHA-256 is\s+`([0-9a-f]{64})`", assurance, re.DOTALL)
     count_match = re.search(r"All\s+([0-9]+)\s+collection and post-seal outcomes passed", assurance)
-    if any(match is None for match in (record_match, outer_match, envelope_match, count_match)):
+    if len(record_matches) != 1 or any(
+        match is None for match in (record_match, outer_match, envelope_match, count_match)
+    ):
         print("assurance argument does not identify one record, digests, and outcome count", file=sys.stderr)
         return 1
     assert record_match and outer_match and envelope_match and count_match
@@ -150,20 +202,17 @@ def main() -> int:
             lock_digest = hashlib.sha256(git_bytes(source_revision, ROOT / "Cargo.lock")).hexdigest()
             if envelope.get("environment", {}).get("dependenciesDigest", {}).get("value") != lock_digest:
                 errors.append("envelope dependency digest does not match the source revision")
-            try:
-                source_tool_lock = json.loads(git_bytes(source_revision, builder.TOOLS_LOCK))
-                expected_tools = tool_identity.validate_lock(source_tool_lock)
-            except (OSError, ValueError, json.JSONDecodeError, subprocess.CalledProcessError):
-                expected_tools = None
+            source_tool_lock = json.loads(git_bytes(source_revision, builder.TOOLS_LOCK))
+            expected_tools = tool_identity.validate_lock(source_tool_lock)
             observed_tools = {"tools": tools.get("identities")}
-            if expected_tools is not None and "runtimeIdentities" in expected_tools:
+            if "runtimeIdentities" in expected_tools:
                 observed_tools["runtimeIdentities"] = tools.get("runtimeIdentities")
-            if expected_tools is not None and observed_tools != expected_tools:
+            if observed_tools != expected_tools:
                 errors.append("record tool identities do not match the source tool lock")
         elif profile == "retracted":
             errors.append("assured evidence is explicitly retracted")
-        elif profile != "inconclusive":
-            errors.append("assured evidence uses an unrecognized qualification profile")
+        else:
+            errors.append("assured evidence is not v2-qualified")
     except (KeyError, OSError, json.JSONDecodeError, subprocess.CalledProcessError) as error:
         errors.append(f"cannot rederive assured evidence identities: {error}")
     for error in errors:

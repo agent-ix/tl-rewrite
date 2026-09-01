@@ -4,8 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
-import subprocess
-import sys
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -27,7 +26,10 @@ def complete_report() -> dict[str, object]:
         "unbacked_rows": [],
         "status_lies": [],
         "untracked_symbols": [],
-        "diagnostics": [],
+        "diagnostics": [
+            {"reason": reason, "declaration": declaration, "value": value}
+            for reason, declaration, value in MODULE.EXPECTED_DIAGNOSTICS
+        ],
     }
 
 
@@ -59,18 +61,15 @@ def main() -> int:
         assert MODULE.validate_matrix_statuses(matrix), (
             "an empty acceptance-criteria cell escaped validation"
         )
-    requirement = ROOT / "spec" / "requirements" / "NFR-001-determinism-resources.md"
-    original = requirement.read_text(encoding="utf-8")
-    try:
-        requirement.write_text(original.replace("TC-021", "TC-999"), encoding="utf-8")
-        assert MODULE.validate_verification_references()
-        actual = subprocess.run(
-            [sys.executable, str(ROOT / "scripts" / "check_traceability_coverage.py")],
-            cwd=ROOT, check=False, capture_output=True,
+    with tempfile.TemporaryDirectory() as directory:
+        fixture_root = Path(directory)
+        shutil.copytree(ROOT / "spec", fixture_root / "spec")
+        requirement = (
+            fixture_root / "spec" / "requirements" / "NFR-001-determinism-resources.md"
         )
-        assert actual.returncode != 0, "traceability gate exit contract accepted bad target"
-    finally:
-        requirement.write_text(original, encoding="utf-8")
+        original = requirement.read_text(encoding="utf-8")
+        requirement.write_text(original.replace("TC-021", "TC-999"), encoding="utf-8")
+        assert MODULE.validate_verification_references(fixture_root)
     print("strict traceability coverage behavior is valid")
     return 0
 

@@ -76,4 +76,4 @@ jobs:
         with:
           tool: cargo-deny
       - name: cargo deny policy
-        run: cargo deny check licenses sources
+        run: cargo deny check advisories licenses sources

@@ -6,6 +6,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -22,7 +23,7 @@ SPEC.loader.exec_module(MODULE)
 def main() -> int:
     active = ROOT / "evidence" / "tl-rewrite-v01-1b08a6c9e7bc-20260831T203039Z"
     legacy = ROOT / "evidence" / "tl-rewrite-v01-4b716afa9d0f-20260831T145617Z"
-    assert MODULE.resolve_profile(active) == "v2"
+    assert MODULE.resolve_profile(active) == "inconclusive"
     assert MODULE.resolve_profile(legacy) == "retracted"
     assert legacy.name in MODULE.retracted_records()
     assert active.name not in MODULE.retracted_records(), "assured record was retracted"
@@ -72,6 +73,29 @@ def main() -> int:
             pass
         else:
             raise AssertionError("unknown qualification profile was accepted")
+        current_revision = subprocess.run(
+            ["/usr/bin/git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
+            capture_output=True, text=True,
+        ).stdout.strip()
+        expected = MODULE.tool_identity.validate_lock(
+            json.loads((ROOT / "tools.lock").read_text(encoding="utf-8"))
+        )
+        (record / "source-revision.txt").write_text(current_revision + "\n", encoding="utf-8")
+        (record / "collection-input.json").write_text(
+            json.dumps({
+                "qualificationProfile": MODULE.QUALIFICATION_V2,
+                "tools": {
+                    "identities": expected["tools"],
+                    "runtimeIdentities": expected["runtimeIdentities"],
+                },
+            }),
+            encoding="utf-8",
+        )
+        assert MODULE.resolve_profile(record) == "v2"
+        (record / "collection-input.json").write_text(
+            json.dumps({"qualificationProfile": MODULE.QUALIFICATION_V2}), encoding="utf-8"
+        )
+        assert MODULE.resolve_profile(record) == "inconclusive"
     print("evidence qualification profile behavior is valid")
     return 0
 

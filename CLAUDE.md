@@ -11,7 +11,7 @@ make lint           # clippy with -D warnings
 make test           # cargo test
 make build          # release build
 make clean          # cargo clean
-make deny           # cargo deny check licenses and sources
+make deny           # cargo deny check advisories, licenses, and sources
 make audit-unsafe   # check that every unsafe block has a // SAFETY: comment
 make check-corpus   # verify retained WEST bytes
 make spec           # validate and cover specifications

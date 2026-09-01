@@ -105,6 +105,7 @@ def parameter_paths() -> tuple[Path, ...]:
     fixed = (
         ROOT / "Cargo.toml",
         ROOT / "Cargo.lock",
+        ROOT / "deny.toml",
         ROOT / "Makefile",
         ROOT / "rust-toolchain.toml",
         ROOT / "src" / "catalog.rs",
@@ -200,6 +201,9 @@ def build(directory: Path, phase: str) -> None:
             "tlSyntaxRevision": TL_SYNTAX_REVISION,
             "tlMltlRevision": TL_MLTL_REVISION,
             "cargoLockDigest": digest(sha256_file(ROOT / "Cargo.lock")),
+            "advisoryDatabase": json.loads(
+                (directory / "advisory-database.json").read_text(encoding="utf-8")
+            ),
         },
         "catalog": {
             "version": "tl-rewrite-rules/v1",

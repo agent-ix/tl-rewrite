@@ -9,6 +9,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import tool_identity
+
 
 ROOT = Path(__file__).resolve().parent.parent
 QUALIFICATION_V2 = "tl-rewrite.evidence-qualification/v2"
@@ -70,12 +72,37 @@ def resolve_profile(evidence_dir: Path) -> str:
     )
     profile = collection_input.get("qualificationProfile")
     revision = (evidence_dir / "source-revision.txt").read_text(encoding="utf-8").strip()
+    source_tree = set(subprocess.run(
+        ["/usr/bin/git", "ls-tree", "-r", "--name-only", revision],
+        cwd=ROOT, check=True, capture_output=True, text=True,
+    ).stdout.splitlines())
     source_builder = subprocess.run(
         ["/usr/bin/git", "show", f"{revision}:scripts/build_evidence_envelope.py"],
         cwd=ROOT, check=True, capture_output=True,
     ).stdout
     source_requires_v2 = QUALIFICATION_V2.encode() in source_builder
     if profile == QUALIFICATION_V2:
+        machinery = {
+            "tools.lock", "scripts/evidence_profile.py", "scripts/finalize_collection.py",
+            "scripts/tool_identity.py",
+        }
+        if not source_requires_v2 or not machinery.issubset(source_tree):
+            return "inconclusive"
+        source_lock = subprocess.run(
+            ["/usr/bin/git", "show", f"{revision}:tools.lock"],
+            cwd=ROOT, check=True, capture_output=True, text=True,
+        ).stdout
+        expected = tool_identity.validate_lock(json.loads(source_lock))
+        tools = collection_input.get("tools")
+        if not isinstance(tools, dict):
+            return "inconclusive"
+        observed = {"tools": tools.get("identities")}
+        if "runtimeIdentities" in expected:
+            observed["runtimeIdentities"] = tools.get("runtimeIdentities")
+        if any(value is None for value in observed.values()):
+            return "inconclusive"
+        if observed != expected:
+            raise ValueError("retained tool identities disagree with source tools.lock")
         return "v2"
     if profile is None and not source_requires_v2:
         return "inconclusive"

@@ -25,7 +25,7 @@ help:
 	@echo "  make check-failure-propagation - prove required command failures reach CI"
 	@echo "  make build            - Release build"
 	@echo "  make clean            - cargo clean"
-	@echo "  make deny             - cargo deny check licenses and sources"
+	@echo "  make deny             - cargo deny check advisories, licenses, and sources"
 	@echo "  make audit-unsafe     - Enforce // SAFETY: comments on unsafe blocks"
 	@echo "  make check-corpus     - Verify retained WEST corpus bytes"
 	@echo "  make verify-evidence  - Verify every retained evidence SHA-256 manifest"
@@ -110,7 +110,7 @@ clean:
 
 .PHONY: deny
 deny:
-	cargo deny check advisories
+	/usr/bin/python3 scripts/check_advisories.py
 	cargo deny check licenses
 	cargo deny check sources
 	@/usr/bin/printf 'deny gate passed\n'

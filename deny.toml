@@ -18,6 +18,7 @@ wildcards = "warn"
 
 [advisories]
 version = 2
+db-path = "$CARGO_HOME/tl-rewrite-advisory-db"
 
 [sources]
 unknown-registry = "deny"

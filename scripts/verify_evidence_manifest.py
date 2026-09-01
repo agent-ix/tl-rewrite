@@ -34,15 +34,32 @@ def verify(evidence_dir: Path) -> list[str]:
         if match is None:
             errors.append(f"malformed checksum line {number}: {line!r}")
             continue
-        path = Path(match.group(2))
-        if path.is_absolute() or ".." in path.parts or path in listed_paths:
-            errors.append(f"unsafe or duplicate checksum path on line {number}: {path}")
+        listed = Path(match.group(2))
+        if listed.is_absolute() or ".." in listed.parts or listed in listed_paths:
+            errors.append(f"unsafe or duplicate checksum path on line {number}: {listed}")
             continue
-        listed_paths.add(path)
-        try:
-            relative = path.relative_to(evidence_dir)
-        except ValueError:
-            errors.append(f"checksum path escapes evidence directory: {path}")
+        listed_paths.add(listed)
+        prefixes: list[Path] = []
+        if evidence_dir.is_absolute():
+            try:
+                prefixes.append(evidence_dir.relative_to(Path.cwd()))
+            except ValueError:
+                pass
+            prefixes.append(Path(evidence_dir.name))
+        else:
+            prefixes.append(evidence_dir)
+        relatives: list[Path] = []
+        for prefix in dict.fromkeys(prefixes):
+            try:
+                relatives.append(listed.relative_to(prefix))
+            except ValueError:
+                continue
+        if len(relatives) != 1:
+            errors.append(f"checksum path escapes evidence directory: {listed}")
+            continue
+        relative = relatives[0]
+        if relative in expected_files:
+            errors.append(f"duplicate checksum member on line {number}: {listed}")
             continue
         expected_files.add(relative)
     actual_files = {

@@ -45,7 +45,7 @@ trusted_path="$(/usr/bin/python3 scripts/tool_identity.py --trusted-path)"
 qualified_home="$(/usr/bin/python3 scripts/tool_identity.py --home)"
 qualified_target="$(/usr/bin/python3 -c 'import json; print(json.load(open("tools.lock"))["environment"]["cargoTargetDir"])')"
 qualified_toolchain="$(/usr/bin/python3 -c 'import json; print(json.load(open("tools.lock"))["environment"]["rustupToolchain"])')"
-clean_env=(/usr/bin/env -i PATH="$trusted_path" HOME="$qualified_home" USER="qualified" LANG="C.UTF-8" LC_ALL="C.UTF-8" CARGO_TARGET_DIR="$qualified_target" RUSTUP_TOOLCHAIN="$qualified_toolchain" PGM01_SCHEMA="${PGM01_SCHEMA:-}" PGM01_VALIDATOR="${PGM01_VALIDATOR:-}" PGM01_PYTHON="${PGM01_PYTHON:-}")
+clean_env=(/usr/bin/env -i PATH="$trusted_path" HOME="$qualified_home" CARGO_HOME="$qualified_home/.cargo" USER="qualified" LANG="C.UTF-8" LC_ALL="C.UTF-8" CARGO_TARGET_DIR="$qualified_target" RUSTUP_TOOLCHAIN="$qualified_toolchain" TL_ADVISORY_IDENTITY_OUTPUT="$evidence_dir/advisory-database.json" PGM01_SCHEMA="${PGM01_SCHEMA:-}" PGM01_VALIDATOR="${PGM01_VALIDATOR:-}" PGM01_PYTHON="${PGM01_PYTHON:-}")
 
 run_and_retain() {
   local name="$1"

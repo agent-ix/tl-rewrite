@@ -5,6 +5,11 @@ creates a revision-and-UTC-time-scoped directory, refuses overwrite, and
 retains stdout, stderr, exit status, identities, limitations, a canonical
 `quire.derivation-evidence/v1` envelope, and an external SHA-256 file.
 
+The candidate checkout must have the intended integration base available as
+`origin/main`; the retained diff-integrity result names and checks the exact
+`origin/main...SOURCE_REVISION` comparison rather than treating a missing base
+as success.
+
 `evidence/ANCHORS` binds every retained outer manifest. The complete local gate
 requires an anchor for every record before checking the retained files,
 manifest-to-artifact identities, and the summary re-derived from status files.
@@ -25,8 +30,9 @@ the finalized envelope again, then writes a separate post-seal summary so the
 envelope never self-attests. Inputs pin tl-syntax, tl-mltl, WEST, the rule
 catalog, parameters, dependencies, schemas, corpus, and PGM-01. Passing records
 also retain the resolved Python interpreter and active JSON-Schema format-checker
-set; the assurance gate re-derives the source-bound parameter, collector, and
-dependency digests.
+set, plus the exact RustSec advisory-database revision used by cargo-deny; the
+assurance gate re-derives the source-bound parameter, collector, and dependency
+digests.
 
 The collector architecture is adapted under MIT OR Apache-2.0 from the
 same-program tl-mltl collector at revision

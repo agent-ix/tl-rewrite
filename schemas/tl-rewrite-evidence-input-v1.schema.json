@@ -9,7 +9,12 @@
   "allOf": [
     {
       "if": {"required": ["qualificationProfile"]},
-      "then": {"properties": {"tools": {"required": ["identities", "runtimeIdentities"]}}}
+      "then": {
+        "properties": {
+          "tools": {"required": ["identities", "runtimeIdentities"]},
+          "dependencies": {"required": ["advisoryDatabase"]}
+        }
+      }
     }
   ],
   "properties": {
@@ -69,7 +74,16 @@
       "properties": {
         "tlSyntaxRevision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
         "tlMltlRevision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
-        "cargoLockDigest": {"$ref": "#/definitions/digest"}
+        "cargoLockDigest": {"$ref": "#/definitions/digest"},
+        "advisoryDatabase": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repository", "revision"],
+          "properties": {
+            "repository": {"const": "https://github.com/RustSec/advisory-db"},
+            "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+          }
+        }
       }
     },
     "catalog": {

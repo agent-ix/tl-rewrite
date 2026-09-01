@@ -13,4 +13,4 @@ if ! /usr/bin/grep -Fq 'tl_rewrite' "$index"; then
   exit 1
 fi
 digest="$(/usr/bin/sha256sum "$index" | /usr/bin/cut -d' ' -f1)"
-/usr/bin/printf 'rustdoc index SHA-256 %s\n' "$digest"
+/usr/bin/printf 'observed rustdoc index SHA-256 %s\n' "$digest"

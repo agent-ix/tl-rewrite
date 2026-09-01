@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 from build_evidence_envelope import classify_result
-from evidence_profile import resolve_profile
+from evidence_profile import QUALIFICATION_V2, resolve_profile
 import tool_identity
 
 
@@ -36,6 +36,9 @@ CONTRADICTION = re.compile(
 TEST_SUCCESS = re.compile(
     r"^test result: ok\. ([1-9][0-9]*) passed; 0 failed; 0 ignored", re.MULTILINE
 )
+CORROBORATED = "passed"
+REJECTED = "failed"
+NOT_APPLICABLE = "inconclusive"
 
 
 def sha256(path: Path) -> str:
@@ -47,14 +50,22 @@ def source_revision(evidence_dir: Path) -> str:
 
 
 def source_text(evidence_dir: Path, relative: str) -> str | None:
-    result = subprocess.run(
-        ["/usr/bin/git", "show", f"{source_revision(evidence_dir)}:{relative}"],
-        cwd=Path(__file__).resolve().parent.parent,
-        check=False,
-        capture_output=True,
-        text=True,
+    revision = source_revision(evidence_dir)
+    root = Path(__file__).resolve().parent.parent
+    subprocess.run(
+        ["/usr/bin/git", "cat-file", "-e", f"{revision}^{{commit}}"],
+        cwd=root, check=True, capture_output=True,
     )
-    return result.stdout if result.returncode == 0 else None
+    paths = subprocess.run(
+        ["/usr/bin/git", "ls-tree", "-r", "--name-only", revision, "--", relative],
+        cwd=root, check=True, capture_output=True, text=True,
+    ).stdout.splitlines()
+    if relative not in paths:
+        return None
+    return subprocess.run(
+        ["/usr/bin/git", "show", f"{revision}:{relative}"],
+        cwd=root, check=True, capture_output=True, text=True,
+    ).stdout
 
 
 def expected_test_markers(evidence_dir: Path) -> tuple[str, ...]:
@@ -101,14 +112,38 @@ def positive_test_census(evidence_dir: Path, output: str, repetitions: int) -> b
     )
 
 
-def complete_fraction(output: str, prefix: str) -> bool:
-    for backed, total in re.findall(prefix + r"\s*([0-9]+)/([0-9]+)", output):
-        if int(total) > 0 and backed == total:
-            return True
-    return False
+def source_paths(evidence_dir: Path, *roots: str) -> list[str]:
+    return subprocess.run(
+        ["/usr/bin/git", "ls-tree", "-r", "--name-only", source_revision(evidence_dir), "--", *roots],
+        cwd=Path(__file__).resolve().parent.parent, check=True, capture_output=True, text=True,
+    ).stdout.splitlines()
 
 
-def positive_output(evidence_dir: Path, name: str) -> bool:
+def expected_policy_test_count(evidence_dir: Path) -> int:
+    return sum(
+        Path(path).name.startswith("test_") and Path(path).suffix == ".py"
+        for path in source_paths(evidence_dir, "scripts")
+    )
+
+
+def expected_trace_total(evidence_dir: Path) -> int:
+    identities: set[str] = set()
+    for relative in source_paths(evidence_dir, "spec"):
+        if not relative.endswith(".md"):
+            continue
+        text = source_text(evidence_dir, relative)
+        assert text is not None
+        identities.update(re.findall(r"(?m)^\|\s*((?:FR|NFR|StR)-[0-9]+-(?:AC|VC)-[0-9]+)\s*\|", text))
+        identities.update(re.findall(r"(?m)^\|\s*((?:TC|SUITE)-[0-9]+)\s*\|", text))
+    return len(identities)
+
+
+def expected_candidate_target_count(makefile: str) -> int:
+    match = re.search(r"(?m)^ci-for-evidence:\s+(.+)$", makefile)
+    return len(match.group(1).split()) if match else 0
+
+
+def positive_output(evidence_dir: Path, name: str) -> str:
     output = "\n".join(
         path.read_text(encoding="utf-8", errors="replace")
         for path in (evidence_dir / f"{name}.stdout", evidence_dir / f"{name}.stderr")
@@ -116,69 +151,94 @@ def positive_output(evidence_dir: Path, name: str) -> bool:
     )
     if name == "diff-integrity":
         checker = source_text(evidence_dir, "scripts/check_diff_integrity.py")
-        return checker is None or (
+        if checker is None:
+            return NOT_APPLICABLE
+        return CORROBORATED if (
             f"diff-integrity gate passed for origin/main...{source_revision(evidence_dir)}" in output
-        )
+        ) else REJECTED
     if name == "make-ci":
-        makefile = source_text(evidence_dir, "Makefile") or ""
+        makefile = source_text(evidence_dir, "Makefile")
+        if makefile is None:
+            return NOT_APPLICABLE
         known_signatures = (
             "qualified-tool-identities gate passed", "fmt-check gate passed",
             "lint gate passed", "Rust test gate passed", "corpus-integrity gate passed",
             "deny gate passed", "audit-unsafe gate passed", "evidence-tool gate passed",
             "spec gate passed", "msrv gate passed", "rustdoc gate passed",
         )
-        gate_signatures = tuple(signature for signature in known_signatures if signature in makefile)
-        return (
+        if any(signature not in makefile for signature in known_signatures):
+            return NOT_APPLICABLE
+        target_count = expected_candidate_target_count(makefile)
+        policy_count = expected_policy_test_count(evidence_dir)
+        trace_total = expected_trace_total(evidence_dir)
+        passed = (
             positive_test_census(evidence_dir, output, 2)
-            and re.search(r"all [1-9][0-9]* mandatory local-CI targets propagate failures", output) is not None
-            and re.search(r"all [1-9][0-9]* evidence-policy behavior tests passed", output) is not None
-            and complete_fraction(output, r"strict traceability coverage is complete:")
+            and target_count > 0
+            and f"all {target_count} mandatory local-CI targets propagate failures" in output
+            and policy_count > 0
+            and f"all {policy_count} evidence-policy behavior tests passed" in output
+            and trace_total > 0
+            and f"strict traceability coverage is complete: {trace_total}/{trace_total}" in output
             and "licenses ok" in output
             and "sources ok" in output
+            and re.search(r"advisories ok at [0-9a-f]{40}", output) is not None
             and "Generated " in output and "/doc/tl_rewrite/index.html" in output
-            and all(signature in output for signature in gate_signatures)
+            and all(signature in output for signature in known_signatures)
         )
+        return CORROBORATED if passed else REJECTED
     if name == "msrv":
-        return positive_test_census(evidence_dir, output, 1)
+        return CORROBORATED if positive_test_census(evidence_dir, output, 1) else REJECTED
     if name == "rustdoc":
         checker = source_text(evidence_dir, "scripts/check_rustdoc.sh")
-        return (
+        if checker is None:
+            return NOT_APPLICABLE
+        return CORROBORATED if (
             "Generated " in output and "/doc/tl_rewrite/index.html" in output
-            and (
-                checker is None
-                or re.search(r"rustdoc index SHA-256 [0-9a-f]{64}", output) is not None
-            )
-        )
+            and re.search(r"observed rustdoc index SHA-256 [0-9a-f]{64}", output) is not None
+        ) else REJECTED
     if name == "quire-coverage":
-        return complete_fraction(output, r"Coverage:")
+        total = expected_trace_total(evidence_dir)
+        return CORROBORATED if total > 0 and f"Coverage: {total}/{total}" in output else REJECTED
     if name == "make-spec":
-        return complete_fraction(output, r"strict traceability coverage is complete:")
+        total = expected_trace_total(evidence_dir)
+        return CORROBORATED if total > 0 and (
+            f"strict traceability coverage is complete: {total}/{total}" in output
+        ) else REJECTED
     if name == "default-dependencies":
-        manifest = source_text(evidence_dir, "Cargo.toml") or ""
+        manifest = source_text(evidence_dir, "Cargo.toml")
+        if manifest is None:
+            return NOT_APPLICABLE
         revisions = re.findall(r'git\s*=\s*"[^"]+"\s*,\s*rev\s*=\s*"([0-9a-f]{40})"', manifest)
-        return (
+        return CORROBORATED if (
             "tl-rewrite v0.1.0" in output
             and len(revisions) >= 2
             and all(revision[:8] in output for revision in revisions)
-        )
+        ) else REJECTED
     if name == "corpus-integrity":
-        checker = source_text(evidence_dir, "scripts/check_corpus.py") or ""
-        return "WEST corpus checksum census passed" not in checker or (
+        checker = source_text(evidence_dir, "scripts/check_corpus.py")
+        if checker is None or "WEST corpus checksum census passed" not in checker:
+            return NOT_APPLICABLE
+        return CORROBORATED if (
             "WEST corpus checksum census passed" in output
-        )
+        ) else REJECTED
     if name in {
         "input-schema", "manifest-schema", "pgm01-schema", "pgm01-validator",
         "sealed-pgm01-schema", "sealed-pgm01-validator",
     }:
-        return bool(re.search(r'"errors"\s*:\s*\[\]\s*,?\s*"valid"\s*:\s*true', output))
-    return False
+        return CORROBORATED if re.search(
+            r'"errors"\s*:\s*\[\]\s*,?\s*"valid"\s*:\s*true', output
+        ) else REJECTED
+    return REJECTED
 
 
 def summary(evidence_dir: Path) -> dict[str, object]:
     profile = resolve_profile(evidence_dir)
     if profile == "retracted":
         raise ValueError("retracted evidence cannot produce an active qualification summary")
-    require_positive = profile == "v2"
+    collection_input = json.loads(
+        (evidence_dir / "collection-input.json").read_text(encoding="utf-8")
+    )
+    declared_v2 = collection_input.get("qualificationProfile") == QUALIFICATION_V2
     outcomes = []
     observed = {
         path.name[: -len(".status.txt")]
@@ -206,8 +266,10 @@ def summary(evidence_dir: Path) -> dict[str, object]:
             and CONTRADICTION.search(path.read_text(encoding="utf-8", errors="replace"))
             for path in (evidence_dir / f"{name}.stdout", evidence_dir / f"{name}.stderr")
         )
-        positive_missing = exit_code == 0 and require_positive and not positive_output(
-            evidence_dir, name
+        corroboration = (
+            positive_output(evidence_dir, name)
+            if exit_code == 0 and declared_v2
+            else None
         )
         outcomes.append(
             {
@@ -216,7 +278,9 @@ def summary(evidence_dir: Path) -> dict[str, object]:
                     "skipped-unavailable"
                     if skipped
                     else "failed"
-                    if validator_error or output_contradiction or positive_missing
+                    if validator_error or output_contradiction or corroboration == REJECTED
+                    else "inconclusive"
+                    if corroboration == NOT_APPLICABLE
                     else "passed"
                     if exit_code == 0
                     else "failed"

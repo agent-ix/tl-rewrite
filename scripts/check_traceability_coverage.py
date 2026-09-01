@@ -13,14 +13,11 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 REFERENCE = re.compile(r"\b(?:TC|SUITE)-[0-9]{3}\b")
-ALLOWED_DIAGNOSTICS = {
-    "archetype-matches-nothing": ("inspection", "Inspections"),
-    "catch-all-universal": ("criteria", "coverage.specific_shaped"),
-    "status-column-matches-nothing": (
-        "functional-coverage",
-        "configured status column 'Status'",
-    ),
-}
+EXPECTED_DIAGNOSTICS = (
+    ("archetype-matches-nothing", "inspection", None),
+    ("catch-all-universal", "criteria", "coverage.specific_shaped"),
+    ("status-column-matches-nothing", "functional-coverage", None),
+)
 
 
 def validate_report(report: dict[str, Any]) -> list[str]:
@@ -58,18 +55,21 @@ def validate_report(report: dict[str, Any]) -> list[str]:
     if not isinstance(diagnostics, list):
         errors.append("coverage report has no diagnostics list")
     else:
+        observed_diagnostics: list[tuple[object, object, object]] = []
         for diagnostic in diagnostics:
-            reason = diagnostic.get("reason") if isinstance(diagnostic, dict) else None
-            expected = ALLOWED_DIAGNOSTICS.get(reason)
-            message = diagnostic.get("message", "") if isinstance(diagnostic, dict) else ""
-            declaration = diagnostic.get("declaration") if isinstance(diagnostic, dict) else None
-            if expected is None:
-                errors.append(f"coverage report contains blocking diagnostic {reason!r}")
-            elif declaration != expected[0] or (
-                expected[1] not in message
-                and diagnostic.get("value") != expected[1]
-            ):
-                errors.append(f"coverage report contains changed diagnostic {reason!r}")
+            if not isinstance(diagnostic, dict):
+                errors.append("coverage report contains a malformed diagnostic")
+                continue
+            observed_diagnostics.append(
+                (diagnostic.get("reason"), diagnostic.get("declaration"), diagnostic.get("value"))
+            )
+        expected_sorted = sorted(EXPECTED_DIAGNOSTICS, key=str)
+        observed_sorted = sorted(observed_diagnostics, key=str)
+        if observed_sorted != expected_sorted:
+            errors.append(
+                "coverage diagnostic census drift: "
+                f"expected={expected_sorted}, observed={observed_sorted}"
+            )
     return errors
 
 
@@ -104,13 +104,13 @@ def validate_matrix_statuses(path: Path) -> list[str]:
     return errors
 
 
-def validate_verification_references() -> list[str]:
-    matrix = (ROOT / "spec" / "test-matrix.md").read_text(encoding="utf-8")
-    suites = (ROOT / "spec" / "evidence" / "suites.md").read_text(encoding="utf-8")
+def validate_verification_references(root: Path = ROOT) -> list[str]:
+    matrix = (root / "spec" / "test-matrix.md").read_text(encoding="utf-8")
+    suites = (root / "spec" / "evidence" / "suites.md").read_text(encoding="utf-8")
     declared = set(REFERENCE.findall(matrix)) | set(REFERENCE.findall(suites))
     errors: list[str] = []
     requirement_ids: set[str] = set()
-    for path in sorted((ROOT / "spec" / "requirements").glob("*.md")):
+    for path in sorted((root / "spec" / "requirements").glob("*.md")):
         identity = re.search(r"^id:\s*((?:FR|NFR|StR)-[0-9]{3})\s*$", path.read_text(encoding="utf-8"), re.MULTILINE)
         if identity:
             requirement_ids.add(identity.group(1))
