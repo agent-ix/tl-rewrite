@@ -20,10 +20,17 @@
 #     ASSURANCE_DIR=target/ig-probe ASSURANCE_PYTHON=/bin/false
 #
 # exits 2 and stops at the first prerequisite. Prepend a single `.IGNORE:`
-# line and the identical command exits 0 after 28 ignored recipe failures,
+# line and the identical command exits 0 after 25 ignored recipe failures,
 # with all 13 `ci` prerequisites reporting success: eleven whose own recipe
-# failed, `assurance` whose three sub-targets each failed, and `audit-unsafe`,
+# failed, `assurance` whose two sub-targets each failed, and `audit-unsafe`,
 # which invokes bash directly and the sabotage does not reach.
+#
+# That was 28 before agent-ix/tl-rewrite#13. The figure fell by exactly three
+# because the deletion removed three sabotaged recipe lines — `compat-view`'s
+# two and the compatibility view's line inside `assurance-inputs` — and
+# `assurance` went from three sub-targets to two. Nothing was fixed; there is
+# simply less to neuter. The number is re-measured with the same command rather
+# than carried forward.
 # The structural backstop only goes so far — Quoin binds
 # each retained input by digest and the chain derives every attested result from
 # the producer's own bytes, so a producer that did not run yields an absent or
@@ -52,7 +59,6 @@ COUNTEREXAMPLE_RESULT := $(ASSURANCE_DIR)/counterexample-evidence.jsonl
 NORMALIZATION_RESULT := $(ASSURANCE_DIR)/normalization-sweep.jsonl
 PROVENANCE_RESULT := $(ASSURANCE_DIR)/provenance-integrity.json
 QUIRE_EXPORT := $(ASSURANCE_DIR)/quire-static-export.json
-COMPAT_RESULT := $(ASSURANCE_DIR)/legacy-compatibility.json
 MSRV_RESULT := $(ASSURANCE_DIR)/msrv.jsonl
 RULE_MANIFEST := corpus/rules/manifest.json
 COUNTEREXAMPLE_MANIFEST := corpus/counterexamples/manifest.json
@@ -79,9 +85,8 @@ help:
 	@echo "  make assurance-env    - Create the pinned shared-assurance interpreter"
 	@echo "  make assurance-inputs - Run the producers and write their structured results"
 	@echo "  make pins             - Classify the toolchain through the shared matrix"
-	@echo "  make compat-view      - Read retained evidence through the shared mapping"
 	@echo "  make assurance-chain  - Seal, retain, and verify through Quoin"
-	@echo "  make assurance        - pins + compat-view + assurance-chain"
+	@echo "  make assurance        - pins + assurance-chain"
 	@echo "  make ci               - All CI gates locally (hosted CI is manual-only)"
 
 # =============================================================================
@@ -193,7 +198,6 @@ assurance-inputs: assurance-env
 	$(CARGO) run --quiet --release --example normalization_sweep > $(NORMALIZATION_RESULT)
 	$(PYTHON) scripts/check_provenance.py --json > $(PROVENANCE_RESULT)
 	$(QUIRE) coverage --scope . --json > $(QUIRE_EXPORT)
-	$(ASSURANCE_PYTHON) scripts/legacy_evidence_view.py --json > $(COMPAT_RESULT)
 	rustup run 1.75.0 $(CARGO) check --locked --all-targets --all-features \
 		--message-format=json > $(MSRV_RESULT)
 
@@ -201,17 +205,12 @@ assurance-inputs: assurance-env
 pins: assurance-env
 	$(ASSURANCE_PYTHON) scripts/check_shared_pins.py
 
-.PHONY: compat-view
-compat-view: assurance-env
-	$(ASSURANCE_PYTHON) scripts/legacy_evidence_view.py
-	$(ASSURANCE_PYTHON) scripts/legacy_evidence_view.py --mutation-probes
-
 .PHONY: assurance-chain
 assurance-chain: assurance-inputs
 	$(PYTHON) scripts/assurance_chain.py --candidate-revision $(REVISION)
 
 .PHONY: assurance
-assurance: pins compat-view assurance-chain
+assurance: pins assurance-chain
 
 # An operator target, not a CI gate. It writes into this repository's own Quoin
 # evidence store, which is a reviewed change to spec/evidence/ rather than

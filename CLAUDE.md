@@ -21,9 +21,8 @@ make rustdoc          # build warning-free public documentation
 make assurance-env    # build the pinned shared-assurance interpreter
 make assurance-inputs # run the producers and write their structured results
 make pins             # classify the toolchain through the shared matrix
-make compat-view      # read retained evidence through the shared mapping
 make assurance-chain  # seal, retain, and verify through quoin
-make assurance        # pins + compat-view + assurance-chain
+make assurance        # pins + assurance-chain
 make ci               # every gate locally; hosted CI is manual-dispatch only
 ```
 
@@ -65,8 +64,13 @@ corpus/west-v1/           # checksum-pinned selected WEST inputs
 corpus/rules/             # the rule corpus, bound by digest to the constructed fixtures
 corpus/counterexamples/   # the counterevidence corpus and its count oracle
 assurance/                # what this repository declares: pins and the change-assurance record
-evidence/                 # immutable retained records; the verifier was removed, not the record
-schemas/                  # retained evidence schemas, no longer validated against
 spec/                     # requirements, assurance, reviews, and typed plan bundles
-scripts/                  # provenance, pins, compatibility view, and the assurance chain
+scripts/                  # provenance, pins, and the assurance chain
 ```
+
+There is no `evidence/` directory and no `schemas/` directory. Issue #13 deleted
+582 files of retained evidence, their only reader, the fixtures and schemas that
+served them, and the chain proof obligation that read it, under the authority of
+`agent-ix/engineering-assurance#7`. The records were deleted, not rewritten,
+and nothing in this repository claims they still verify. Git history is the
+integrity boundary for the deleted bytes.

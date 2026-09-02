@@ -60,7 +60,6 @@ INPUTS = {
     "PROOF-normalization-sweep": ("normalization-sweep.jsonl", "application/x-ndjson"),
     "PROOF-provenance-integrity": ("provenance-integrity.json", "application/json"),
     "PROOF-quire-static-export": ("quire-static-export.json", "application/json"),
-    "PROOF-legacy-compatibility": ("legacy-compatibility.json", "application/json"),
     "PROOF-msrv": ("msrv.jsonl", "application/x-ndjson"),
 }
 
@@ -689,9 +688,6 @@ def derive_result(proof_id: str, path: Path) -> str:
         return _rows_result(rows_of(path), path.name, proof_id)
     if proof_id == "PROOF-provenance-integrity":
         return _rows_result(_load_json(raw, path)["entries"], path.name, proof_id)
-    if proof_id == "PROOF-legacy-compatibility":
-        census = _load_json(raw, path)
-        return "passed" if census["matched"] else "failed"
     if proof_id == "PROOF-quire-static-export":
         export = _load_json(raw, path)
         # Quire's export is a static fact set, not a run, so it has no outcome

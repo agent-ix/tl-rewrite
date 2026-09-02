@@ -111,14 +111,6 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
     assert_eq!(report["accepted"], true);
     assert!(report["artifact_mismatches"].as_array().unwrap().is_empty());
     assert!(report["mirror_references"].as_array().unwrap().is_empty());
-    assert!(
-        report["retained_schema_mismatches"]
-            .as_array()
-            .unwrap()
-            .is_empty(),
-        "a retained evidence schema is not the bytes assurance/pins.json records: {}",
-        report["retained_schema_mismatches"]
-    );
 
     // Acceptance is reported and never gated on: the pinned release records
     // `pending_human_acceptance` and ships no predicate for it
@@ -147,7 +139,12 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
         "a mirror registry reference was not detected; the check matches nothing"
     );
 
-    // And the retained-schema check must be seen to refuse too.
+    // The consumed-artifact digest check must be seen to refuse. Issue #13
+    // deleted the four artifacts this check used to walk — every one of them was
+    // read only by the compatibility view — and refilled the list with
+    // `engineering_assurance/compatibility.py`, the module `build_report`
+    // imports for every component verdict. This probe is what keeps that pin
+    // from being decoration.
     let (code, stdout, stderr) = run(
         &python,
         &[
@@ -155,17 +152,65 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
             "import json,sys;sys.path.insert(0,'scripts');\
              import check_shared_pins as m;\
              pins=json.load(open('assurance/pins.json'));\
-             key='schemas/tl-rewrite-evidence-manifest-v1.schema.json';\
-             pins['frozen_schemas'][key]['sha256']='0'*64;\
-             print(json.dumps(m.frozen_schema_mismatches(pins)))",
+             pins['consumed_artifacts'][0]['sha256']='0'*64;\
+             print(json.dumps(m.artifact_digest_mismatches(pins)))",
         ],
     );
-    assert_eq!(code, 0, "the retained-schema probe failed: {stderr}");
+    assert_eq!(code, 0, "the consumed-artifact probe failed: {stderr}");
     let problems: Vec<String> = serde_json::from_str(stdout.trim()).unwrap();
     assert!(
         !problems.is_empty(),
-        "a changed retained-schema digest was not detected; the check matches nothing"
+        "a changed consumed-artifact digest was not detected; the check matches nothing"
     );
+
+    // And the empty-population branch must fire, because that is the exact shape
+    // the deletion would have produced had the list simply been emptied: a
+    // re-hash of nothing, reported clean.
+    let (code, stdout, stderr) = run(
+        &python,
+        &[
+            "-c",
+            "import json,sys;sys.path.insert(0,'scripts');\
+             import check_shared_pins as m;\
+             pins=json.load(open('assurance/pins.json'));\
+             pins['consumed_artifacts']=[a for a in pins['consumed_artifacts'] \
+             if 'sha256' not in a];\
+             print(json.dumps(m.artifact_digest_mismatches(pins)))",
+        ],
+    );
+    assert_eq!(code, 0, "the empty-population probe failed: {stderr}");
+    let vacuous: Vec<String> = serde_json::from_str(stdout.trim()).unwrap();
+    assert!(
+        vacuous.iter().any(|entry| entry.contains("vacuous")),
+        "a consumed-artifact list with no digest in it re-hashed nothing and \
+         reported clean: {vacuous:?}"
+    );
+
+    // The pin itself must be the live module, not a retained-evidence artifact
+    // that nothing opens. Named here so that quietly repointing it at a dead
+    // file has to move a literal in this test.
+    let pinned = digest_pinned_artifacts();
+    assert!(
+        pinned.contains("compatibility.py"),
+        "assurance/pins.json no longer digest-pins the module check_shared_pins \
+         imports for every verdict; the digest check has lost its live subject: \
+         {pinned:?}"
+    );
+}
+
+/// The digest-pinned consumed artifacts, as `assurance/pins.json` declares them.
+fn digest_pinned_artifacts() -> BTreeSet<String> {
+    let pins: Value = serde_json::from_str(
+        &fs::read_to_string(root().join("assurance/pins.json")).expect("assurance/pins.json"),
+    )
+    .expect("assurance/pins.json is JSON");
+    pins["consumed_artifacts"]
+        .as_array()
+        .expect("consumed_artifacts")
+        .iter()
+        .filter(|artifact| artifact.get("sha256").is_some())
+        .map(|artifact| artifact["path"].as_str().unwrap_or_default().to_owned())
+        .collect()
 }
 
 // Trace: TC-024, FR-006-AC-2, NFR-003-AC-1, SUITE-004, SUITE-005, SUITE-006, SUITE-007
@@ -197,8 +242,10 @@ fn the_chain_reaches_quoin_without_quoin_or_quire_executing_a_producer() {
         .expect("attested_results");
     assert_eq!(
         attested.len(),
-        7,
-        "seven proof obligations are declared; {} were attested",
+        6,
+        "six proof obligations are declared; {} were attested. This was seven \
+         until issue #13 removed PROOF-legacy-compatibility with the retained \
+         evidence it read.",
         attested.len()
     );
     for (proof, result) in attested {
@@ -511,10 +558,15 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
+    // 68, and the arithmetic is stated so the drop is auditable rather than
+    // merely smaller. It was 72 before issue #13, which removed exactly four
+    // rows: FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4 and TC-026. Each was a claim
+    // about retained evidence that no longer exists, and each went with its test
+    // rather than being left to report unbacked.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 72, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 68, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 72,
+        totals["backed"], 68,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );
@@ -545,89 +597,6 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     );
 }
 
-fn walk(directory: &Path) -> u64 {
-    let mut count = 0;
-    for entry in fs::read_dir(directory).expect("evidence directory") {
-        let path = entry.expect("directory entry").path();
-        if path.is_dir() {
-            count += walk(&path);
-        } else {
-            count += 1;
-        }
-    }
-    count
-}
-
-// Trace: TC-026, FR-006-AC-4, FR-005-AC-2, NFR-002-AC-2, NFR-003-AC-4
-#[test]
-fn retained_evidence_is_read_through_the_shared_mapping_without_moving_a_byte() {
-    let python = assurance_python();
-    let census = json_gate(&python, &["scripts/legacy_evidence_view.py", "--json"]);
-
-    // Two different claims, kept apart. The first is that this run wrote nothing;
-    // the second is that the retained bytes are the bytes that were committed.
-    // Only Git can answer the second, and it is asked rather than assumed.
-    assert!(census["evidence_bytes_moved_during_this_run"]
-        .as_array()
-        .unwrap()
-        .is_empty());
-    assert!(
-        census["uncommitted_evidence_changes"]
-            .as_array()
-            .unwrap()
-            .is_empty(),
-        "retained evidence differs from what was committed: {}",
-        census["uncommitted_evidence_changes"]
-    );
-    assert!(census["misattributed_records"]
-        .as_array()
-        .unwrap()
-        .is_empty());
-    assert_eq!(census["matched"], true);
-
-    let files = census["evidence_files_read"].as_u64().unwrap();
-    let on_disk = walk(&root().join("evidence"));
-    assert_eq!(
-        files, on_disk,
-        "the compatibility view read {files} evidence files but {on_disk} are present"
-    );
-
-    let retained = &census["retained"];
-    assert_eq!(
-        retained["count"].as_u64().unwrap(),
-        11,
-        "this repository retains eleven evidence records"
-    );
-    // The honest answer for this repository, measured rather than inherited. Its
-    // retained family is quire.derivation-evidence/v1, which the pinned mapping
-    // does not cover, so every envelope is refused. That refusal is reported as
-    // it stands. Filed as agent-ix/engineering-assurance#21.
-    assert_eq!(
-        retained["outcomes"],
-        serde_json::json!(["incompatible"]),
-        "the retained-evidence outcome changed; if the shared mapping gained a \
-         derivation-evidence reader this assertion should be updated deliberately"
-    );
-
-    // The mapping must be seen to accept, or a refusal proves nothing.
-    let accepted = census["accepted_positive_controls"].as_array().unwrap();
-    assert!(
-        !accepted.is_empty(),
-        "no positive control was accepted; a mapping only ever seen refusing is \
-         indistinguishable from a step that never worked"
-    );
-
-    let (code, stdout, stderr) = run(
-        &python,
-        &["scripts/legacy_evidence_view.py", "--mutation-probes"],
-    );
-    assert_eq!(
-        code, 0,
-        "a load-bearing compatibility check was removed and the census did not \
-         notice\n{stdout}\n{stderr}"
-    );
-}
-
 // Trace: TC-027, FR-006-AC-5, NFR-003-AC-3
 #[test]
 fn all_twelve_verification_outcomes_are_demonstrated_and_paired_with_controls() {
@@ -653,30 +622,27 @@ fn all_twelve_verification_outcomes_are_demonstrated_and_paired_with_controls() 
         ("tampered", "chain"),
     ];
 
-    let python = assurance_python();
     let report = chain_report();
-    let census = json_gate(&python, &["scripts/legacy_evidence_view.py", "--json"]);
 
-    // Only MEASURED outcomes count. The chain's `states_demonstrated` is already
-    // built from cases that ran and matched. The compatibility lane contributes
-    // the outcome the mapping actually returned and the states it actually
-    // mapped — never the case's `kind`, which is a free-text label in
-    // expectations.json. Counting the label would let a state stop being
-    // demonstrated while this test stayed green.
-    let mut demonstrated: BTreeSet<String> = report["states_demonstrated"]
+    // Only MEASURED outcomes count: the chain's `states_demonstrated` is built
+    // from cases that ran and matched, never from a label.
+    //
+    // Before issue #13 this set was the union of the chain's states and the
+    // compatibility census's `mapped_states`. That union was measured at the
+    // pre-deletion tree and the census contributed nothing the chain did not
+    // already have: the chain alone demonstrated all twelve — fail,
+    // inconclusive, malformed, not-computed, partial, pass, stale, suspect,
+    // tampered, unavailable, unsupported and vacuous. The census's own six-word
+    // legacy vocabulary intersected this list only at `inconclusive` and
+    // `unavailable`, both owned by the chain in the table above. No verification
+    // outcome was reachable only through the census, which is why deleting it
+    // costs this test no coverage rather than costing it two states quietly.
+    let demonstrated: BTreeSet<String> = report["states_demonstrated"]
         .as_array()
         .unwrap()
         .iter()
         .map(|value| value.as_str().unwrap().to_owned())
         .collect();
-    for case in census["cases"].as_array().unwrap() {
-        if case["matched"] != serde_json::Value::Bool(true) {
-            continue;
-        }
-        for state in case["mapped_states"].as_array().unwrap() {
-            demonstrated.insert(state.as_str().unwrap().to_owned());
-        }
-    }
 
     let missing: Vec<&str> = REQUIRED
         .iter()
@@ -689,23 +655,17 @@ fn all_twelve_verification_outcomes_are_demonstrated_and_paired_with_controls() 
          demonstrated: {demonstrated:?}"
     );
 
-    // The compatibility lane's own six-state vocabulary, measured the same way:
-    // the census reports which states it observed and which it did not.
-    assert!(
-        census["undemonstrated_states"]
-            .as_array()
-            .unwrap()
-            .is_empty(),
-        "the compatibility mapping's state vocabulary is not fully demonstrated: {}",
-        census["undemonstrated_states"]
-    );
-    assert!(
-        census["undemonstrated_outcomes"]
-            .as_array()
-            .unwrap()
-            .is_empty(),
-        "the compatibility mapping's outcome vocabulary is not fully demonstrated: {}",
-        census["undemonstrated_outcomes"]
+    // A set that is merely non-empty proves little; the census that used to
+    // widen it is gone, so the chain must be seen to carry the full vocabulary
+    // on its own rather than to have shrunk quietly to whatever still passes.
+    assert_eq!(
+        demonstrated.len(),
+        REQUIRED.len(),
+        "the chain demonstrated {} states for {} required; the compatibility \
+         census no longer widens this set and the chain must carry all of them: \
+         {demonstrated:?}",
+        demonstrated.len(),
+        REQUIRED.len()
     );
 
     // Every negative names the positive control that proves the step it refuses
@@ -869,7 +829,7 @@ fn collect_sources(directory: &Path, into: &mut Vec<PathBuf>) {
 
 // Trace: TC-029, FR-006-AC-7, SUITE-001
 #[test]
-fn no_local_evidence_framework_remains_and_the_retained_schemas_are_referenced_by_nothing() {
+fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() {
     let root = root();
 
     // The generic machinery is gone, by name.
@@ -901,6 +861,20 @@ fn no_local_evidence_framework_remains_and_the_retained_schemas_are_referenced_b
         "scripts/test_traceability_gate.py",
         "tools.lock",
         "tests/wire_evidence.rs",
+        // Issue #13, under the authority of agent-ix/engineering-assurance#7.
+        // The retained archive, its only reader, the fixtures that configured it
+        // and the two schemas that existed only because the retained envelopes
+        // named them by digest. Each schema was proved dead first: neither is
+        // reached by include_str! or include_bytes! anywhere in the tree, no
+        // module imports jsonschema, and nothing validated any document against
+        // either. Two sibling repositories kept schemas that look frozen by name
+        // and are live output contracts, so this was measured here rather than
+        // inherited.
+        "evidence",
+        "schemas",
+        "scripts/legacy_evidence_view.py",
+        "tests/fixtures/legacy-compat",
+        "tests/fixtures/legacy-compat/expectations.json",
     ] {
         assert!(
             !root.join(removed).exists(),
@@ -908,38 +882,9 @@ fn no_local_evidence_framework_remains_and_the_retained_schemas_are_referenced_b
         );
     }
 
-    // The two evidence schemas are retained, not deleted, but for two different
-    // and separately measured reasons — assurance/pins.json states both, and the
-    // digests are re-derived here so that a silent edit is caught by a test as
-    // well as by a gate.
-    let retained = [
-        (
-            "schemas/tl-rewrite-evidence-manifest-v1.schema.json",
-            "859ebdd66869023808e88a89e09969731170606692137a56772e5dbc43bf31b0",
-        ),
-        (
-            "schemas/tl-rewrite-evidence-input-v1.schema.json",
-            "5bda9d5f4fafc1910859e28d64c254be546398a54a1168e2c902cde8df28f7ce",
-        ),
-    ];
-    for (path, expected) in retained {
-        let file = root.join(path);
-        assert!(
-            file.is_file(),
-            "{path} was deleted; it is retained, not removed"
-        );
-        let output = Command::new("sha256sum").arg(&file).output().unwrap();
-        let digest = String::from_utf8_lossy(&output.stdout)
-            .split_whitespace()
-            .next()
-            .unwrap()
-            .to_owned();
-        assert_eq!(digest, expected, "{path} changed");
-    }
-
-    // Nothing validates against them any more. The census walks recursively and
-    // covers the build and workflow files too, because a reintroduced validator
-    // one directory down, or a CI step, would otherwise not be caught. A census
+    // The names must be absent from the tree as well as from disk, or a
+    // reintroduced reader one directory down would not be caught. The census
+    // walks recursively and covers the build and workflow files too. A census
     // this small would be vacuous, so its size is asserted as well.
     let mut sources = Vec::new();
     for directory in [
@@ -961,39 +906,46 @@ fn no_local_evidence_framework_remains_and_the_retained_schemas_are_referenced_b
             sources.push(path);
         }
     }
+    // The deleted machinery, by the names a reintroduction would have to use.
+    // The two schema filenames are here because an evidence schema reappearing
+    // under a different directory is the same defect as the directory coming
+    // back.
+    const DELETED: [&str; 5] = [
+        "legacy_evidence_view",
+        "legacy-compat",
+        "PROOF-legacy-compatibility",
+        "tl-rewrite-evidence-manifest-v1.schema.json",
+        "tl-rewrite-evidence-input-v1.schema.json",
+    ];
+
     let mut inspected = 0;
     for path in &sources {
         inspected += 1;
         let Ok(source) = fs::read_to_string(path) else {
             continue;
         };
-        // Four files name the retained schemas on purpose: this test pins their
-        // digests, schemas/README.md documents their status, assurance/pins.json
-        // records the measurement, and the change-assurance declaration states
-        // the preservation constraint. Everything else must not mention them.
-        let file_name = path
-            .file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or("");
-        let parent = path
-            .parent()
-            .and_then(|value| value.file_name())
-            .and_then(|value| value.to_str())
-            .unwrap_or("");
-        let permitted = match file_name {
-            "shared_assurance.rs" => true,
-            "README.md" => parent == "schemas",
-            "pins.json" | "change-assurance.json" => parent == "assurance",
-            _ => false,
-        };
-        for (schema, _) in retained {
-            let name = Path::new(schema).file_name().unwrap().to_str().unwrap();
-            if permitted {
-                continue;
-            }
+        // Three files name the deleted machinery on purpose: this test, which
+        // asserts its absence; assurance/pins.json, which records what was
+        // measured before the deletion; and the change-assurance declaration,
+        // which states the constraint the deletion was carried out under.
+        // spec/reviews/ and spec/plans/ are dated records of what was found and
+        // done at the time; they are not rewritten to un-say it. Everything else
+        // must not mention them.
+        let relative = path.strip_prefix(&root).unwrap_or(path);
+        let relative = relative.to_string_lossy().replace('\\', "/");
+        let permitted = matches!(
+            relative.as_str(),
+            "tests/shared_assurance.rs" | "assurance/pins.json" | "assurance/change-assurance.json"
+        ) || relative.starts_with("spec/reviews/")
+            || relative.starts_with("spec/plans/");
+        if permitted {
+            continue;
+        }
+        for name in DELETED {
             assert!(
                 !source.contains(name),
-                "{} references the retained schema {name}; nothing may validate against it",
+                "{} references {name}, which issue #13 deleted; nothing may \
+                 reference the removed evidence machinery",
                 path.display()
             );
         }

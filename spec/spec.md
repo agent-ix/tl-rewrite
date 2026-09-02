@@ -23,7 +23,16 @@ reference evaluator and permitted WEST cases.
 PGM-01 governs compatibility, provenance, evidence, human authority, and
 qualification boundaries. Formula/profile identities come from the exact
 tl-syntax revision; semantic comparison comes from the exact tl-mltl revision
-named by retained evidence.
+that `Cargo.toml`, `Cargo.lock` and `src/lib.rs` all resolve, which
+`scripts/check_provenance.py` requires to agree on every run.
+
+That revision used to be named by retained evidence instead. It is not any more:
+issue #13 deleted the retained records under the authority of
+`agent-ix/engineering-assurance#7`, and a specification that still sourced an
+identity from them would name an authority this repository no longer has. The
+resolved dependency graph was already the enforced authority — the retained
+records named `da2c7704`, a revision the build had not used since the pin moved,
+which is the defect `TC-030` exists to catch.
 
 ## Scope
 

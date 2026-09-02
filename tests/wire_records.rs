@@ -64,9 +64,15 @@ fn versioned_records_round_trip_and_reject_unknown_fields() {
 #[test]
 fn human_authority_and_qualification_boundaries_remain_open() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    // Four documents, not five. `evidence/README.md` was inspected here until
+    // issue #13 deleted it with the archive it described. It was the only source
+    // of `pending` — it said the retained records "inform a pending human
+    // source-release decision". The property is still true and is not dropped:
+    // the statement moved to AA-001's Human Decision section, which is the
+    // document that owns the claim, so this inspection asserts the same six
+    // properties over a smaller set rather than five properties over four files.
     let combined = [
         "README.md",
-        "evidence/README.md",
         "spec/assurance/AP-001.md",
         "spec/assurance/AA-001.md",
         "docs/DER-001-rule-derivations.md",
