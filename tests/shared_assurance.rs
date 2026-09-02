@@ -890,14 +890,33 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // tracked and the array never listed it; untracked scratch files no longer
     // inflate the count and restore the headroom the floor removes; and `.git`,
     // which is a *file* in a linked worktree, is no longer counted.
-    let tracked = {
+    //
+    // Two enumerations, and the split is deliberate. Moving to `git ls-files`
+    // would otherwise have introduced a regression the directory walk did not
+    // have: a reintroduced reader sitting UNTRACKED in the working tree would
+    // stop being scanned, and "not committed yet" is exactly the state such a
+    // file is in while someone is writing it.
+    //
+    //   * the SCAN covers tracked files plus untracked-but-not-ignored ones, so
+    //     a reintroduction is caught before it is ever `git add`ed;
+    //   * the COUNT and the area set are tracked-only, so untracked scratch
+    //     cannot inflate the population back over the floor or invent an area.
+    let git_files = |arguments: &[&str]| -> Vec<String> {
         let output = Command::new("git")
-            .args(["ls-files", "-z"])
+            .args(arguments)
             .current_dir(&root)
             .output()
             .expect("git ls-files failed");
-        assert!(output.status.success(), "git ls-files exited non-zero");
-        String::from_utf8_lossy(&output.stdout).into_owned()
+        assert!(
+            output.status.success(),
+            "git ls-files {arguments:?} exited non-zero; the census cannot \
+             enumerate the repository and reporting it clean would be vacuous"
+        );
+        String::from_utf8_lossy(&output.stdout)
+            .split('\0')
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned)
+            .collect()
     };
     let census_extension = |path: &str| {
         matches!(
@@ -905,18 +924,24 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
             Some("py" | "sh" | "rs" | "txt" | "toml" | "yml" | "md" | "json")
         )
     };
-    let mut sources: Vec<PathBuf> = Vec::new();
-    let mut observed_areas: BTreeSet<String> = BTreeSet::new();
-    for entry in tracked.split('\0').filter(|value| !value.is_empty()) {
-        if !census_extension(entry) {
-            continue;
+    let area_of = |path: &str| match path.split_once('/') {
+        Some((head, _)) => head.to_owned(),
+        None => "<root>".to_owned(),
+    };
+
+    let tracked: Vec<String> = git_files(&["ls-files", "-z"])
+        .into_iter()
+        .filter(|entry| census_extension(entry))
+        .collect();
+    let observed_areas: BTreeSet<String> = tracked.iter().map(|e| area_of(e)).collect();
+
+    let mut scanned: BTreeSet<String> = tracked.iter().cloned().collect();
+    for entry in git_files(&["ls-files", "-z", "--others", "--exclude-standard"]) {
+        if census_extension(&entry) {
+            scanned.insert(entry);
         }
-        observed_areas.insert(match entry.split_once('/') {
-            Some((head, _)) => head.to_owned(),
-            None => "<root>".to_owned(),
-        });
-        sources.push(root.join(entry));
     }
+    let sources: Vec<PathBuf> = scanned.iter().map(|entry| root.join(entry)).collect();
 
     // The expected areas, as a constant separate from what Git reported. A
     // directory that stops being tracked, or a new one that appears and is never
@@ -957,9 +982,9 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         "tl-rewrite-evidence-input-v1.schema.json",
     ];
 
-    let mut inspected = 0;
+    // Counted over TRACKED files only; the scan below covers more.
+    let inspected = tracked.len();
     for path in &sources {
-        inspected += 1;
         let Ok(source) = fs::read_to_string(path) else {
             continue;
         };

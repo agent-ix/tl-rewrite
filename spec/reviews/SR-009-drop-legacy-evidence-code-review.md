@@ -29,7 +29,7 @@ census, and whether any check was left asserting over an empty population.
 `quire coverage --scope . --strict` reports 68 of 68 rows backed and no unbacked
 row, against 72 of 72 before.
 
-**32 findings: 5 high, 13 medium, 14 low.** Nine came from an independent
+**33 findings: 5 high, 14 medium, 14 low.** Nine came from an independent
 adversarial review commissioned after this document's first draft, including
 both of the highs below that this self-review missed; they are recorded in their
 own section, and three of them correct claims this document itself made.
@@ -226,6 +226,7 @@ file that gets **sealed** and travels into the verification receipt.
 | FND-930 | low | **FIXED.** `.agent/rules/writing_rust.md` is tracked and sat outside the census, so `FR-006-AC-7`'s claim that nothing remains "in the repository" still overstated TC-029's reach. Enumerating from Git rather than from a directory list brings `.agent/` in. Probed: a deleted identifier appended to that file is now red, and was green before. | FR-006-AC-7 |
 | FND-931 | low | **FIXED.** `AA-001` named only `decision_missing` as the reason the receipt is `incomplete`, which made the new receipt clause read as a restatement of the human-decision clause below it. It is not: `unresolved_unknown` is an independent second reason from four open unknowns, three owned by other repositories, and it can hold the claim open after a human decision is recorded. Both are now named. | FR-005-AC-3 |
 | FND-932 | low | **FIXED.** This review's probe base was untraceable. It claimed `SR-008` recorded "46 probe rows, of which 2 were bad probes, giving 44". `SR-008` holds **41 rows covering 46 probes** (its `D1..D6` row is six), and the two bad probes were superseded forms of B4 and B5 rather than extra rows, so subtracting them from a row count double-counted. Base corrected to 46; the deletion accounting is unchanged and the totals are now 46 → 34 → 36. | NFR-003-AC-3 |
+| FND-934 | medium | **FIXED, and it was a regression introduced by the FND-926 fix.** Moving the census from a directory walk to `git ls-files` silently dropped **untracked** files from the scan — and "untracked" is exactly the state a reintroduced reader is in while someone is still writing it. The directory walk had seen those files; the replacement did not. Caught by asking what the new enumeration stopped seeing rather than only what it started seeing. The census now scans tracked **plus** untracked-not-ignored files, while counting and area-checking tracked files only, so a reintroduction is caught before it is ever `git add`ed and untracked scratch still cannot inflate the population back over the floor. Probed both ways: an untracked `scripts/reintroduced_reader.py` is red; five untracked pad files leave the count unchanged. | FR-006-AC-7 |
 | FND-933 | low | **FIXED.** This review's severity tally said 5 high / 11 medium / 9 low while its tables parsed as 5 / 10 / 10. Recounted from the tables. | — |
 | FND-925 | low | **FIXED.** The census root walk pushed `.git`, which is a *file* in a linked worktree holding a `gitdir:` pointer, so the inspected count differed between the main clone and a worktree. Skipped by name; the derived floor is now stable in both. | FR-006-AC-7 |
 
