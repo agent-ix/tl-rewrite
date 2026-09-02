@@ -32,15 +32,18 @@ Semantic or provenance drift invalidates rewrite evidence even when selected fix
 
 ## Verification
 
-Catalog and evidence contract tests inspect mandatory identities, licenses,
-digests, source links, exclusions, and open human decisions.
+Catalog tests inspect mandatory identities, licenses, exclusions, and open
+human decisions. `scripts/check_provenance.py` re-derives the retained corpus
+digests and requires the published revision constants to be the revisions
+`Cargo.toml` and `Cargo.lock` resolve, so a wire field cannot attribute a
+verdict to a dependency that did not produce it.
 
 ## Acceptance Criteria
 
 | ID | Criteria | Verification |
 |---|---|---|
 | NFR-002-AC-1 | No rule is enabled without complete provenance, applicability, and revision metadata. | Test (TC-001, TC-002) |
-| NFR-002-AC-2 | Retained evidence names exact PGM-01, tl-syntax, tl-mltl, WEST, catalog, parameter, input, and output identities without claiming universal proof or release. | Test (TC-016, TC-018, TC-019) |
+| NFR-002-AC-2 | Every exchanged record names the exact tl-syntax, tl-mltl, WEST, and catalog identities the run used, those constants agree with what Cargo resolved, and no record claims universal proof or release. | Test (TC-016, TC-019, TC-030) |
 
 ## Dependencies
 

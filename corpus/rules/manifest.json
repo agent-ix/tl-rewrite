@@ -1,0 +1,1024 @@
+{
+  "cases": [
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "false"
+          },
+          {
+            "kind": "not",
+            "operand": 0
+          }
+        ],
+        "root": 1,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.not.false",
+      "formulaSha256": "4ac47c4344737b53619ecc5b23b6011dd9a8868e12bb27ac51a695b11c748a7a",
+      "id": "bool.not.false"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "true"
+          },
+          {
+            "kind": "not",
+            "operand": 0
+          }
+        ],
+        "root": 1,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.not.true",
+      "formulaSha256": "363d188faa1d40a3e201a176e71c26a2d061b336dbe25a6c549112eddad67aea",
+      "id": "bool.not.true"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "not",
+            "operand": 0
+          },
+          {
+            "kind": "not",
+            "operand": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.not.double",
+      "formulaSha256": "b82fa72d112c5bd514e89d817da58646a0ec1e69ab7f4494f42be518d4d5b5a2",
+      "id": "bool.not.double"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "interval": {
+              "end": 2,
+              "start": 1
+            },
+            "kind": "future",
+            "operand": 0
+          },
+          {
+            "kind": "not",
+            "operand": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "neg.future.dual",
+      "formulaSha256": "ee09e1fd75266af5f45e4b44727c5ef9c67292dbccdb077b763052b3e47b3223",
+      "id": "neg.future.dual"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "interval": {
+              "end": 2,
+              "start": 1
+            },
+            "kind": "globally",
+            "operand": 0
+          },
+          {
+            "kind": "not",
+            "operand": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "neg.globally.dual",
+      "formulaSha256": "ff56f45a200ded335f7699599fa4f4e417987a1aed116a192456db0a3a945dc8",
+      "id": "neg.globally.dual"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "proposition",
+            "proposition": 1
+          },
+          {
+            "interval": {
+              "end": 2,
+              "start": 1
+            },
+            "kind": "until",
+            "left": 0,
+            "right": 1
+          },
+          {
+            "kind": "not",
+            "operand": 2
+          }
+        ],
+        "root": 3,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "neg.until.dual",
+      "formulaSha256": "bc6237ceb314436a78a3305dbfb2953f00bb7e38ffc13c69d43decbab0ae0e82",
+      "id": "neg.until.dual"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "proposition",
+            "proposition": 1
+          },
+          {
+            "interval": {
+              "end": 2,
+              "start": 1
+            },
+            "kind": "release",
+            "left": 0,
+            "right": 1
+          },
+          {
+            "kind": "not",
+            "operand": 2
+          }
+        ],
+        "root": 3,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "neg.release.dual",
+      "formulaSha256": "0ec6fc930e8fb1b27c3121629fb1b97caf1bf2ad8cb120a6ab5a177175e6ae9c",
+      "id": "neg.release.dual"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "false"
+          },
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "and",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.and.false-left",
+      "formulaSha256": "078bad94f1a9645a9af88cde0fa22b0dd02f93294e67dc3d5d214d86c6de168d",
+      "id": "bool.and.false-left"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "false"
+          },
+          {
+            "kind": "and",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.and.false-right",
+      "formulaSha256": "9b945a27298528ac0328bd55640b82db90db52951668447a4e5a6edbc1e40ebd",
+      "id": "bool.and.false-right"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "true"
+          },
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "and",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.and.true-left",
+      "formulaSha256": "19446293fdc765cc3363367f70fdf66325d3fa2935cfdc75c897c512272bbdb7",
+      "id": "bool.and.true-left"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "true"
+          },
+          {
+            "kind": "and",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.and.true-right",
+      "formulaSha256": "7eeb6f7449caf9256e2aa21de98baddf9faf273443ce3b335de9ae1496216c56",
+      "id": "bool.and.true-right"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "and",
+            "left": 0,
+            "right": 0
+          }
+        ],
+        "root": 1,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.and.idempotent",
+      "formulaSha256": "a57f1befc70cd098adf8dba382d65db9e8ac128fc1d9d20ffabdc27016c10f2e",
+      "id": "bool.and.idempotent"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "true"
+          },
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "or",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.or.true-left",
+      "formulaSha256": "d9390974824ba2042ad3499d893d2e2b0dd7999d8ad3106ebe6d9eb6378d78cf",
+      "id": "bool.or.true-left"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "true"
+          },
+          {
+            "kind": "or",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.or.true-right",
+      "formulaSha256": "1cb0a475bea1a0fd163c87bfe6f29e606281a50c2b8d4ec40d3d7b584209b2c7",
+      "id": "bool.or.true-right"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "false"
+          },
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "or",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.or.false-left",
+      "formulaSha256": "8109ff270b6375dad40ef9a894235396c95bb71cd4ead1adfb06e804d093db1e",
+      "id": "bool.or.false-left"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "false"
+          },
+          {
+            "kind": "or",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.or.false-right",
+      "formulaSha256": "e01fd3c3eb7afa070c0cce84a5942dbd598b1b95b630842a667a5d7ffe3226cd",
+      "id": "bool.or.false-right"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "or",
+            "left": 0,
+            "right": 0
+          }
+        ],
+        "root": 1,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.or.idempotent",
+      "formulaSha256": "49fa01347af9c76ed48fd3b6350436a4e06f5a1c2b9582f5f94fcf68416ceeb6",
+      "id": "bool.or.idempotent"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "false"
+          },
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "implies",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.implies.false-left",
+      "formulaSha256": "c7058441faaf60ca9ba922b6aa1c7df91a1d0ef7bfc91a8378880362c0581f72",
+      "id": "bool.implies.false-left"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "true"
+          },
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "implies",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.implies.true-left",
+      "formulaSha256": "daf9c2c32c309e34e6da56f0670caf4ad5ae059b73b44b896974cd640917fb3c",
+      "id": "bool.implies.true-left"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "true"
+          },
+          {
+            "kind": "implies",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.implies.true-right",
+      "formulaSha256": "6a3dd14e3ed50479db0ccdbc3b5d3af4b73056e41602be76aa2eb4db538bce75",
+      "id": "bool.implies.true-right"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "false"
+          },
+          {
+            "kind": "implies",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.implies.false-right",
+      "formulaSha256": "59dacabfc945ce4ff58dc4676fbdbfde9a18d9794b8264f6f1be89aafe268868",
+      "id": "bool.implies.false-right"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "implies",
+            "left": 0,
+            "right": 0
+          }
+        ],
+        "root": 1,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.implies.reflexive",
+      "formulaSha256": "eb898950eacc94fc32bc52ea29d773c96ef084d5d478625bf8de6dd07c3c08c4",
+      "id": "bool.implies.reflexive"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "proposition",
+            "proposition": 1
+          },
+          {
+            "kind": "implies",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.implies.eliminate",
+      "formulaSha256": "69f00b0fc0648472ef9a4524733321d957b4893d47cd48930f994eee6b41a3fb",
+      "id": "bool.implies.eliminate"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "equivalent",
+            "left": 0,
+            "right": 0
+          }
+        ],
+        "root": 1,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.equivalent.reflexive",
+      "formulaSha256": "64e2be455a10f1c2acf4fa93241a3730fbdd2eb386f462026d1fa65015e7b129",
+      "id": "bool.equivalent.reflexive"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "true"
+          },
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "equivalent",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.equivalent.true-left",
+      "formulaSha256": "b383f84ad407cecd77a4de25035fd4bb61f49f62ee33a16615ba3ee75206e5f3",
+      "id": "bool.equivalent.true-left"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "true"
+          },
+          {
+            "kind": "equivalent",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.equivalent.true-right",
+      "formulaSha256": "fe1736df6a19a0d7c4e670a2c54d7f2307adacde44e7b43b31ec7a217c1880f6",
+      "id": "bool.equivalent.true-right"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "false"
+          },
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "equivalent",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.equivalent.false-left",
+      "formulaSha256": "d380cbe04f0537df7af2baeecea07a83e138ecd9a55affe9c277e10301d3e7aa",
+      "id": "bool.equivalent.false-left"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "false"
+          },
+          {
+            "kind": "equivalent",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "bool.equivalent.false-right",
+      "formulaSha256": "654f1176803047611c6c9032dd043aa4d9a43c9f57ee541c7f115d6f50e5cc2e",
+      "id": "bool.equivalent.false-right"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "interval": {
+              "end": 0,
+              "start": 0
+            },
+            "kind": "future",
+            "operand": 0
+          }
+        ],
+        "root": 1,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "temporal.future.singleton",
+      "formulaSha256": "e2b76cc9ae992816f0d5fafdde8412a0685727cd97d450ff664ef64c14bbda9b",
+      "id": "temporal.future.singleton"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "interval": {
+              "end": 0,
+              "start": 0
+            },
+            "kind": "globally",
+            "operand": 0
+          }
+        ],
+        "root": 1,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "temporal.globally.singleton",
+      "formulaSha256": "00af8060c5bfdd19274fa548f336dd406347e3bd1e4ebec246b4f0e7ef2a0032",
+      "id": "temporal.globally.singleton"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "proposition",
+            "proposition": 1
+          },
+          {
+            "interval": {
+              "end": 0,
+              "start": 0
+            },
+            "kind": "until",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "temporal.until.singleton",
+      "formulaSha256": "49f2a2717f789437555de50fb1359e5882082b23bcf61daf6a7f7a2be6dc09d6",
+      "id": "temporal.until.singleton"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "proposition",
+            "proposition": 1
+          },
+          {
+            "interval": {
+              "end": 0,
+              "start": 0
+            },
+            "kind": "release",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "temporal.release.singleton",
+      "formulaSha256": "ef9fcdfe679231651fb946d37a555cc8ce48d690d26dfedda95468b43bbfa4ad",
+      "id": "temporal.release.singleton"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "false"
+          },
+          {
+            "interval": {
+              "end": 2,
+              "start": 1
+            },
+            "kind": "future",
+            "operand": 0
+          }
+        ],
+        "root": 1,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "temporal.future.false",
+      "formulaSha256": "65ce9206fa9379a3383d71aca83c94afe204775d0256d3c3e3509ae83db9e2d7",
+      "id": "temporal.future.false"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "true"
+          },
+          {
+            "interval": {
+              "end": 2,
+              "start": 1
+            },
+            "kind": "future",
+            "operand": 0
+          }
+        ],
+        "root": 1,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "temporal.future.true",
+      "formulaSha256": "f5e599bd655298ee7b74734a64520bae45109579c878b44869ba482b7f14a705",
+      "id": "temporal.future.true"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "false"
+          },
+          {
+            "interval": {
+              "end": 2,
+              "start": 1
+            },
+            "kind": "globally",
+            "operand": 0
+          }
+        ],
+        "root": 1,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "temporal.globally.false",
+      "formulaSha256": "fcecadee8ee93a603767a4a97c77e3e6d02186516bb83e205734a22cb882d9d2",
+      "id": "temporal.globally.false"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "true"
+          },
+          {
+            "interval": {
+              "end": 2,
+              "start": 1
+            },
+            "kind": "globally",
+            "operand": 0
+          }
+        ],
+        "root": 1,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "temporal.globally.true",
+      "formulaSha256": "fe80f14737aa310d4c928b6ae9a7e149b590327d6d9376a8de2c5ac507044e14",
+      "id": "temporal.globally.true"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "true"
+          },
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "interval": {
+              "end": 2,
+              "start": 1
+            },
+            "kind": "until",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "temporal.until.true-left",
+      "formulaSha256": "218aaeb67eb2aa2f3a7e5405600de54782408007dab4365d466ebeb11ef10047",
+      "id": "temporal.until.true-left"
+    },
+    {
+      "disposition": "enabled",
+      "document": {
+        "nodes": [
+          {
+            "kind": "false"
+          },
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "interval": {
+              "end": 2,
+              "start": 1
+            },
+            "kind": "release",
+            "left": 0,
+            "right": 1
+          }
+        ],
+        "root": 2,
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1"
+      },
+      "expectedOutcome": "pass",
+      "expectedRule": "temporal.release.false-left",
+      "formulaSha256": "712fe73d75ee239020c3a330446d24007adc618eb42a2cf9c9cfc0215d6b09fd",
+      "id": "temporal.release.false-left"
+    },
+    {
+      "disposition": "excluded",
+      "exclusionReason": "excluded from v1 execution until interval decomposition policy and worst-case graph-growth evidence are approved",
+      "expectedOutcome": "unsupported",
+      "id": "west.nested-until-right"
+    },
+    {
+      "disposition": "excluded",
+      "exclusionReason": "excluded from v1 execution until interval decomposition policy and worst-case graph-growth evidence are approved",
+      "expectedOutcome": "unsupported",
+      "id": "west.nested-release-right"
+    }
+  ],
+  "schemaVersion": "tl-rewrite.rule-corpus/v1"
+}

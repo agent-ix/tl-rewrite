@@ -1,3 +1,11 @@
+---
+id: DER-001
+title: tl-rewrite v1 rule derivations
+type: Standard
+code: tl-rewrite-rule-derivations-v1
+status: active
+---
+
 # DER-001 — v1 rule derivations
 
 These derivations use the exact `tl-syntax` operator vocabulary and the

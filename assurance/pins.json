@@ -1,0 +1,98 @@
+{
+  "schema_version": "tl-rewrite.assurance-pins/v1",
+  "purpose": "The Engineering Assurance release this repository adopts, and the digests of the artifacts it actually reads from that release. Component version pins are NOT restated here: the packaged compatibility matrix is their authority and a second copy would drift from it.",
+  "matrix_authority": "engineering_assurance/compatibility-matrix.json in the installed distribution. scripts/check_shared_pins.py observes the local toolchain and delegates every verdict to engineering_assurance.compatibility.",
+  "registry": "Every npm component resolves from the public npm registry (registry.npmjs.org). The internal npm.ix mirror must not appear in any requirement, pin, lockfile, or .npmrc, and is not an oracle for whether a release landed. Querying an @agent-ix package needs --@agent-ix:registry=https://registry.npmjs.org; a bare --registry does not override the scoped .npmrc entry.",
+  "engineering_assurance": {
+    "version": "0.2.0",
+    "requirement": "engineering-assurance @ git+https://github.com/agent-ix/engineering-assurance@v0.2.0",
+    "release_form": "git tag v0.2.0, a source distribution; the tag is the released artifact",
+    "declared_in": "requirements-assurance.txt"
+  },
+  "repinned_workflow_component": {
+    "component": "quoin",
+    "was": "0.22.5",
+    "now": "0.23.1",
+    "why": "The hosted workflow pinned @agent-ix/quoin@0.22.5, which the packaged compatibility matrix names explicitly incompatible: it 'predates the `quoin change-assurance` surface; seal, intake, and receipt commands do not exist'. Every command this migration's chain runs is on that surface, so the old pin could not have worked. ix-flow@0.0.4 was absent from the workflow entirely and is now installed. quire-cli was already at the accepted 0.31.0."
+  },
+  "consumed_artifacts": [
+    {
+      "path": "verification_semantics.py",
+      "sha256": "af9f92fcec60463fe3e9398a5ce0c1acde76b738816b10baf1b94e123c9b50bc",
+      "why": "map_pgm01_bytes is the only sanctioned reader of this repository's retained evidence. scripts/legacy_evidence_view.py calls it and implements no mapping of its own."
+    },
+    {
+      "path": "schemas/pgm01-compatibility-view-v1.schema.json",
+      "sha256": "317294d04e430f26612a6c7cbde937e06d9e655585a59de1f1e4a0dd66855ca6",
+      "why": "The shape map_pgm01_bytes validates every view against before returning it. Pinned because the compatibility result this repository reports is only as meaningful as the shape it is reported in."
+    },
+    {
+      "path": "fixtures/verification-semantics/pgm01-v1.json",
+      "sha256": "ab20a39d307a0d3e7d2eda9d50e295ba43de34b527c8f514484cd48af6b7b7f5",
+      "why": "The release's own known-good PGM-01 v1 record. This repository retains no PGM-01 record of its own (see legacy_compatibility below), so this fixture is the positive control that proves the mapping accepts as well as refuses."
+    },
+    {
+      "path": "fixtures/verification-semantics/pgm01-v2.json",
+      "sha256": "947baf2f16a11809ca488935cb8b89fb75015eae2204293eac049b5789bd17bc",
+      "why": "The v2 positive control, for the same reason."
+    },
+    {
+      "path": "compatibility-matrix.json",
+      "why": "The authority on which component versions are pinned. Deliberately carries no digest here: it is expected to advance as the matrix is re-accepted, and pinning its bytes locally would make this repository a second acceptance authority."
+    }
+  ],
+  "legacy_compatibility": {
+    "retained_family": "quire.derivation-evidence/v1",
+    "retained_records": 11,
+    "pgm01_records": 0,
+    "measured_outcome": "incompatible",
+    "measured_reason": "unknown PGM-01 schema version",
+    "statement": "This repository never retained a quire.pgm01-evidence record. Its 11 retained envelopes are quire.derivation-evidence/v1, a different schema family that the PGM-01 program governed but did not define. map_pgm01_bytes therefore classifies every one of them 'incompatible' with an unknown PGM-01 schema version. That is the mapping refusing to interpret a shape it does not know, which is the correct behaviour and an explicit reported state; it is not a pass, not a failure of these records, and not a licence to write a local mapper. This number was measured against this repository's own bytes rather than inherited: tl-syntax reported the identical refusal over 23 envelopes and tl-parse over 12, but quire-contract-ir retained real PGM-01 records that mapped, and quire-analyze's Markdown summaries read as 'unreadable' rather than 'incompatible'.",
+    "filed_upstream": "agent-ix/engineering-assurance#21"
+  },
+  "frozen_schemas": {
+    "statement": "The two evidence schemas are retained rather than deleted, but for two different and separately measured reasons, because writing 'both are frozen because retained envelopes name them' would have been false for one of them.",
+    "schemas/tl-rewrite-evidence-manifest-v1.schema.json": {
+      "sha256": "859ebdd66869023808e88a89e09969731170606692137a56772e5dbc43bf31b0",
+      "status": "frozen",
+      "why": "All 11 retained envelopes name tl-rewrite.evidence-manifest v1 by exactly this digest. The committed bytes ARE the bytes those immutable records reference, so deleting or editing the file would break a reference inside evidence this migration is required to leave untouched."
+    },
+    "schemas/tl-rewrite-evidence-input-v1.schema.json": {
+      "sha256": "5bda9d5f4fafc1910859e28d64c254be546398a54a1168e2c902cde8df28f7ce",
+      "status": "retained, and it is a fourth revision that no retained envelope names",
+      "why": "The retained envelopes reference three distinct tl-rewrite.evidence-input v1 digests and the committed file matches none of them. The schema was tightened twice in the last two review rounds after those records were sealed. The file is kept so that the family's current shape stays readable next to the records, and the fact that it is not the referenced artifact is stated here rather than being implied away by the word 'frozen'. Every referenced version is recoverable from Git history, which is the integrity boundary this repository has always declared.",
+      "referenced_digests": [
+        {
+          "sha256": "6cd06977e9bfbd1c51e913c3fdb2e8377cfe28cd0f5e26b6bcdbb206d9839bb0",
+          "recoverable_at": "9d28279332efdfc6cb70ecd66f0b8a2171c8b3aa"
+        },
+        {
+          "sha256": "49ba18db114f4f00742de559bd99fcdf7de2e131e6c4942b6b038d7905236ae1",
+          "recoverable_at": "a889382df7fd6ef116f4ca18186c21562feadefa"
+        },
+        {
+          "sha256": "1d8fc991fadac11bc60459728978fe4f2d92b3aee3125ccd1980aec386e689e3",
+          "recoverable_at": "1b08a6c9e7bca9ebd2ff3831dfc5db9a5749dee4"
+        }
+      ]
+    }
+  },
+  "upstream_dependency": {
+    "component": "tl-syntax",
+    "pinned_revision": "740182f13b84858008d6f176f75136737d405c1b",
+    "not_repinned": true,
+    "why": "tl-parse repinned tl-syntax from 740182f1 to 953ee825 on main and this repository intended to follow. It cannot. tl-rewrite's bounded comparison passes tl_syntax::Formula values straight into tl_mltl::evaluate_closed, so the two crates must resolve the SAME tl-syntax revision. tl-mltl at its merged main fe1c620d still pins 740182f1, so moving only this repository's pin puts two tl-syntax versions in the graph and the crate stops compiling: cargo reports E0308 with 'there are multiple different versions of crate tl_syntax in the dependency graph' at four call sites in src/equivalence.rs. Measured, not predicted. The repin is therefore blocked on tl-mltl repinning first, which is that repository's own migration (agent-ix/tl-mltl#13), and it is recorded as an open unknown rather than forced.",
+    "tracked": "agent-ix/tl-rewrite#10"
+  },
+  "corrected_wire_constant": {
+    "constant": "TL_MLTL_REVISION",
+    "was": "da2c7704a5347d063398c852acf6aa5bf9b5752d",
+    "now": "fe1c620d7baa743d9c6b4dda27f40d207721fcc9",
+    "why": "Every ConformanceReport this crate emits carries evaluator_revision, and it carried a revision the build had not used since the tl-mltl pin moved to merged main. The only test that touched the field compared the constant to itself, so nothing could see it. scripts/check_provenance.py now requires src/lib.rs, Cargo.toml and Cargo.lock to name the same revision for both temporal dependencies, and a mutation probe restores the old value to show the check goes red."
+  },
+  "known_drift": [
+    "engineering-assurance v0.2.0 packages compatibility-matrix.json with accepted.state = pending_human_acceptance and ships no human_acceptance_recorded predicate. Both landed on main after the tag and no v0.2.1 was cut. Filed as agent-ix/engineering-assurance#20. scripts/check_shared_pins.py reports the acceptance state the installed package records and gates only on the local toolchain, so an absent field is never read as an approval in either direction.",
+    "The human acceptance itself is not in doubt: Peter Krenesky accepted the FR-012 matrix on 2026-09-01 and it is attributed on engineering-assurance main. What is missing is a release carrying it. Pinning a branch head to obtain it is exactly what FR-012-AC-1 forbids, so this repository does not.",
+    "map_pgm01_bytes at v0.2.0 covers quire.pgm01-evidence v1 and v2 only. It has no mapping for quire.derivation-evidence/v1, which is the family this repository and its temporal siblings retained. Filed as agent-ix/engineering-assurance#21. Reported, not worked around."
+  ]
+}

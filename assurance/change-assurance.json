@@ -1,0 +1,266 @@
+{
+  "schema_version": "tl-rewrite.change-assurance-declaration/v1",
+  "purpose": "What this repository states about the change under issue #9, in the shape Quoin's FR-063 record requires. Quoin owns the record schema, its digest, and its retention; this file is the author's statement that gets sealed into one.",
+  "not_an_envelope": "Quoin's packaged change-assurance-record-v1, proof-attestation-v1, and verification-receipt-v1 schemas are the shapes. This file projects into the record body Quoin requires and derives nothing beyond the digests its own derived_fields names. It is not a local evidence envelope, it retains nothing, and it computes no verdict.",
+  "derived_fields": [
+    "subject.base_revision and impact_snapshot.revision come from the candidate revision the caller names.",
+    "source_connections[].revision is that same candidate revision; source_connections[].digest is read from the bytes at the declared path in `sources`.",
+    "proof_obligations[].configuration_digest is read from the bytes at that proof's declared `configuration` path.",
+    "impact_snapshot.digest is read from the bytes of the Quire static export.",
+    "record.digest is computed and written by quoin at seal time; this file never states it.",
+    "Nothing else is filled in, defaulted, or discovered. A field this file does not state is a validation failure at seal time, which is the behaviour that makes the record a statement rather than a guess."
+  ],
+  "sources": {
+    "FR-001": "spec/requirements/FR-001-rule-catalog.md",
+    "FR-002": "spec/requirements/FR-002-bounded-engine.md",
+    "FR-003": "spec/requirements/FR-003-rewrite-traces.md",
+    "FR-004": "spec/requirements/FR-004-equivalence.md",
+    "FR-006": "spec/requirements/FR-006-shared-assurance-intake.md",
+    "NFR-002": "spec/requirements/NFR-002-provenance-boundary.md",
+    "NFR-003": "spec/requirements/NFR-003-qualification-integrity.md",
+    "TM-001": "spec/test-matrix.md",
+    "SUR-001": "spec/evidence/suites.md",
+    "rule-corpus": "corpus/rules/manifest.json",
+    "counterexample-corpus": "corpus/counterexamples/manifest.json",
+    "west-corpus": "corpus/west-v1/manifest.json",
+    "derivations": "docs/DER-001-rule-derivations.md",
+    "assurance-pins": "assurance/pins.json"
+  },
+  "record": {
+    "schema_version": 1,
+    "record_type": "change_assurance",
+    "record_id": "tl-rewrite/issue-9",
+    "revision": 1,
+    "parent_digest": null,
+    "subject": {
+      "repository": "agent-ix/tl-rewrite",
+      "scope": [
+        "src",
+        "corpus",
+        "examples",
+        "schemas",
+        "scripts",
+        "spec",
+        "docs",
+        "tests",
+        "assurance",
+        "Makefile"
+      ]
+    },
+    "source_connections": [
+      { "source_id": "FR-001", "kind": "requirement" },
+      { "source_id": "FR-002", "kind": "requirement" },
+      { "source_id": "FR-003", "kind": "requirement" },
+      { "source_id": "FR-004", "kind": "requirement" },
+      { "source_id": "FR-006", "kind": "requirement" },
+      { "source_id": "NFR-002", "kind": "requirement" },
+      { "source_id": "NFR-003", "kind": "requirement" },
+      { "source_id": "TM-001", "kind": "test" },
+      { "source_id": "SUR-001", "kind": "test" },
+      { "source_id": "rule-corpus", "kind": "architecture" },
+      { "source_id": "counterexample-corpus", "kind": "architecture" },
+      { "source_id": "west-corpus", "kind": "architecture" },
+      { "source_id": "derivations", "kind": "other" },
+      { "source_id": "assurance-pins", "kind": "other" }
+    ],
+    "impact_snapshot": {
+      "identity": "quire-static-export",
+      "completeness": "complete",
+      "truncated": false,
+      "gaps": []
+    },
+    "definition": {
+      "requirements": [
+        {
+          "id": "FR-006-AC-1",
+          "statement": "The adopted component versions are classified by the packaged Engineering Assurance compatibility matrix, not by a local restatement of it.",
+          "source_ids": ["FR-006", "assurance-pins"]
+        },
+        {
+          "id": "FR-006-AC-2",
+          "statement": "Native catalog, rewrite, replay, bounded-equivalence and provenance results are produced by domain tools in a declared structured format and transcribed by Quoin without Quoin executing the producer.",
+          "source_ids": ["FR-006", "FR-001", "FR-002", "FR-003", "FR-004"]
+        },
+        {
+          "id": "FR-006-AC-3",
+          "statement": "Static specification, obligation, and coverage facts come from a Quire export, and Quire does not execute a producer.",
+          "source_ids": ["FR-006", "TM-001"]
+        },
+        {
+          "id": "FR-006-AC-4",
+          "statement": "Retained evidence bytes are read through the Engineering Assurance compatibility mapping and are not modified, and the mapping's answer is reported without collapsing it into pass or fail.",
+          "source_ids": ["FR-006", "NFR-002"]
+        },
+        {
+          "id": "FR-006-AC-5",
+          "statement": "Pass, fail, unavailable, unsupported, inconclusive, not-computed, malformed, partial, stale, suspect, vacuous, and tampered remain twelve distinguishable states across the intake path.",
+          "source_ids": ["FR-006", "NFR-003"]
+        },
+        {
+          "id": "FR-006-AC-6",
+          "statement": "A semantic-equivalence counterexample is retained as a concrete witness: the disagreeing trace, both verdicts, and an independent replay of that trace against both documents. It is never reduced to a boolean, and the number of retained witnesses is checked against the counterexample corpus rather than against the producer's own output.",
+          "source_ids": ["FR-006", "FR-004", "counterexample-corpus"]
+        },
+        {
+          "id": "FR-006-AC-7",
+          "statement": "No repository-local generic runner, evidence envelope, manifest, identity framework, retention store, audit store, anchor file, retraction registry, or aggregate verdict remains in the execution path.",
+          "source_ids": ["FR-006", "NFR-003"]
+        }
+      ],
+      "preservation_constraints": [
+        {
+          "id": "PRESERVE-legacy-bytes",
+          "statement": "Every retained byte under evidence/ is unchanged by this migration: ANCHORS, RETRACTIONS.json, all 11 record directories and all 11 .sha256 manifests, 581 files in total. The single file that changed is evidence/README.md, which is human-facing prose and was rewritten to say how the records are read now that their verifier is gone; it is named here rather than covered by a sentence that would otherwise be literally false. The verifier is what was removed; the record is not.",
+          "source_ids": ["NFR-002", "FR-006"]
+        },
+        {
+          "id": "PRESERVE-retained-schemas",
+          "statement": "schemas/tl-rewrite-evidence-manifest-v1.schema.json is frozen: all 11 retained envelopes name its exact committed bytes by SHA-256. schemas/tl-rewrite-evidence-input-v1.schema.json is retained but is measurably NOT the artifact any retained envelope names — the envelopes reference three earlier digests, each recoverable from Git history at a named revision, and assurance/pins.json records which. Nothing validates against either any more and no script may reference them.",
+          "source_ids": ["NFR-002"]
+        },
+        {
+          "id": "PRESERVE-rewrite-behaviour",
+          "statement": "The 38-rule enabled catalog and its two explicit exclusions, stable rule identities and revisions, deterministic bottom-up first-match rewriting, structural interning, reachable-graph compaction, the four budgets and their fail-closed outcomes, repeated-state non-convergence detection, replayable step traces with rolling digests, bounded closed-trace equivalence against the pinned tl-mltl evaluator, retained counterexamples, and the pinned WEST subset remain owned and executed by this repository.",
+          "source_ids": ["FR-001", "FR-002", "FR-003", "FR-004"]
+        },
+        {
+          "id": "PRESERVE-bounded-evidence-is-not-a-proof",
+          "statement": "Bounded agreement enumerates only trace_length == horizon + 1 under the declared closed-trace profile. Every conformance report carries that limitation string, and no gate, report, or document promotes bounded agreement into a universal proof or into qualification of a consuming tool.",
+          "source_ids": ["FR-004", "derivations"]
+        },
+        {
+          "id": "PRESERVE-counterexample-is-a-witness",
+          "statement": "A counterexample is the disagreeing trace and both verdicts, replayed against both documents outside the enumeration that found it. A pipeline that keeps only a boolean has discarded the finding.",
+          "source_ids": ["FR-004", "counterexample-corpus"]
+        },
+        {
+          "id": "PRESERVE-manual-ci",
+          "statement": "Hosted CI remains workflow_dispatch only and is not dispatched by this change.",
+          "source_ids": ["NFR-003"]
+        }
+      ],
+      "proof_obligations": [
+        {
+          "proof_id": "PROOF-rule-conformance",
+          "statement": "Every rule in the catalog is exercised at this candidate revision: each enabled rule fires on its checked corpus fixture, emits the catalog's own revision, and its rewrite is exhaustively equivalent to its input over the complete bounded closed-trace domain; each excluded rule is still declared excluded with its primary-source provenance and reason.",
+          "obligation_ids": ["FR-006-AC-2", "FR-006-AC-5"],
+          "evidence_kind": "Integration",
+          "command": {
+            "argv": ["cargo", "run", "--quiet", "--example", "rule_conformance", "--", "--manifest", "corpus/rules/manifest.json"],
+            "working_directory": "."
+          },
+          "tool_identity": "tl-rewrite-rule-conformance",
+          "configuration": "corpus/rules/manifest.json"
+        },
+        {
+          "proof_id": "PROOF-counterexample-evidence",
+          "statement": "Every case in the counterevidence corpus reaches its declared outcome: each deliberately unsound rewrite yields a concrete counterexample whose trace, replayed against both documents outside the enumeration, still separates them; each bounded-domain refusal reports its declared reason; and the malformed document is named as malformed rather than answered.",
+          "obligation_ids": ["FR-006-AC-2", "FR-006-AC-6", "FR-006-AC-5"],
+          "evidence_kind": "Integration",
+          "command": {
+            "argv": ["cargo", "run", "--quiet", "--example", "counterexample_evidence", "--", "--manifest", "corpus/counterexamples/manifest.json"],
+            "working_directory": "."
+          },
+          "tool_identity": "tl-rewrite-counterexample-evidence",
+          "configuration": "corpus/counterexamples/manifest.json"
+        },
+        {
+          "proof_id": "PROOF-normalization-sweep",
+          "statement": "Over a generated formula family spanning every binary and unary operator, every leaf pair and three intervals including a lower bound above zero, every rewrite is byte-deterministic, reaches a fixed point, replays to the same report digest, preserves the semantic profile and structural validity, and refuses fail-closed under a zero work-unit budget.",
+          "obligation_ids": ["FR-006-AC-2"],
+          "evidence_kind": "Property",
+          "command": {
+            "argv": ["cargo", "run", "--quiet", "--release", "--example", "normalization_sweep"],
+            "working_directory": "."
+          },
+          "tool_identity": "tl-rewrite-normalization-sweep",
+          "configuration": "docs/DER-001-rule-derivations.md"
+        },
+        {
+          "proof_id": "PROOF-provenance-integrity",
+          "statement": "The retained WEST bytes match their pinned checksum manifest in both directions, every corpus that acts as a producer oracle is digested and non-empty, and the revision constants this crate publishes as wire fields are the revisions Cargo.toml and Cargo.lock actually resolve.",
+          "obligation_ids": ["FR-006-AC-2"],
+          "evidence_kind": "Static",
+          "command": {
+            "argv": ["python3", "scripts/check_provenance.py", "--json"],
+            "working_directory": "."
+          },
+          "tool_identity": "tl-rewrite-provenance",
+          "configuration": "corpus/west-v1/SHA256SUMS"
+        },
+        {
+          "proof_id": "PROOF-quire-static-export",
+          "statement": "The authoritative static specification, obligation, and coverage facts for this revision are the Quire export, which executes no producer.",
+          "obligation_ids": ["FR-006-AC-3"],
+          "evidence_kind": "Static",
+          "command": {
+            "argv": ["quire", "coverage", "--scope", ".", "--json"],
+            "working_directory": "."
+          },
+          "tool_identity": "quire",
+          "configuration": "spec/test-matrix.md"
+        },
+        {
+          "proof_id": "PROOF-legacy-compatibility",
+          "statement": "All 11 retained evidence envelopes are read through the pinned Engineering Assurance mapping, their bytes are unchanged, and the mapping's answer for each is reported as it stands.",
+          "obligation_ids": ["FR-006-AC-4"],
+          "evidence_kind": "Static",
+          "command": {
+            "argv": [".venv-assurance/bin/python", "scripts/legacy_evidence_view.py", "--json"],
+            "working_directory": "."
+          },
+          "tool_identity": "tl-rewrite/legacy_evidence_view",
+          "configuration": "tests/fixtures/legacy-compat/expectations.json"
+        },
+        {
+          "proof_id": "PROOF-msrv",
+          "statement": "The declared MSRV compiles every target and feature of this crate at this candidate revision, against the locked dependency graph, and reports it in cargo's own JSON message stream.",
+          "obligation_ids": ["FR-006-AC-2"],
+          "evidence_kind": "Static",
+          "command": {
+            "argv": ["rustup", "run", "1.75.0", "cargo", "check", "--locked", "--all-targets", "--all-features", "--message-format=json"],
+            "working_directory": "."
+          },
+          "tool_identity": "cargo",
+          "configuration": "rust-toolchain.toml"
+        }
+      ],
+      "unknowns": [
+        {
+          "id": "UNKNOWN-ea-acceptance-not-in-a-release",
+          "statement": "engineering-assurance v0.2.0 records accepted.state = pending_human_acceptance and ships no human_acceptance_recorded predicate; the human acceptance exists only on main. This repository reports the state the release records and does not gate on it. Filed as agent-ix/engineering-assurance#20.",
+          "disposition": "open",
+          "owner": "agent-ix/engineering-assurance"
+        },
+        {
+          "id": "UNKNOWN-derivation-evidence-not-mapped",
+          "statement": "map_pgm01_bytes at the pinned release covers quire.pgm01-evidence v1 and v2. This repository's 11 retained envelopes are quire.derivation-evidence/v1, so the mapping refuses them as an unknown schema version. That refusal is reported as the compatibility result; no local mapper was written to make it read as a pass. Filed as agent-ix/engineering-assurance#21.",
+          "disposition": "open",
+          "owner": "agent-ix/engineering-assurance"
+        },
+        {
+          "id": "UNKNOWN-tl-syntax-pin-blocked-by-tl-mltl",
+          "statement": "tl-syntax merged its own migration as 953ee825 and tl-parse repinned to it. tl-rewrite cannot follow yet: its bounded comparison hands tl_syntax::Formula values directly to tl_mltl::evaluate_closed, so both crates must resolve the same tl-syntax revision, and tl-mltl at its merged main fe1c620d still pins 740182f1. Repinning only this crate puts two tl-syntax versions in the graph and the build fails with E0308 at four call sites in src/equivalence.rs. Measured, not predicted. The pin therefore stays at 740182f1 until tl-mltl repins. Filed as agent-ix/tl-rewrite#10.",
+          "disposition": "open",
+          "owner": "agent-ix/tl-mltl"
+        },
+        {
+          "id": "UNKNOWN-human-decision-absent",
+          "statement": "No ix-flow decision event exists for this change. Only the repository owner may create one, and none was synthesized, so the receipt is expected to read incomplete with a missing decision rather than complete.",
+          "disposition": "open",
+          "owner": "@kreneskyp"
+        },
+        {
+          "id": "UNKNOWN-make-execution-control-guard-removed",
+          "statement": "scripts/check_failure_propagation.py and the Makefile parse-time guard that policed Make's own execution controls are removed with the collector they protected. The class they guarded is real and was measured on this repository's own Makefile, not inherited: with every tool variable pointed at `false` so no gate's work happens, `make ci` exits 2 and stops at the first prerequisite; prepending a single `.IGNORE:` line makes the identical run exit 0 after 27 ignored recipe failures, with all 13 `ci` prerequisites reporting success. Twelve fail their own command and are ignored; the thirteenth, `audit-unsafe`, invokes `bash` directly and a skeleton with every recipe replaced by `false` confirms it too reports success, so the count is 13 of 13. What replaces them is structural rather than another guard — Quoin binds each retained input by digest and the chain derives every attested result from the producer's own bytes, so a Makefile that lies about what it ran produces an absent or empty input, which the chain reports as an error naming the missing target rather than as a pass. That covers the work re-run inside `assurance-inputs`. It does not cover fmt-check, lint, test, check-corpus, deny, audit-unsafe, rustdoc, or the `quire validate` half of spec, which are simply neutered. This is a genuine reduction in local detection and it is recorded rather than claimed away. Filed as agent-ix/tl-rewrite#11.",
+          "disposition": "open",
+          "owner": "agent-ix/tl-rewrite"
+        }
+      ]
+    },
+    "review_workflow": {
+      "run_id": "tl-rewrite-issue-9",
+      "decision_event_kind": "change_assurance.review_decided"
+    }
+  }
+}

@@ -1,19 +1,56 @@
 # =============================================================================
 # TL Rewrite Makefile
 # =============================================================================
+#
+# Native orchestration. Every target calls the toolchain that owns the job:
+# cargo for the crate, the rule-conformance, counterexample and normalization
+# runners for the rewrite domain, quire for static export, quoin for evidence.
+# Nothing here computes a verdict, attests to its own correctness, or retains
+# evidence of its own.
+#
+# This file is not a trust root and no longer tries to be one. The parse-time
+# guards that used to police Make's own execution controls — SHELL, .SHELLFLAGS,
+# MAKEFLAGS, .ONESHELL, .IGNORE, the `-` prefix, $(eval), include — went with the
+# collector they were protecting.
+#
+# Read this before trusting a green `make ci`. Measured on this file, not
+# inherited from a sibling: with every tool variable pointed at `false` so no
+# gate's work happens, `make ci` exits 2 and stops at the first prerequisite;
+# prepending a single `.IGNORE:` line makes the identical run exit 0 after 27
+# ignored recipe failures, with all 13 `ci` prerequisites reporting success.
+# The structural backstop only goes so far — Quoin binds
+# each retained input by digest and the chain derives every attested result from
+# the producer's own bytes, so a producer that did not run yields an absent or
+# empty input that the chain names. That covers the work re-run inside
+# `assurance-inputs`. It does not cover fmt-check, lint, test, check-corpus,
+# deny, audit-unsafe, rustdoc, or the `quire validate` half of spec, which are
+# simply neutered. Tracked as agent-ix/tl-rewrite#11.
 
-ifneq ($(filter ci ci-for-evidence,$(MAKECMDGOALS)),)
-ifneq ($(strip $(MAKEFLAGS)),)
-$(error local CI refuses non-empty MAKEFLAGS)
-endif
-ifneq ($(strip $(PYTHONOPTIMIZE)),)
-$(error local CI refuses optimized Python policy execution)
-endif
-tl_ci_static_status := $(shell /usr/bin/env -u PYTHONOPTIMIZE MAKEFLAGS= /usr/bin/python3 scripts/check_failure_propagation.py --makefile '$(firstword $(MAKEFILE_LIST))' --static-only >/dev/null; echo $$?)
-ifneq ($(tl_ci_static_status),0)
-$(error local CI refuses unsafe Make recipe controls)
-endif
-endif
+CARGO ?= cargo
+PYTHON ?= python3
+QUIRE ?= quire
+QUOIN ?= quoin
+
+# The shared-assurance lane runs in its own interpreter. There is no jsonschema
+# conflict left to resolve here — every script in this repository that imported
+# jsonschema was part of the local evidence machinery this migration removed. The
+# environment exists because engineering-assurance is pinned as a git tag, and
+# resolving a git dependency into the system interpreter would make the pin
+# depend on whatever else that interpreter happens to have.
+ASSURANCE_VENV ?= .venv-assurance
+ASSURANCE_PYTHON ?= $(ASSURANCE_VENV)/bin/python
+
+ASSURANCE_DIR := target/assurance
+RULE_RESULT := $(ASSURANCE_DIR)/rule-conformance.jsonl
+COUNTEREXAMPLE_RESULT := $(ASSURANCE_DIR)/counterexample-evidence.jsonl
+NORMALIZATION_RESULT := $(ASSURANCE_DIR)/normalization-sweep.jsonl
+PROVENANCE_RESULT := $(ASSURANCE_DIR)/provenance-integrity.json
+QUIRE_EXPORT := $(ASSURANCE_DIR)/quire-static-export.json
+COMPAT_RESULT := $(ASSURANCE_DIR)/legacy-compatibility.json
+MSRV_RESULT := $(ASSURANCE_DIR)/msrv.jsonl
+RULE_MANIFEST := corpus/rules/manifest.json
+COUNTEREXAMPLE_MANIFEST := corpus/counterexamples/manifest.json
+REVISION ?= $(shell git rev-parse HEAD)
 
 .PHONY: help
 help:
@@ -21,21 +58,25 @@ help:
 	@echo "  make fmt              - Format with rustfmt"
 	@echo "  make fmt-check        - Verify formatting (CI gate)"
 	@echo "  make lint             - Clippy with -D warnings"
-	@echo "  make test             - cargo test"
-	@echo "  make check-failure-propagation - prove required command failures reach CI"
-	@echo "  make build            - Release build"
-	@echo "  make clean            - cargo clean"
-	@echo "  make deny             - cargo deny check advisories, licenses, and sources"
+	@echo "  make test             - cargo test plus the shared-assurance tests"
+	@echo "  make check-corpus     - Re-derive corpus, oracle, and dependency provenance"
+	@echo "  make conformance      - Replay every catalog rule through engine and oracle"
+	@echo "  make counterexamples  - Produce and replay the retained counterexample corpus"
+	@echo "  make normalization    - Sweep determinism, fixed point, replay, and budgets"
+	@echo "  make deny             - cargo deny check advisories, bans, licenses, sources"
 	@echo "  make audit-unsafe     - Enforce // SAFETY: comments on unsafe blocks"
-	@echo "  make check-corpus     - Verify retained WEST corpus bytes"
-	@echo "  make verify-evidence  - Verify every retained evidence SHA-256 manifest"
-	@echo "  make spec             - Validate and cover specification artifacts"
+	@echo "  make spec             - Validate specification and coverage with Quire"
+	@echo "  make msrv             - Check all targets and features with Rust 1.75"
 	@echo "  make rustdoc          - Build warning-free public documentation"
-	@echo "  make msrv             - Test all targets and features with Rust 1.75"
-	@echo "  make evidence-tool    - Syntax-check evidence tooling and schemas"
-	@echo "  make check-tool-identities - Verify host-scoped qualification executables"
-	@echo "  make ci-for-evidence  - Candidate gates before assurance self-binding"
-	@echo "  make ci               - Portable complete gate, including retained evidence"
+	@echo "  make build            - Release build"
+	@echo "  make clean            - cargo clean and drop the assurance environment"
+	@echo "  make assurance-env    - Create the pinned shared-assurance interpreter"
+	@echo "  make assurance-inputs - Run the producers and write their structured results"
+	@echo "  make pins             - Classify the toolchain through the shared matrix"
+	@echo "  make compat-view      - Read retained evidence through the shared mapping"
+	@echo "  make assurance-chain  - Seal, retain, and verify through Quoin"
+	@echo "  make assurance        - pins + compat-view + assurance-chain"
+	@echo "  make ci               - All CI gates locally (hosted CI is manual-only)"
 
 # =============================================================================
 # Format / Lint / Test
@@ -43,66 +84,52 @@ help:
 
 .PHONY: fmt
 fmt:
-	cargo fmt --all
+	$(CARGO) fmt --all
 
 .PHONY: fmt-check
 fmt-check:
-	cargo fmt --all -- --check
-	@/usr/bin/printf 'fmt-check gate passed\n'
+	$(CARGO) fmt --all -- --check
 
 .PHONY: lint
 lint:
-	cargo clippy --all-targets --all-features -- -D warnings
-	@/usr/bin/printf 'lint gate passed\n'
+	$(CARGO) clippy --all-targets --all-features -- -D warnings
 
+# The traced tests invoke the assurance gates, so the producers must already have
+# run. They are a prerequisite rather than something a test creates for itself: a
+# test that can produce its own inputs can produce a green run out of nothing.
 .PHONY: test
-test:
-	cargo test --all-targets --all-features
-	@/usr/bin/printf 'Rust test gate passed\n'
+test: assurance-inputs
+	$(CARGO) test --all-targets --all-features
 
-.PHONY: check-failure-propagation
-check-failure-propagation:
-	/usr/bin/python3 scripts/check_failure_propagation.py
+# =============================================================================
+# Rewrite domain
+# =============================================================================
 
 .PHONY: check-corpus
 check-corpus:
-	/usr/bin/python3 scripts/check_corpus.py
-	@/usr/bin/printf 'corpus-integrity gate passed\n'
+	$(PYTHON) scripts/check_provenance.py
 
-.PHONY: verify-evidence
-verify-evidence:
-	/usr/bin/bash scripts/verify_evidence.sh
-	@/usr/bin/printf 'verify-evidence gate passed\n'
+.PHONY: conformance
+conformance:
+	$(CARGO) run --quiet --example rule_conformance -- --manifest $(RULE_MANIFEST)
 
-.PHONY: spec
-spec:
-	quire validate --scope . 'spec/**/*.md'
-	/usr/bin/python3 scripts/check_traceability_coverage.py
-	@/usr/bin/printf 'spec gate passed\n'
+.PHONY: counterexamples
+counterexamples:
+	$(CARGO) run --quiet --example counterexample_evidence -- \
+		--manifest $(COUNTEREXAMPLE_MANIFEST)
 
-.PHONY: rustdoc
-rustdoc:
-	RUSTDOCFLAGS=-Dwarnings /usr/bin/bash scripts/check_rustdoc.sh
-	@/usr/bin/printf 'rustdoc gate passed\n'
-
-.PHONY: evidence-tool
-evidence-tool:
-	/usr/bin/python3 -m compileall -q scripts
-	/usr/bin/python3 scripts/run_policy_tests.py
-	@/usr/bin/printf 'evidence-tool gate passed\n'
-
-.PHONY: check-tool-identities
-check-tool-identities:
-	/usr/bin/python3 scripts/tool_identity.py --verify-live
-	@/usr/bin/printf 'qualified-tool-identities gate passed\n'
+.PHONY: normalization
+normalization:
+	$(CARGO) run --quiet --release --example normalization_sweep
 
 .PHONY: build
 build:
-	cargo build --release
+	$(CARGO) build --release
 
 .PHONY: clean
 clean:
-	cargo clean
+	$(CARGO) clean
+	rm -rf $(ASSURANCE_VENV)
 
 # =============================================================================
 # Supply chain & safety
@@ -110,30 +137,96 @@ clean:
 
 .PHONY: deny
 deny:
-	/usr/bin/python3 scripts/check_advisories.py
-	cargo deny check licenses
-	cargo deny check sources
-	@/usr/bin/printf 'deny gate passed\n'
-
-.PHONY: cargo-audit
-cargo-audit:
-	cargo audit
+	$(CARGO) deny check advisories
+	$(CARGO) deny check bans
+	$(CARGO) deny check licenses
+	$(CARGO) deny check sources
 
 .PHONY: audit-unsafe
 audit-unsafe:
-	/usr/bin/bash scripts/check_unsafe_comments.sh
-	@/usr/bin/printf 'audit-unsafe gate passed\n'
+	bash scripts/check_unsafe_comments.sh
+
+.PHONY: spec
+spec:
+	$(QUIRE) validate --scope . 'spec/**/*.md' 'docs/*.md' --strict --summary
+	$(QUIRE) coverage --scope . --strict
 
 .PHONY: msrv
 msrv:
-	cargo +1.75.0 test --all-targets --all-features
-	@/usr/bin/printf 'msrv gate passed\n'
+	rustup run 1.75.0 $(CARGO) check --locked --all-targets --all-features
+
+.PHONY: rustdoc
+rustdoc:
+	RUSTDOCFLAGS=-Dwarnings $(CARGO) doc --no-deps --all-features
+
+# =============================================================================
+# Shared assurance
+# =============================================================================
+
+# Rebuilt when the pin changes. Without this prerequisite, editing the pinned
+# release never rebuilds the environment and the toolchain keeps whatever it
+# already had.
+$(ASSURANCE_PYTHON): requirements-assurance.txt
+	rm -rf $(ASSURANCE_VENV)
+	$(PYTHON) -m venv $(ASSURANCE_VENV)
+	$(ASSURANCE_VENV)/bin/pip install --quiet --disable-pip-version-check \
+		-r requirements-assurance.txt
+
+.PHONY: assurance-env
+assurance-env: $(ASSURANCE_PYTHON)
+
+# The only target that runs a producer. Everything downstream consumes these
+# files and refuses to create them.
+.PHONY: assurance-inputs
+assurance-inputs: assurance-env
+	mkdir -p $(ASSURANCE_DIR)
+	$(CARGO) run --quiet --example rule_conformance -- \
+		--manifest $(RULE_MANIFEST) > $(RULE_RESULT)
+	$(CARGO) run --quiet --example counterexample_evidence -- \
+		--manifest $(COUNTEREXAMPLE_MANIFEST) > $(COUNTEREXAMPLE_RESULT)
+	$(CARGO) run --quiet --release --example normalization_sweep > $(NORMALIZATION_RESULT)
+	$(PYTHON) scripts/check_provenance.py --json > $(PROVENANCE_RESULT)
+	$(QUIRE) coverage --scope . --json > $(QUIRE_EXPORT)
+	$(ASSURANCE_PYTHON) scripts/legacy_evidence_view.py --json > $(COMPAT_RESULT)
+	rustup run 1.75.0 $(CARGO) check --locked --all-targets --all-features \
+		--message-format=json > $(MSRV_RESULT)
+
+.PHONY: pins
+pins: assurance-env
+	$(ASSURANCE_PYTHON) scripts/check_shared_pins.py
+
+.PHONY: compat-view
+compat-view: assurance-env
+	$(ASSURANCE_PYTHON) scripts/legacy_evidence_view.py
+	$(ASSURANCE_PYTHON) scripts/legacy_evidence_view.py --mutation-probes
+
+.PHONY: assurance-chain
+assurance-chain: assurance-inputs
+	$(PYTHON) scripts/assurance_chain.py --candidate-revision $(REVISION)
+
+.PHONY: assurance
+assurance: pins compat-view assurance-chain
+
+# An operator target, not a CI gate. It writes into this repository's own Quoin
+# evidence store, which is a reviewed change to spec/evidence/ rather than
+# something a gate should do on every run.
+.PHONY: assurance-record
+assurance-record: assurance-inputs
+	$(PYTHON) scripts/assurance_chain.py --adapt $(RULE_RESULT) \
+		> $(ASSURANCE_DIR)/entries.json
+	$(QUOIN) evidence record \
+		--repo . \
+		--suite SUITE-001 \
+		--commit $(REVISION) \
+		--tool "tl-rewrite-rule-conformance 0.1.0" \
+		--adapter entries \
+		--kind Integration \
+		--results $(ASSURANCE_DIR)/entries.json
 
 # =============================================================================
 # Composite
 # =============================================================================
 
-.PHONY: ci ci-for-evidence
-ci-for-evidence: check-failure-propagation check-tool-identities fmt-check lint test check-corpus deny audit-unsafe evidence-tool spec msrv rustdoc
-
-ci: check-failure-propagation fmt-check lint test check-corpus deny audit-unsafe evidence-tool spec msrv rustdoc verify-evidence
+.PHONY: ci
+ci: fmt-check lint test check-corpus conformance counterexamples normalization \
+	deny audit-unsafe spec msrv rustdoc assurance

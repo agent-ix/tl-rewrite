@@ -22,7 +22,7 @@ Only a fixed point carries a normalized formula. `replay` detects substituted
 inputs, catalog/options, steps, intermediates, or output. `check_equivalence`
 enumerates every valuation in a horizon-complete bounded closed-trace domain
 and delegates verdicts to pinned `tl-mltl` revision
-`da2c7704a5347d063398c852acf6aa5bf9b5752d`.
+`fe1c620d7baa743d9c6b4dda27f40d207721fcc9`.
 
 The supported `mltl.closed-trace/v1` profile uses false padding for missing
 proposition observations, while Boolean constants remain time-independent at
@@ -37,8 +37,21 @@ the declared horizon-complete domain and profile.
 `corpus/west-v1/` is a checksum-pinned, byte-identical MIT-licensed subset of
 canonical WEST commit `21cd99ab…`. Ten selected published formulas exercise
 enabled rules and are independently checked with tl-mltl. Every enabled rule
-also has its own exhaustive small-domain fixture. Agreement is conclusive only
-for the reported formula pair and domain; it is not a universal proof schema.
+also has its own exhaustive small-domain fixture, bound by SHA-256 to
+`corpus/rules/manifest.json`. Agreement is conclusive only for the reported
+formula pair and domain; it is not a universal proof schema.
+
+`corpus/counterexamples/` is the counterevidence corpus: deliberately unsound
+rewrites that must produce a concrete disagreeing trace, and bounded-domain
+cases that must decline for a declared reason. Each counterexample is replayed
+against both documents outside the enumeration that found it, so a witness that
+does not actually separate the pair is a failure rather than a decorative field.
+
+Retention, integrity checking, audit, attestation and receipts are owned
+upstream by Quoin, and the compatibility matrix and PGM-01 mapping by
+Engineering Assurance. This repository runs its own producers and reports what
+those tools said; it keeps no evidence framework of its own. See
+`assurance/README.md`.
 
 ## Development status
 

@@ -6,3 +6,5 @@ Cargo.lock.bak
 .vscode/
 __pycache__/
 *.pyc
+.venv-assurance/
+proptest-regressions/

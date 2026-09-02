@@ -297,3 +297,97 @@ fn every_enabled_rule_has_positive_exhaustive_bounded_evidence() {
         );
     }
 }
+
+// Trace: TC-022, FR-001-AC-2, FR-004-AC-3
+#[test]
+fn the_rule_corpus_is_the_constructed_fixtures_and_covers_the_whole_catalog() {
+    // The corpus in `corpus/rules/manifest.json` is what `examples/rule_conformance.rs`
+    // replays, and it is data rather than code. Data that nothing binds to the
+    // reviewed construction is data anyone can edit, so both directions are
+    // asserted here: every enabled rule's constructed fixture must serialize to
+    // exactly the digest the corpus declares, and the corpus's case set must be
+    // the catalog's rule set.
+    //
+    // This is the same shape as the WEST fixture-to-manifest binding in
+    // tests/equivalence.rs, which an adversarial review of v0.1 attacked twice
+    // and which held both times.
+    use std::{collections::BTreeSet, fs, path::PathBuf};
+
+    use serde::Deserialize;
+    use sha2::{Digest, Sha256};
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Manifest {
+        schema_version: String,
+        cases: Vec<Case>,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Case {
+        id: String,
+        disposition: String,
+        #[serde(default)]
+        formula_sha256: Option<String>,
+        #[serde(default)]
+        exclusion_reason: Option<String>,
+    }
+
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let manifest: Manifest =
+        serde_json::from_slice(&fs::read(root.join("corpus/rules/manifest.json")).unwrap())
+            .unwrap();
+    assert_eq!(manifest.schema_version, "tl-rewrite.rule-corpus/v1");
+
+    let document = catalog();
+    let catalog_ids: BTreeSet<&str> = document.rules.iter().map(|rule| rule.id.as_str()).collect();
+    let corpus_ids: BTreeSet<&str> = manifest.cases.iter().map(|case| case.id.as_str()).collect();
+    assert_eq!(
+        catalog_ids, corpus_ids,
+        "the rule corpus and the catalog name different rule sets"
+    );
+
+    let mut enabled = 0usize;
+    let mut excluded = 0usize;
+    for case in &manifest.cases {
+        let rule = document
+            .rules
+            .iter()
+            .find(|item| item.id == case.id)
+            .expect("set equality was asserted above");
+        match case.disposition.as_str() {
+            "enabled" => {
+                enabled += 1;
+                assert_eq!(rule.disposition, RuleDisposition::Enabled, "{}", case.id);
+                let expected = case
+                    .formula_sha256
+                    .as_ref()
+                    .unwrap_or_else(|| panic!("{} declares no formulaSha256", case.id));
+                let constructed = fixture(&case.id);
+                let observed: String = Sha256::digest(serde_json::to_vec(&constructed).unwrap())
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect();
+                assert_eq!(
+                    &observed, expected,
+                    "{} in the corpus is not the fixture this test constructs",
+                    case.id
+                );
+            }
+            "excluded" => {
+                excluded += 1;
+                assert_eq!(rule.disposition, RuleDisposition::Excluded, "{}", case.id);
+                assert_eq!(
+                    case.exclusion_reason.as_deref(),
+                    rule.exclusion_reason.as_deref(),
+                    "{} exclusion reason drifted from the catalog",
+                    case.id
+                );
+            }
+            other => panic!("{} declares an unknown disposition {other}", case.id),
+        }
+    }
+    assert_eq!(enabled, 38, "the corpus declares {enabled} enabled rules");
+    assert_eq!(excluded, 2, "the corpus declares {excluded} excluded rules");
+}
