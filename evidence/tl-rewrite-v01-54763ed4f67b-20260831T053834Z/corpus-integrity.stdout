@@ -1,0 +1,4 @@
+cd corpus/west-v1 && sha256sum --check SHA256SUMS
+formulas_d1.txt: OK
+LICENSE: OK
+manifest.json: OK

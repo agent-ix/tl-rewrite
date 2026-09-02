@@ -1,0 +1,103 @@
+{
+  "backend": {
+    "kind": "none",
+    "reason": "deterministic packaging; invoked tools are identified in the input"
+  },
+  "environment": {
+    "dependenciesDigest": {
+      "algorithm": "sha256",
+      "value": "146c9e2ce6fb615240d0acbe76be29aea5383c0b5f9c49c37ed69e661d8f8c60"
+    },
+    "operatingSystem": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+    "targetTriple": "x86_64-unknown-linux-gnu",
+    "toolchain": "rustc 1.94.1 (e408947bf 2026-03-25)"
+  },
+  "extensions": {
+    "dev.agent-ix.tl-rewrite": {
+      "catalogVersion": "tl-rewrite-rules/v1",
+      "componentClass": "analysis-evidence-tool",
+      "corpusRevision": "tl-rewrite-corpus/v1",
+      "envelopeSchemaDigest": "0946e235e9e4b0fa79e9b9ec27ae157b303c17de0a9408d3cc04968fb7152256",
+      "pgm01CandidateRevision": "7dac9d8c19952412b56a0347387666e2ca81e01d",
+      "reviewState": "pending",
+      "sourceState": "clean"
+    }
+  },
+  "inputs": [
+    {
+      "contentDigest": {
+        "algorithm": "sha256",
+        "value": "834974e52d1985378ea5a8c7cb9f67b81294f61b8e92eb149688a71879ce2be3"
+      },
+      "mediaType": "application/json",
+      "role": "evidence-collection-input",
+      "schema": {
+        "digest": {
+          "algorithm": "sha256",
+          "value": "1d8fc991fadac11bc60459728978fe4f2d92b3aee3125ccd1980aec386e689e3"
+        },
+        "id": "tl-rewrite.evidence-input",
+        "version": "v1"
+      },
+      "uri": "collection-input.json"
+    }
+  ],
+  "outputs": [
+    {
+      "contentDigest": {
+        "algorithm": "sha256",
+        "value": "209bc4fc06b9efef7c968fc076c7c960fb02f1b898ecfd75ed080ca677e5c35f"
+      },
+      "mediaType": "application/json",
+      "role": "tl-rewrite-evidence-manifest",
+      "schema": {
+        "digest": {
+          "algorithm": "sha256",
+          "value": "859ebdd66869023808e88a89e09969731170606692137a56772e5dbc43bf31b0"
+        },
+        "id": "tl-rewrite.evidence-manifest",
+        "version": "v1"
+      },
+      "uri": "evidence-manifest.json"
+    }
+  ],
+  "parametersDigest": {
+    "algorithm": "sha256",
+    "value": "b2d77c3347725de5177ec3bb007c654d0fcacf83cf0f930c10e797ef1afff144"
+  },
+  "producer": {
+    "executableDigest": {
+      "algorithm": "sha256",
+      "value": "b7e7f17423b9393c3c6859ef0f6c46fc81f6c60407e6edad3d1f71920923e552"
+    },
+    "invocation": [
+      "bash",
+      "scripts/collect_evidence.sh",
+      ".tl-rewrite-evidence-stage.QEO7DU/tl-rewrite-v01-1b08a6c9e7bc-20260831T203039Z"
+    ],
+    "name": "tl-rewrite-evidence-collector",
+    "sourceRevision": "1b08a6c9e7bca9ebd2ff3831dfc5db9a5749dee4",
+    "version": "0.1.0"
+  },
+  "provenance": {
+    "candidateRevision": "1b08a6c9e7bca9ebd2ff3831dfc5db9a5749dee4",
+    "contributionMethod": "agent-assisted",
+    "repository": "https://github.com/agent-ix/tl-rewrite",
+    "reviewers": [
+      "@kreneskyp"
+    ],
+    "sourceRevision": "1b08a6c9e7bca9ebd2ff3831dfc5db9a5749dee4"
+  },
+  "recordId": "tl-rewrite-v01-1b08a6c9e7bc-20260831T203039Z",
+  "recordedAt": "2026-08-31T20:30:49Z",
+  "result": {
+    "requirementRefs": [
+      "PGM-01-R08",
+      "PGM-01-R09",
+      "MP-001"
+    ],
+    "status": "inconclusive",
+    "summary": "exact finalized-envelope validation is external or pending"
+  },
+  "schemaVersion": "quire.derivation-evidence/v1"
+}

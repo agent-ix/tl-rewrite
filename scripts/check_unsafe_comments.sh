@@ -12,7 +12,8 @@ if [[ "${1:-}" == "--update-baseline" ]]; then
 fi
 
 if [[ ! -d src ]]; then
-  exit 0
+  echo "unsafe-comment gate requires the source directory" >&2
+  exit 2
 fi
 
 unsafe_lines=()

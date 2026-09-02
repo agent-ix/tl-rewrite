@@ -1,0 +1,498 @@
+{
+  "schemaVersion": "tl-rewrite.counterexample-corpus/v1",
+  "purpose": "The counterevidence corpus. Every case is a formula pair whose bounded comparison must reach a declared outcome, and every mismatch case must yield a concrete counterexample trace that is independently replayed against both documents. A counterexample that has degraded into a boolean is the failure this corpus exists to prevent.",
+  "oracle": "The counts and per-case expectations in this file are the oracle. The producer reads them, runs the comparison, and reports what it observed; the chain compares observed counts against the counts declared here rather than against the producer's own output, so a producer that stopped finding counterexamples cannot also move the number it is checked against.",
+  "counts": {
+    "mismatch": 5,
+    "non_conclusive": 5,
+    "malformed": 1,
+    "total": 11
+  },
+  "unavailableIsNotACase": "There is deliberately no absent-input case here. A declared input that is missing makes the proof genuinely unavailable, and wiring a permanently unavailable case into the green path would either wedge the gate red or teach the mapping to read unavailable as a pass. The state is demonstrated instead by a chain scenario that seals an `unavailable` attestation, and the producer's ability to report it is demonstrated by a mutation probe that removes a declared input and requires the row and the proof to go unavailable.",
+  "cases": [
+    {
+      "id": "cx-negated-proposition",
+      "kind": "mismatch",
+      "expectedDomainOutcome": "mismatch",
+      "original": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          }
+        ]
+      },
+      "rewritten": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 1,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "not",
+            "operand": 0
+          }
+        ]
+      },
+      "why": "The smallest possible unsound rewrite. Its counterexample is the empty first instant, so the witness is exact and the two verdicts are opposite."
+    },
+    {
+      "id": "cx-future-replaced-by-globally",
+      "kind": "mismatch",
+      "expectedDomainOutcome": "mismatch",
+      "original": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 1,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "future",
+            "interval": {
+              "start": 1,
+              "end": 2
+            },
+            "operand": 0
+          }
+        ]
+      },
+      "rewritten": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 1,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "globally",
+            "interval": {
+              "start": 1,
+              "end": 2
+            },
+            "operand": 0
+          }
+        ]
+      },
+      "why": "An existential bounded operator rewritten to the universal one. A trace where the proposition holds at exactly one instant of [1,2] separates them, and the lower bound is above zero so the witness is not confined to the a=0 slice."
+    },
+    {
+      "id": "cx-until-operands-swapped",
+      "kind": "mismatch",
+      "expectedDomainOutcome": "mismatch",
+      "original": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 2,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "proposition",
+            "proposition": 1
+          },
+          {
+            "kind": "until",
+            "interval": {
+              "start": 0,
+              "end": 2
+            },
+            "left": 0,
+            "right": 1
+          }
+        ]
+      },
+      "rewritten": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 2,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "proposition",
+            "proposition": 1
+          },
+          {
+            "kind": "until",
+            "interval": {
+              "start": 0,
+              "end": 2
+            },
+            "left": 1,
+            "right": 0
+          }
+        ]
+      },
+      "why": "Until is not commutative. Swapping its operands is the mutation a careless catalog edit would produce, and the corpus keeps a retained witness for it."
+    },
+    {
+      "id": "cx-globally-dropped",
+      "kind": "mismatch",
+      "expectedDomainOutcome": "mismatch",
+      "original": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 1,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "globally",
+            "interval": {
+              "start": 0,
+              "end": 2
+            },
+            "operand": 0
+          }
+        ]
+      },
+      "rewritten": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          }
+        ]
+      },
+      "why": "A bounded Globally erased. Sound only when the interval is the singleton [0,0]; temporal.globally.singleton is exactly that precondition, so this case is the precondition being ignored."
+    },
+    {
+      "id": "cx-release-read-as-until",
+      "kind": "mismatch",
+      "expectedDomainOutcome": "mismatch",
+      "original": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 2,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "proposition",
+            "proposition": 1
+          },
+          {
+            "kind": "release",
+            "interval": {
+              "start": 1,
+              "end": 2
+            },
+            "left": 0,
+            "right": 1
+          }
+        ]
+      },
+      "rewritten": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 2,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "proposition",
+            "proposition": 1
+          },
+          {
+            "kind": "until",
+            "interval": {
+              "start": 1,
+              "end": 2
+            },
+            "left": 0,
+            "right": 1
+          }
+        ]
+      },
+      "why": "Release is the dual of Until, not a synonym. The lower bound is above zero, which is the region where the round-1 review found the evaluator itself had been wrong."
+    },
+    {
+      "id": "nc-unsupported-profile",
+      "kind": "non_conclusive",
+      "expectedDomainOutcome": "non_conclusive:unsupported_profile",
+      "original": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.online-prefix/v1",
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          }
+        ]
+      },
+      "rewritten": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.online-prefix/v1",
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          }
+        ]
+      },
+      "why": "A profile the closed-trace enumeration does not define. The comparison refuses rather than enumerating a domain it has no semantics for, and the refusal is a reported state rather than a pass."
+    },
+    {
+      "id": "nc-proposition-ceiling",
+      "kind": "non_conclusive",
+      "expectedDomainOutcome": "non_conclusive:proposition_limit",
+      "options": {
+        "maxPropositions": 4,
+        "maxHorizon": 8,
+        "maxTraces": 1000000
+      },
+      "original": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 8,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "proposition",
+            "proposition": 1
+          },
+          {
+            "kind": "and",
+            "left": 0,
+            "right": 1
+          },
+          {
+            "kind": "proposition",
+            "proposition": 2
+          },
+          {
+            "kind": "and",
+            "left": 2,
+            "right": 3
+          },
+          {
+            "kind": "proposition",
+            "proposition": 3
+          },
+          {
+            "kind": "and",
+            "left": 4,
+            "right": 5
+          },
+          {
+            "kind": "proposition",
+            "proposition": 4
+          },
+          {
+            "kind": "and",
+            "left": 6,
+            "right": 7
+          }
+        ]
+      },
+      "rewritten": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 8,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "proposition",
+            "proposition": 1
+          },
+          {
+            "kind": "and",
+            "left": 0,
+            "right": 1
+          },
+          {
+            "kind": "proposition",
+            "proposition": 2
+          },
+          {
+            "kind": "and",
+            "left": 2,
+            "right": 3
+          },
+          {
+            "kind": "proposition",
+            "proposition": 3
+          },
+          {
+            "kind": "and",
+            "left": 4,
+            "right": 5
+          },
+          {
+            "kind": "proposition",
+            "proposition": 4
+          },
+          {
+            "kind": "and",
+            "left": 6,
+            "right": 7
+          }
+        ]
+      },
+      "why": "Five distinct propositions against a ceiling of four. The domain is finite but larger than the declared bound, so the answer is not-computed and never equivalent."
+    },
+    {
+      "id": "nc-trace-domain-ceiling",
+      "kind": "non_conclusive",
+      "expectedDomainOutcome": "non_conclusive:trace_domain_limit",
+      "options": {
+        "maxPropositions": 4,
+        "maxHorizon": 8,
+        "maxTraces": 1
+      },
+      "original": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 2,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "proposition",
+            "proposition": 1
+          },
+          {
+            "kind": "and",
+            "left": 0,
+            "right": 1
+          }
+        ]
+      },
+      "rewritten": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 2,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "proposition",
+            "proposition": 1
+          },
+          {
+            "kind": "and",
+            "left": 0,
+            "right": 1
+          }
+        ]
+      },
+      "why": "A trace ceiling below the complete domain. Bounded evidence that stops short of its own domain is not evidence of agreement, and the report says so."
+    },
+    {
+      "id": "nc-horizon-ceiling",
+      "kind": "non_conclusive",
+      "expectedDomainOutcome": "non_conclusive:horizon_limit",
+      "options": {
+        "maxPropositions": 4,
+        "maxHorizon": 2,
+        "maxTraces": 1000000
+      },
+      "original": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 1,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "future",
+            "interval": {
+              "start": 0,
+              "end": 6
+            },
+            "operand": 0
+          }
+        ]
+      },
+      "rewritten": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 1,
+        "nodes": [
+          {
+            "kind": "proposition",
+            "proposition": 0
+          },
+          {
+            "kind": "future",
+            "interval": {
+              "start": 0,
+              "end": 6
+            },
+            "operand": 0
+          }
+        ]
+      },
+      "why": "A formula whose lookahead exceeds the declared horizon ceiling. Distinct from the trace ceiling: the horizon is refused before any trace is materialised."
+    },
+    {
+      "id": "nc-evaluator-depth",
+      "kind": "non_conclusive",
+      "expectedDomainOutcome": "non_conclusive:evaluator_error",
+      "generator": {
+        "kind": "not-chain",
+        "depth": 514,
+        "proposition": 0
+      },
+      "why": "A negation chain deeper than the pinned evaluator's own recursion bound. The pair is generated rather than inlined because 514 nodes of literal JSON would obscure the one fact the case is about. The generator is declared here and the producer emits the digest of what it built, so the bytes are still identified. An evaluator that cannot answer is an evaluator error, not an agreement."
+    },
+    {
+      "id": "mf-forward-reference",
+      "kind": "malformed",
+      "expectedDomainOutcome": "malformed_input",
+      "originalRaw": {
+        "schema_version": "tl-syntax.formula/v1",
+        "semantic_profile": "mltl.closed-trace/v1",
+        "root": 1,
+        "nodes": [
+          {
+            "kind": "true"
+          },
+          {
+            "kind": "not",
+            "operand": 99
+          }
+        ]
+      },
+      "why": "A node table whose operand identifies no preceding node. The engine is required to report this as a malformed input rather than to panic or to emit output, so observing it is a discharged obligation and the row's outcome word stays `malformed` rather than being flattened to `pass`. That word maps to a passing proof, as it does in tl-parse, but for a narrower reason: tl-parse's corpus is malformed by design six times out of seven, whereas here exactly one case is, and the obligation is that the engine names the state instead of producing an answer. The state stays distinguishable in the producer row, in the count oracle below, and in the bytes Quoin retains."
+    }
+  ]
+}

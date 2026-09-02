@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/agent-ix/tl-rewrite/schemas/tl-rewrite-evidence-input-v1.schema.json",
+  "title": "tl-rewrite evidence collection input v1",
+  "description": "SPDX-License-Identifier: MIT OR Apache-2.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "sourceRevision", "sourceState", "commands", "tools", "pgm01", "dependencies", "catalog", "corpus"],
+  "allOf": [
+    {
+      "if": {"required": ["qualificationProfile"]},
+      "then": {
+        "properties": {
+          "tools": {"required": ["identities", "runtimeIdentities"]},
+          "dependencies": {"required": ["advisoryDatabase"]}
+        }
+      }
+    }
+  ],
+  "properties": {
+    "schemaVersion": {"const": "tl-rewrite.evidence-input/v1"},
+    "sourceRevision": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+    "sourceState": {"const": "clean"},
+    "commands": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "tools": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cargo", "jsonschema", "python", "quire", "rustc"],
+      "properties": {
+        "cargo": {"type": "string", "minLength": 1},
+        "jsonschema": {"type": "string", "minLength": 1},
+        "jsonschemaFormatCheckers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "python": {"type": "string", "minLength": 1},
+        "pythonPath": {"type": "string", "pattern": "^/"},
+        "quire": {"type": "string", "minLength": 1},
+        "rustc": {"type": "string", "minLength": 1},
+        "identities": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/definitions/toolIdentity"},
+          "required": ["bash", "cargo", "git", "make", "node", "python3", "quire", "rustc", "sha256sum"]
+        },
+        "runtimeIdentities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cargo", "rustc"],
+          "properties": {
+            "cargo": {"$ref": "#/definitions/toolIdentity"},
+            "rustc": {"$ref": "#/definitions/toolIdentity"}
+          }
+        }
+      }
+    },
+    "qualificationProfile": {"const": "tl-rewrite.evidence-qualification/v2"},
+    "pgm01": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "candidateRevision", "envelopeSchema", "envelopeSchemaDigest"],
+      "properties": {
+        "policy": {"const": "ix://agent-ix/quire-contract-ir/PGM-01"},
+        "candidateRevision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "envelopeSchema": {"const": "quire.derivation-evidence/v1"},
+        "envelopeSchemaDigest": {"$ref": "#/definitions/digest"}
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tlSyntaxRevision", "tlMltlRevision", "cargoLockDigest"],
+      "properties": {
+        "tlSyntaxRevision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "tlMltlRevision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "cargoLockDigest": {"$ref": "#/definitions/digest"},
+        "advisoryDatabase": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repository", "revision"],
+          "properties": {
+            "repository": {"const": "https://github.com/RustSec/advisory-db"},
+            "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+          }
+        }
+      }
+    },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "sourceDigest"],
+      "properties": {
+        "version": {"const": "tl-rewrite-rules/v1"},
+        "sourceDigest": {"$ref": "#/definitions/digest"}
+      }
+    },
+    "corpus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "westSourceRevision", "manifestDigest", "checksumDigest", "licenseDigest"],
+      "properties": {
+        "revision": {"const": "tl-rewrite-corpus/v1"},
+        "westSourceRevision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "manifestDigest": {"$ref": "#/definitions/digest"},
+        "checksumDigest": {"$ref": "#/definitions/digest"},
+        "licenseDigest": {"$ref": "#/definitions/digest"}
+      }
+    }
+  },
+  "definitions": {
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": {"const": "sha256"},
+        "value": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "toolIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^/"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+quire validate --scope . 'spec/**/*.md'
+quire coverage --scope . --strict
+Coverage: 52/52 rows backed (100%)
+rust: 29/29/29 bound/tagged/candidates (100% read; 100% authored; forms: rust-trace-attribute, rust-trace-line, rust-comment-id, rust-test-name-id, rust-doc-comment-id)
+spec/evidence/suites.md: 7/7 (100%)
+spec/requirements/FR-001-rule-catalog.md: 3/3 (100%)
+spec/requirements/FR-002-bounded-engine.md: 3/3 (100%)
+spec/requirements/FR-003-rewrite-traces.md: 3/3 (100%)
+spec/requirements/FR-004-equivalence.md: 3/3 (100%)
+spec/requirements/FR-005-interchange-evidence.md: 3/3 (100%)
+spec/requirements/NFR-001-determinism-resources.md: 3/3 (100%)
+spec/requirements/NFR-002-provenance-boundary.md: 2/2 (100%)
+spec/requirements/StR-001-reviewable-rewrites.md: 2/2 (100%)
+spec/requirements/StR-002-bounded-equivalence.md: 2/2 (100%)
+spec/test-matrix.md: 21/21 (100%)
+coverage.backed: over 52 matrix row(s), examined 29, matched 29
+authoring.tag_rate: over 29 evidence symbol(s), examined 29, matched 29
+coverage.property_shaped: over 24 acceptance criterion(s), examined 24, matched 24
+coverage.specific_shaped: over 24 acceptance criterion(s), examined 24, matched 24
+minting.section_hit_rate: over 11 declared minting document(s), examined 11, matched 11

@@ -14,8 +14,15 @@ name = "tl_rewrite"
 path = "src/lib.rs"
 
 [dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tl-mltl = { git = "https://github.com/agent-ix/tl-mltl.git", rev = "f7eb8bdf93f588050a40b2a4bf7b418f7c63a0e9" }
+tl-syntax = { git = "https://github.com/agent-ix/tl-syntax.git", rev = "953ee825e5060335b4c79682f5f41a78c5a1bfae", default-features = false, features = ["alloc", "serde"] }
 
 [dev-dependencies]
+proptest = "=1.5.0"
+tempfile = "=3.10.1"
 
 [profile.release]
 lto = "thin"
