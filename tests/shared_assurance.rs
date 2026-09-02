@@ -924,6 +924,59 @@ fn no_local_evidence_framework_remains_and_the_retained_schemas_are_referenced_b
         makefile.contains(".IGNORE:"),
         "the Makefile no longer states what removing the execution-control guard costs"
     );
+
+    // The declared gate set is the gate set. Deleting a prerequisite from `ci:`
+    // removes a whole enforcement layer while every remaining test stays green,
+    // which is a false green a sibling repository shipped. It is caught here by
+    // reading the expanded `ci` prerequisite list rather than by trusting that
+    // whoever edited the Makefile also edited a test.
+    let expanded = {
+        let mut text = String::new();
+        let mut lines = makefile
+            .lines()
+            .skip_while(|line| !line.starts_with("ci: "));
+        let mut current = lines
+            .next()
+            .expect("the Makefile declares a ci target")
+            .to_owned();
+        loop {
+            let trimmed = current.trim_end();
+            if let Some(head) = trimmed.strip_suffix('\\') {
+                text.push_str(head);
+                current = lines.next().expect("a continued ci line ends").to_owned();
+                continue;
+            }
+            text.push_str(trimmed);
+            break;
+        }
+        text
+    };
+    let declared: BTreeSet<&str> = expanded
+        .trim_start_matches("ci:")
+        .split_whitespace()
+        .collect();
+    let required: BTreeSet<&str> = [
+        "fmt-check",
+        "lint",
+        "test",
+        "check-corpus",
+        "conformance",
+        "counterexamples",
+        "normalization",
+        "deny",
+        "audit-unsafe",
+        "spec",
+        "msrv",
+        "rustdoc",
+        "assurance",
+    ]
+    .into_iter()
+    .collect();
+    assert_eq!(
+        declared, required,
+        "the `ci` prerequisite set is not the declared gate set; a target was added \
+         or removed without saying so here"
+    );
 }
 
 // Trace: TC-027, FR-006-AC-5, NFR-003-AC-3
