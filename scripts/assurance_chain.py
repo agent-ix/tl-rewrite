@@ -713,9 +713,11 @@ def derive_result(proof_id: str, path: Path) -> str:
         if export.get("unbacked_rows"):
             # A matrix row that names no backing symbol. This is the field that
             # actually moves: an adversarial review measured that repointing one
-            # row at nonexistent test cases leaves `totals.backed` at 72/72 while
-            # `unbacked_rows` gains an entry, so gating on the totals alone let a
-            # fabricated row through.
+            # row at nonexistent test cases leaves `totals.backed` at its full
+            # count while `unbacked_rows` gains an entry, so gating on the totals
+            # alone let a fabricated row through. The count was 72/72 when that
+            # was measured and is 68/68 now; the property is what matters here,
+            # so it is stated without a figure that has to be maintained.
             return "failed"
         if export.get("status_lies"):
             # Quire found a row whose declared status disagrees with its evidence.

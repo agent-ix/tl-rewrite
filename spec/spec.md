@@ -62,9 +62,14 @@ finite trace domain and invokes tl-mltl without embedding a second evaluator.
 ## Requirements Architecture
 
 FR-001 owns the rule catalog, FR-002 bounded execution, FR-003 trace/replay,
-FR-004 equivalence and WEST evidence, and FR-005 the versioned interchange and
-PGM-01 evidence boundary. NFR-001 constrains determinism/resources and NFR-002
-constrains provenance and qualification claims.
+FR-004 equivalence and WEST evidence, FR-005 the versioned interchange boundary,
+and FR-006 the shared assurance intake path. NFR-001 constrains
+determinism/resources, NFR-002 constrains provenance and qualification claims,
+and NFR-003 owns the qualification controls.
+
+FR-005 owned the PGM-01 evidence boundary as well until issue #13 deleted the
+retained archive; that allocation is removed rather than reassigned, because no
+requirement owns an evidence boundary this repository no longer has.
 
 ## References
 

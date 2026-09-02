@@ -149,10 +149,18 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
         &python,
         &[
             "-c",
+            // Targeted by path, not by position. `[0]` would still have
+            // reported a mismatch if the entries were reordered — it would have
+            // written a sha256 onto the deliberately undigested matrix entry and
+            // caught a file-not-found instead, which is a pass for the wrong
+            // reason.
             "import json,sys;sys.path.insert(0,'scripts');\
              import check_shared_pins as m;\
              pins=json.load(open('assurance/pins.json'));\
-             pins['consumed_artifacts'][0]['sha256']='0'*64;\
+             hit=[a for a in pins['consumed_artifacts'] \
+             if a['path']=='compatibility.py' and 'sha256' in a];\
+             assert len(hit)==1, 'compatibility.py is not digest-pinned';\
+             hit[0]['sha256']='0'*64;\
              print(json.dumps(m.artifact_digest_mismatches(pins)))",
         ],
     );
@@ -572,8 +580,9 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     );
     // The field that actually moves. An adversarial review measured that
     // repointing one matrix row at nonexistent test cases leaves `totals.backed`
-    // at 72/72 while `unbacked_rows` gains an entry, so the totals alone are not
-    // a check.
+    // at its full count while `unbacked_rows` gains an entry, so the totals alone
+    // are not a check. That was measured at 72/72 and the count is 68/68 now;
+    // the figure is left out so it does not go stale again.
     assert!(
         parsed["unbacked_rows"].as_array().unwrap().is_empty(),
         "the Quire export names a matrix row backed by nothing: {}",
@@ -874,7 +883,6 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         "schemas",
         "scripts/legacy_evidence_view.py",
         "tests/fixtures/legacy-compat",
-        "tests/fixtures/legacy-compat/expectations.json",
     ] {
         assert!(
             !root.join(removed).exists(),
@@ -887,6 +895,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // walks recursively and covers the build and workflow files too. A census
     // this small would be vacuous, so its size is asserted as well.
     let mut sources = Vec::new();
+    let mut per_directory: Vec<(&str, usize)> = Vec::new();
     for directory in [
         "scripts",
         "tests",
@@ -898,14 +907,53 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         "assurance",
         "corpus",
     ] {
+        let before = sources.len();
         collect_sources(&root.join(directory), &mut sources);
+        per_directory.push((directory, sources.len() - before));
     }
-    for file in ["Makefile", "Cargo.toml", "requirements-assurance.txt"] {
-        let path = root.join(file);
+    // Every declared directory must actually contribute. A total-only floor
+    // cannot catch a directory that silently stopped being walked: `scripts`,
+    // `src` and `corpus` are five files each and `docs` and `.github` are one,
+    // so losing any of them entirely moves the total by less than ordinary
+    // churn. This is the check that catches the defect a floor only gestures
+    // at, and it is probed below by pointing the walk at a path that does not
+    // exist.
+    for (directory, count) in &per_directory {
+        assert!(
+            *count > 0,
+            "the census walked {directory} and found nothing; a directory that \
+             contributes no file has not been inspected, and the total below is \
+             large enough to hide its absence. Per-directory counts: \
+             {per_directory:?}"
+        );
+    }
+    // Every file at the repository root, DISCOVERED rather than listed. It was
+    // three named files until issue #13, and FR-006-AC-7 now claims nothing
+    // remains "in the repository" rather than "in the execution path" — a claim
+    // a three-name list cannot support. An independent review probed it:
+    // appending the deleted identifiers to `CLAUDE.md` left this test green,
+    // because `CLAUDE.md`, `README.md`, `CONTRIBUTING.md`, `AGENTS.md`,
+    // `deny.toml` and the three toolchain configs were never inspected. The
+    // now-deleted `schemas/README.md` had also claimed this census walked every
+    // root file, which the code had never done.
+    let before_root = sources.len();
+    for entry in fs::read_dir(&root).expect("repository root") {
+        let path = entry.expect("directory entry").path();
+        // `.git` is a FILE in a linked worktree, holding a `gitdir:` pointer.
+        // Skipping it by name keeps the count the same whether this runs in the
+        // main clone or a worktree.
+        if path.file_name().and_then(|v| v.to_str()) == Some(".git") {
+            continue;
+        }
         if path.is_file() {
             sources.push(path);
         }
     }
+    let root_files = sources.len() - before_root;
+    assert!(
+        root_files > 0,
+        "the census inspected no file at the repository root"
+    );
     // The deleted machinery, by the names a reintroduction would have to use.
     // The two schema filenames are here because an evidence schema reappearing
     // under a different directory is the same defect as the directory coming
@@ -956,9 +1004,26 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
             );
         }
     }
+    // Re-derived, not inherited. The floor was `> 60` against a population of 90
+    // before issue #13 — 30 files of slack. The population is 92 now (77 across
+    // the nine directories plus 15 tracked root files), because `schemas/` left
+    // the walk and every root file entered it, so the old floor would have
+    // carried 32 files of slack unexamined. A sibling shipped exactly that: a
+    // floor inherited unchanged while its population fell, leaving 7 files of
+    // headroom where the author believed there were 25.
+    //
+    // 85 is derived as the population minus the largest single directory a
+    // routine change could plausibly shrink without anyone noticing — `tests`,
+    // at 9. It is deliberately NOT the population itself: adding or removing a
+    // review document must not fail this test. The per-directory guard above is
+    // what catches the small directories this number cannot, and the two are
+    // stated together because neither is sufficient alone.
     assert!(
-        inspected > 60,
-        "the source census is unexpectedly small ({inspected}) to make this claim"
+        inspected >= 85,
+        "the source census inspected {inspected} files, below the derived floor \
+         of 85 for a population of 92. Either the tree shrank substantially or a \
+         directory stopped being walked. Per-directory: {per_directory:?}, root: \
+         {root_files}"
     );
 
     // The Makefile is orchestration, not a trust root, and carries no gate that

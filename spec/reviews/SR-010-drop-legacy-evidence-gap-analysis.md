@@ -20,6 +20,13 @@ not "zero unbacked rows", which was already true before and would have been
 satisfied by a change that deleted a row and its test together while quietly
 orphaning a third. Both exports are captured and the arithmetic is shown below.
 
+An independent adversarial review re-derived every headline figure in this
+document from the tree, and rebuilt the per-outcome state census below from
+`assurance_chain.py` rather than trusting the table. Both matched. It also
+confirmed `NFR-002-AC-2`, which the deleted `TC-026` also carried, is still
+backed by `TC-016` and `TC-030`. It returned nine findings against the change,
+including two highs this pass missed; they are recorded in `SR-009`.
+
 ## What 72/72 and 68/68 do and do not mean
 
 Carried forward from `SR-008` unchanged, because it is still true and dropping it
@@ -167,9 +174,10 @@ implementation findings this pass raised and fixed are in `SR-009`.
 |---|---|---|---|
 | FND-1001 | medium | DEFERRED to `agent-ix/tl-rewrite#11`. The Make execution-control residue is unchanged in kind and smaller in size: 25 ignored recipe failures where 28 were recorded, because three sabotaged recipe lines went with the deletion. Re-measured with the same named command rather than carried forward. The guard is not re-added, by owner decision. | NFR-003-AC-1 |
 | FND-1002 | medium | ACCEPTED. The digest-pinned consumed-artifact population fell from four to one. The compatibility-view schema and both PGM-01 positive-control fixtures are no longer re-derived by anything here, because nothing here reads them. The surviving pin is live and probed red; the reduction is real and is stated rather than implied. | FR-006-AC-1 |
-| FND-1003 | medium | ACCEPTED. Mutation probes fell from 44 to 33. Twelve died with the material they guarded and one was added. The count fell because there is less to probe, not because anything was fixed; the per-probe accounting is in `SR-009`. | NFR-003-AC-3 |
+| FND-1003 | medium | ACCEPTED. Mutation probes fell from 44 to 34. Twelve died with the material they guarded and two were added. The count fell because there is less to probe, not because anything was fixed; the per-probe accounting is in `SR-009`. | NFR-003-AC-3 |
 | FND-1004 | low | DEFERRED to `agent-ix/engineering-assurance#21`, dispositioned `accepted` and not `resolved` in the change-assurance record. The pinned mapping still has no reader for `quire.derivation-evidence/v1`. This repository no longer holds a subject the gap applies to; the gap itself is unfixed. | FR-006-AC-1 |
 | FND-1005 | low | DEFERRED to `agent-ix/quire-contract-ir#21`. `68/68` is a backing figure, not a status-verified one: `quire coverage` skips status classification for the Functional and Stakeholder tables. The caveat is carried forward from `SR-008` unchanged rather than dropped now that the number is smaller. | FR-006-AC-3 |
+| FND-1007 | medium | ACCEPTED, with the gap named. Two of the nine findings the independent review raised were false statements left standing in `assurance/change-assurance.json` after being corrected everywhere else — and that file is the one `assurance_chain.py` seals and carries into the verification receipt. `TC-029`'s census exempts it by design, because it is where the deletion is recorded and must name what was deleted. **No gate can catch a false claim in the sealed declaration.** Human review is the only control on that file's prose, which is what caught these two. Recorded here rather than closed with a check that would have to exempt itself. | FR-006-AC-4 |
 | FND-1006 | low | ACCEPTED. `agent-ix/tl-mltl#11` is left open and `retain/tl-mltl-v0.1-da2c7704` is left in place. This change removes the last references to `da2c7704` in the campaign, so nothing requires it fetchable, but disposal is a separate step once all eight deletions have landed and is not taken here. | NFR-002-AC-2 |
 
 ## Residual and unchanged
@@ -193,8 +201,8 @@ implementation findings this pass raised and fixed are in `SR-009`.
   deletion, merged as `58f858e`, already removed the eight files on its side — so
   nothing now requires that revision fetchable. Disposal is handled separately
   once all eight deletions have landed.
-- **Mutation probes fell from 44 to 33.** Twelve died with the material they
-  guarded and one was added. The accounting is in `SR-009`.
+- **Mutation probes fell from 44 to 34.** Twelve died with the material they
+  guarded and two were added. The accounting is in `SR-009`.
 - **The digest-pinned artifact population fell from four to one.** Stated rather
   than implied: the compatibility-view schema and both PGM-01 positive-control
   fixtures are no longer re-derived by anything here.
