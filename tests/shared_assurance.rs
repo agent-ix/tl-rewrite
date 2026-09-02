@@ -918,29 +918,91 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
             .map(str::to_owned)
             .collect()
     };
-    let census_extension = |path: &str| {
-        matches!(
-            Path::new(path).extension().and_then(|v| v.to_str()),
-            Some("py" | "sh" | "rs" | "txt" | "toml" | "yml" | "md" | "json")
-        )
+    // A DENY-list, not an allow-list, and the difference was a real hole. An
+    // extension allow-list silently dropped `Makefile` — `extension()` is `None`
+    // for it — which is the single worst file to lose here: `compat-view` was a
+    // Make target, `COMPAT_RESULT` a Make variable, and the reader was invoked
+    // from an `assurance-inputs` recipe line. It was covered at every earlier
+    // revision and a probe appending a `compat-view` target to it went green.
+    // The same filter dropped extensionless files and `.yaml` (only `.yml` was
+    // listed), so a reintroduced reader named `reintroduced_reader` or
+    // `reintroduced_reader.yaml` was invisible too.
+    //
+    // Everything tracked is now scanned except things that cannot carry a
+    // reintroduced reader and would only add noise: lockfiles and licence texts.
+    // `read_to_string` below already skips anything that is not UTF-8, so binary
+    // content needs no rule here.
+    let denied = |path: &str| {
+        let name = Path::new(path)
+            .file_name()
+            .and_then(|v| v.to_str())
+            .unwrap_or_default();
+        name.starts_with("LICENSE") || path.ends_with(".lock")
     };
     let area_of = |path: &str| match path.split_once('/') {
         Some((head, _)) => head.to_owned(),
         None => "<root>".to_owned(),
     };
 
-    let tracked: Vec<String> = git_files(&["ls-files", "-z"])
-        .into_iter()
-        .filter(|entry| census_extension(entry))
+    let tracked_all = git_files(&["ls-files", "-z"]);
+    // Areas come from the UNFILTERED list. Computing them from the filtered one
+    // meant a new tracked directory whose files were all filtered out would
+    // never appear here, never trip the equality below, and never be scanned.
+    let observed_areas: BTreeSet<String> = tracked_all.iter().map(|e| area_of(e)).collect();
+    let tracked: Vec<String> = tracked_all
+        .iter()
+        .filter(|entry| !denied(entry))
+        .cloned()
         .collect();
-    let observed_areas: BTreeSet<String> = tracked.iter().map(|e| area_of(e)).collect();
+
+    // A positive control for the untracked half of the scan, written BEFORE the
+    // scan is built so that it flows through the real enumeration rather than a
+    // parallel one.
+    //
+    // The first version of this control asserted that a fresh
+    // `git ls-files --others` call could see the file. That verified Git works.
+    // It did not verify that this census *uses* what Git reports: deleting the
+    // untracked loop below left it green, because the control was probing its
+    // own call and not the set the scan is built from. The assertion is now
+    // against `scanned` itself, which is the only thing the file scan reads.
+    //
+    // This property has already been lost once — moving the census to
+    // `git ls-files` dropped untracked files silently, and it was caught by
+    // reading rather than by a gate. It is the only property here with a history
+    // of regressing, so it gets a control that runs on every invocation rather
+    // than a probe someone has to remember.
+    // Deliberately inside a directory that is itself wholly untracked, not in
+    // `scripts/`. `git ls-files --others` has a `--directory` mode that collapses
+    // an untracked directory to its name instead of listing the files inside it;
+    // a control sitting in a *tracked* directory survives that mode and would
+    // report the property intact while a reader dropped into a brand-new
+    // directory went unseen. Placing the control where `--directory` would hide
+    // it makes the control fail in that mode too.
+    const CONTROL_DIR: &str = ".census-untracked-control";
+    const CONTROL: &str = ".census-untracked-control/probe.py";
+    let control = root.join(CONTROL);
+    let _ = fs::remove_dir_all(root.join(CONTROL_DIR));
+    fs::create_dir_all(root.join(CONTROL_DIR)).expect("create control directory");
+    fs::write(&control, "# census untracked positive control\n").expect("write control");
 
     let mut scanned: BTreeSet<String> = tracked.iter().cloned().collect();
     for entry in git_files(&["ls-files", "-z", "--others", "--exclude-standard"]) {
-        if census_extension(&entry) {
+        if !denied(&entry) {
             scanned.insert(entry);
         }
     }
+
+    // Removed before the assertion so a failure cannot leave the tree dirty.
+    let _ = fs::remove_dir_all(root.join(CONTROL_DIR));
+    assert!(
+        scanned.contains(CONTROL),
+        "the census did not pick up an untracked file that existed while it \
+         enumerated, so the untracked half of the scan is not reaching the set \
+         the file scan reads, and a reintroduced reader would stay invisible \
+         until someone ran `git add`"
+    );
+    scanned.remove(CONTROL);
+
     let sources: Vec<PathBuf> = scanned.iter().map(|entry| root.join(entry)).collect();
 
     // The expected areas, as a constant separate from what Git reported. A
@@ -1033,25 +1095,30 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population now: **88** tracked files with a census extension — 78 across
-    // ten tracked directories plus 10 at the root. (15 files sit at the root; 5
-    // are `LICENSE-*`, `.gitignore` and `Cargo.lock`, which carry no census
-    // extension.)
+    // Population now: **93** tracked files — 97 tracked in total, minus the 4 the
+    // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
+    // `corpus/west-v1/LICENSE`). All four are named here, because the previous
+    // version of this comment enumerated four exclusions for a count of five and
+    // the unnamed one was `Makefile` — the comment was masking the hole rather
+    // than describing it.
+    //
+    // By area: 12 root, 46 `spec`, 9 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Derivation, stated so the number is reproducible: the loss this floor must
     // catch is a whole directory going missing, and the largest one a routine
-    // change could plausibly shrink without comment is `tests` at 9.
-    // 88 − 9 = 79, so the floor must be **at least 80** to fail on that loss. 80
-    // is the derived value; it is used as-is rather than padded. `spec` at 45
-    // only ever grows as reviews land, and growth never trips a lower bound.
+    // change could plausibly shrink without comment is `tests` at 9. `spec` at
+    // 46 is larger but only ever grows as reviews land, and growth never trips a
+    // lower bound. 93 − 9 = 84, so the floor must be **at least 85** to fail on
+    // that loss. 85 is the derived value and is used as-is rather than padded.
     //
     // This number is the coarse instrument. The area-set equality above is what
     // actually catches a directory disappearing, including the small ones —
     // `docs` and `.agent` are one file each and no floor could ever see them go.
     assert!(
-        inspected >= 80,
+        inspected >= 85,
         "the source census inspected {inspected} tracked files, below the derived \
-         floor of 80 (population 88, minus `tests` at 9, is 79). The tree shrank \
+         floor of 85 (population 93, minus `tests` at 9, is 84). The tree shrank \
          substantially. Areas observed: {observed_areas:?}"
     );
 
