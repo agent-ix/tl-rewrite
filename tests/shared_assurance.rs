@@ -971,15 +971,28 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // reading rather than by a gate. It is the only property here with a history
     // of regressing, so it gets a control that runs on every invocation rather
     // than a probe someone has to remember.
-    // Deliberately inside a directory that is itself wholly untracked, not in
-    // `scripts/`. `git ls-files --others` has a `--directory` mode that collapses
-    // an untracked directory to its name instead of listing the files inside it;
-    // a control sitting in a *tracked* directory survives that mode and would
-    // report the property intact while a reader dropped into a brand-new
-    // directory went unseen. Placing the control where `--directory` would hide
-    // it makes the control fail in that mode too.
-    const CONTROL_DIR: &str = ".census-untracked-control";
-    const CONTROL: &str = ".census-untracked-control/probe.py";
+    // The control lives in a directory that is itself wholly untracked, because
+    // `git ls-files --others` has a `--directory` mode that collapses an
+    // untracked directory to its name instead of listing the files inside it. A
+    // control sitting directly in a *tracked* directory survives that mode and
+    // would report the property intact while a reader dropped into a brand-new
+    // directory went unseen. Verified: `--directory` reports
+    // `scripts/.census-control/` rather than the file, so the control fails in
+    // that mode too.
+    //
+    // It is nested under `scripts/` rather than placed at the repository root,
+    // and that is precautionary rather than a fix for anything. Two tests in this
+    // file symlink *every* root entry into a scratch directory and run the chain
+    // there, so a control that appears and disappears at the root would be
+    // symlinked while it exists and dangle once removed. Nesting keeps the
+    // untracked-directory property and takes that hazard away.
+    //
+    // It is NOT the cause of the intermittent failure in
+    // `a_control_naming_a_scenario_that_does_not_exist_is_refused`. That was
+    // measured at roughly 2 in 8 with this test filtered out entirely, so it
+    // predates this control and is tracked separately as agent-ix/tl-rewrite#15.
+    const CONTROL_DIR: &str = "scripts/.census-control";
+    const CONTROL: &str = "scripts/.census-control/probe.py";
     let control = root.join(CONTROL);
     let _ = fs::remove_dir_all(root.join(CONTROL_DIR));
     fs::create_dir_all(root.join(CONTROL_DIR)).expect("create control directory");
