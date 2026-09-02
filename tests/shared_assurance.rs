@@ -931,13 +931,19 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         // spec/reviews/ and spec/plans/ are dated records of what was found and
         // done at the time; they are not rewritten to un-say it. Everything else
         // must not mention them.
+        //
+        // Those two directories are permitted for `.md` only, not wholesale. A
+        // reintroduced reader dropped into `spec/plans/` as a `.py` or `.rs`
+        // file would otherwise be waved through by a rule meant to protect
+        // prose, which is the same hole in a different place.
         let relative = path.strip_prefix(&root).unwrap_or(path);
         let relative = relative.to_string_lossy().replace('\\', "/");
+        let historical_prose = relative.ends_with(".md")
+            && (relative.starts_with("spec/reviews/") || relative.starts_with("spec/plans/"));
         let permitted = matches!(
             relative.as_str(),
             "tests/shared_assurance.rs" | "assurance/pins.json" | "assurance/change-assurance.json"
-        ) || relative.starts_with("spec/reviews/")
-            || relative.starts_with("spec/plans/");
+        ) || historical_prose;
         if permitted {
             continue;
         }
