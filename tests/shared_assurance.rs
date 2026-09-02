@@ -65,6 +65,22 @@ fn head_revision() -> String {
     String::from_utf8_lossy(&output.stdout).trim().to_owned()
 }
 
+fn deleted_names_in<'a>(path: &Path, names: &'a [&'a str]) -> Vec<&'a str> {
+    // A file that cannot be read has not been scanned. Read bytes so a source
+    // with a valid non-UTF-8 encoding cannot disappear from the census merely
+    // because Rust strings require UTF-8.
+    let source = fs::read(path)
+        .unwrap_or_else(|error| panic!("the census could not read {}: {error}", path.display()));
+    names
+        .iter()
+        .copied()
+        .filter(|name| {
+            let needle = name.as_bytes();
+            source.windows(needle.len()).any(|window| window == needle)
+        })
+        .collect()
+}
+
 /// The chain is expensive and several tests read it. It runs once per test
 /// binary, and every reader sees the same run rather than a different one.
 static CHAIN: OnceLock<Value> = OnceLock::new();
@@ -928,16 +944,15 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // listed), so a reintroduced reader named `reintroduced_reader` or
     // `reintroduced_reader.yaml` was invisible too.
     //
-    // Everything tracked is now scanned except things that cannot carry a
-    // reintroduced reader and would only add noise: lockfiles and licence texts.
-    // `read_to_string` below already skips anything that is not UTF-8, so binary
-    // content needs no rule here.
+    // Everything tracked is scanned except these exact lock and licence files.
+    // This is deliberately a predicate separate from EXPECTED_DENIED below: a
+    // one-line widening of the filter must change the observed set and fail the
+    // equality instead of silently buying itself room under the coarse floor.
     let denied = |path: &str| {
-        let name = Path::new(path)
-            .file_name()
-            .and_then(|v| v.to_str())
-            .unwrap_or_default();
-        name.starts_with("LICENSE") || path.ends_with(".lock")
+        matches!(
+            path,
+            "Cargo.lock" | "LICENSE-APACHE" | "LICENSE-MIT" | "corpus/west-v1/LICENSE"
+        )
     };
     let area_of = |path: &str| match path.split_once('/') {
         Some((head, _)) => head.to_owned(),
@@ -945,6 +960,25 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     };
 
     let tracked_all = git_files(&["ls-files", "-z"]);
+    let observed_denied: BTreeSet<String> = tracked_all
+        .iter()
+        .filter(|entry| denied(entry))
+        .cloned()
+        .collect();
+    let expected_denied: BTreeSet<String> = [
+        "Cargo.lock",
+        "LICENSE-APACHE",
+        "LICENSE-MIT",
+        "corpus/west-v1/LICENSE",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
+    assert_eq!(
+        observed_denied, expected_denied,
+        "the census deny-list no longer excludes exactly the four named lock or \
+         licence files; a newly denied file would be invisible to the scan"
+    );
     // Areas come from the UNFILTERED list. Computing them from the filtered one
     // meant a new tracked directory whose files were all filtered out would
     // never appear here, never trip the equality below, and never be scanned.
@@ -1057,12 +1091,26 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         "tl-rewrite-evidence-input-v1.schema.json",
     ];
 
+    // The same scanner used below must find a forbidden name after a non-UTF-8
+    // byte. `read_to_string(...); continue` used to report this file clean.
+    let non_utf8_probe = root.join("target/removal-census-non-utf8-probe.py");
+    fs::write(
+        &non_utf8_probe,
+        b"# coding: latin-1\n# legacy_evidence_view \xff\n",
+    )
+    .expect("write the non-UTF-8 census probe");
+    let probe_matches = deleted_names_in(&non_utf8_probe, &DELETED);
+    fs::remove_file(&non_utf8_probe).expect("remove the non-UTF-8 census probe");
+    assert_eq!(
+        probe_matches,
+        vec!["legacy_evidence_view"],
+        "the raw-byte census did not find a forbidden name in a non-UTF-8 source"
+    );
+
     // Counted over TRACKED files only; the scan below covers more.
     let inspected = tracked.len();
     for path in &sources {
-        let Ok(source) = fs::read_to_string(path) else {
-            continue;
-        };
+        let deleted_names = deleted_names_in(path, &DELETED);
         // Three files name the deleted machinery on purpose: this test, which
         // asserts its absence; assurance/pins.json, which records what was
         // measured before the deletion; and the change-assurance declaration,
@@ -1086,14 +1134,13 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         if permitted {
             continue;
         }
-        for name in DELETED {
-            assert!(
-                !source.contains(name),
-                "{} references {name}, which issue #13 deleted; nothing may \
-                 reference the removed evidence machinery",
-                path.display()
-            );
-        }
+        assert!(
+            deleted_names.is_empty(),
+            "{} references {}, which issue #13 deleted; nothing may reference \
+             the removed evidence machinery",
+            path.display(),
+            deleted_names.join(", ")
+        );
     }
     // Re-derived, and the arithmetic is written out because the previous two
     // attempts at this number were both wrong in ways a stated derivation would
