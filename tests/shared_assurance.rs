@@ -242,7 +242,23 @@ fn the_chain_reaches_quoin_without_quoin_or_quire_executing_a_producer() {
 /// cargo. That is still a version observation. Anything without a version flag
 /// — `cargo build`, `cargo run`, `rustup run … check` — is logged and fails the
 /// test, which is what keeps it able to fail.
+///
+/// `quire` is deliberately NOT in the shim list, and the reason is worth writing
+/// down because the first attempt put it there. Shimming `quire` makes this test
+/// fail for a reason that is not a boundary violation: `quoin evidence record`
+/// itself shells out to `quire coverage` to resolve the obligations an entry
+/// binds to. That is Quoin using a static exporter, not anyone executing a
+/// producer, and forbidding it would be forbidding the tool from working. The
+/// property that actually matters — the driver must not regenerate its own
+/// inputs — is asserted separately below by digesting `target/assurance` before
+/// and after the run.
+///
+/// The directory is cleared before each use. Without that, shims written by an
+/// earlier run stay on disk, and a change to this helper that stopped writing
+/// them would still find the old ones on `PATH` — which is exactly how the
+/// "shims absent" probe first came back green.
 fn producer_shims(directory: &Path, names: &[&str]) -> PathBuf {
+    let _ = fs::remove_dir_all(directory);
     fs::create_dir_all(directory).unwrap();
     let log = directory.join("invocations.log");
     let _ = fs::remove_file(&log);
@@ -300,6 +316,16 @@ fn the_chain_never_executes_a_producer_and_the_probe_can_prove_it() {
     // and requires the chain to fail and the log to be non-empty. Without it, an
     // empty log in run A would be equally consistent with PATH never being
     // consulted at all.
+    // The other half of "never produces": the driver must not rewrite the files
+    // it reads. `quire` is not shimmable for this (see `producer_shims`), so the
+    // inputs themselves are digested before and after. A driver that regenerated
+    // its own static export, corpus replay or MSRV stream would move a byte here.
+    let inputs_before = assurance_input_digests();
+    assert!(
+        !inputs_before.is_empty(),
+        "there are no producer inputs to protect; run `make assurance-inputs`"
+    );
+
     let producers = root().join("target/producer-shims");
     let producer_log = producer_shims(&producers, &["cargo", "rustup", "rustc"]);
     let output = run_chain_with_path(&producers);
@@ -328,6 +354,40 @@ fn the_chain_never_executes_a_producer_and_the_probe_can_prove_it() {
         !control.status.success(),
         "the chain succeeded with quoin stubbed out, so it is not actually using it"
     );
+
+    let inputs_after = assurance_input_digests();
+    assert_eq!(
+        inputs_before, inputs_after,
+        "the assurance driver rewrote one of the producer outputs it is supposed to \
+         only read; a driver that can produce its own inputs can produce a green run \
+         out of nothing"
+    );
+}
+
+/// Digest every producer output the chain consumes.
+fn assurance_input_digests() -> Vec<(String, String)> {
+    let directory = root().join("target/assurance");
+    let Ok(entries) = fs::read_dir(&directory) else {
+        return Vec::new();
+    };
+    let mut digests: Vec<(String, String)> = entries
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| path.is_file())
+        .map(|path| {
+            let output = Command::new("sha256sum").arg(&path).output().unwrap();
+            (
+                path.file_name().unwrap().to_string_lossy().into_owned(),
+                String::from_utf8_lossy(&output.stdout)
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or_default()
+                    .to_owned(),
+            )
+        })
+        .collect();
+    digests.sort();
+    digests
 }
 
 // Trace: TC-025, FR-006-AC-3, SUITE-002, SUITE-003
