@@ -103,10 +103,12 @@ def artifact_digest_mismatches(pins: dict[str, Any]) -> list[str]:
 
     package_root = Path(engineering_assurance.__file__).resolve().parent
     mismatches: list[str] = []
+    digested = 0
     for artifact in pins["consumed_artifacts"]:
         expected = artifact.get("sha256")
         if expected is None:
             continue
+        digested += 1
         path = package_root / artifact["path"]
         if not path.is_file():
             mismatches.append(f"{artifact['path']}: absent from the installed release")
@@ -114,6 +116,13 @@ def artifact_digest_mismatches(pins: dict[str, Any]) -> list[str]:
         actual = hashlib.sha256(path.read_bytes()).hexdigest()
         if actual != expected:
             mismatches.append(f"{artifact['path']}: {actual}, pins record {expected}")
+    if digested == 0:
+        # An empty consumed-artifact list re-hashes nothing and returns clean.
+        # That is a check passing over no subject, which is not a pass.
+        mismatches.append(
+            "assurance/pins.json names no digest-pinned consumed artifact; there is "
+            "nothing to re-derive and a clean answer would be vacuous"
+        )
     return mismatches
 
 
@@ -155,7 +164,10 @@ def mirror_references(pins: dict[str, Any]) -> list[str]:
             continue
         try:
             text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+        except (OSError, UnicodeDecodeError) as error:
+            # A scanned file that cannot be read has not been scanned. Reporting
+            # it clean is the shape this whole migration exists to remove.
+            offenders.append(f"{name}: unreadable, so it was not scanned ({error})")
             continue
         for number, line in enumerate(text.splitlines(), start=1):
             if FORBIDDEN_REGISTRY in line:
@@ -189,7 +201,9 @@ def build_report() -> dict[str, Any]:
     mismatches = artifact_digest_mismatches(pins)
     offenders = mirror_references(pins)
     schemas = frozen_schema_mismatches(pins)
-    versions_ok = accepted(classifications)
+    # `accepted([])` is True. A matrix that classified nothing must not be read
+    # as a matrix that approved everything.
+    versions_ok = bool(classifications) and accepted(classifications)
     acceptance = matrix["accepted"]
     return {
         "schemaVersion": "tl-rewrite.shared-pin-report/v1",
@@ -200,6 +214,7 @@ def build_report() -> dict[str, Any]:
             "engineering_assurance/compatibility-matrix.json in the installed release. "
             "This repository reports it and is not a second acceptance authority."
         ),
+        "components_classified": len(classifications),
         "versions_compatible": versions_ok,
         "artifact_mismatches": mismatches,
         "mirror_references": offenders,

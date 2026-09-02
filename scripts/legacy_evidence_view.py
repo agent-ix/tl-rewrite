@@ -56,6 +56,19 @@ REQUIRED_STATES = ("passed", "failed", "error", "skipped", "inconclusive", "unav
 # The outcomes map_pgm01_bytes can return. Same argument.
 REQUIRED_OUTCOMES = ("lossy", "incompatible", "unreadable")
 
+# The probes `--mutation-probes` must run. Named here rather than counted at run
+# time: `detected == len(results)` is True over an empty list, so a probe set
+# that lost its members would have reported `0/0` and exited 0. An adversarial
+# review reached that by splicing in an empty probe dict.
+REQUIRED_PROBES = (
+    "collapse-non-success-states",
+    "repair-unreadable-outcome",
+    "accept-refused-schema",
+    "unbind-tamper-digest",
+    "drop-source-identity",
+    "merge-record-identities",
+)
+
 
 class ViewError(RuntimeError):
     """The pinned mapping or its inputs could not be used."""
@@ -192,7 +205,17 @@ def case_bytes(case: dict[str, Any]) -> bytes:
     if case.get("root") == "release":
         raw = pinned_source_bytes(case["file"])
     elif case.get("root") == "repository":
-        raw = (ROOT / case["file"]).read_bytes()
+        path = ROOT / case["file"]
+        if not path.is_file():
+            # A named refusal rather than a FileNotFoundError traceback. A gate
+            # that crashes has not diagnosed anything, and a reader cannot tell a
+            # broken gate from a detected defect.
+            raise ViewError(
+                f"{case['id']}: the retained record {case['file']} is not present. "
+                "Retained evidence is immutable; a record that has disappeared is a "
+                "change to the archive, not a case that can be evaluated."
+            )
+        raw = path.read_bytes()
     else:
         source = pinned_source_bytes(case["source"])
         raw = derive(source, case["derivation"])
@@ -408,6 +431,12 @@ def run_mutation_probes(mapper: Callable[..., dict[str, Any]]) -> dict[str, Any]
         "drop-source-identity": forgetting_identity,
         "merge-record-identities": erasing_record_id,
     }
+    if tuple(sorted(probes)) != tuple(sorted(REQUIRED_PROBES)):
+        raise ViewError(
+            f"the probe set is {sorted(probes)}, and the declared set is "
+            f"{sorted(REQUIRED_PROBES)}. A probe runner that lost its probes reports "
+            "0/0 and exits 0, which is why the set is named rather than counted."
+        )
     results = []
     for name, degraded in probes.items():
         # No exception handling. A probe that crashes has not demonstrated that
@@ -419,9 +448,10 @@ def run_mutation_probes(mapper: Callable[..., dict[str, Any]]) -> dict[str, Any]
     detected_count = sum(1 for item in results if item["detected"])
     return {
         "probes": results,
+        "declared_probes": list(REQUIRED_PROBES),
         "detected": detected_count,
         "total": len(results),
-        "matched": detected_count == len(results),
+        "matched": detected_count == len(results) and len(results) == len(REQUIRED_PROBES),
     }
 
 

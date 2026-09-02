@@ -257,11 +257,20 @@ fn the_chain_reaches_quoin_without_quoin_or_quire_executing_a_producer() {
 /// earlier run stay on disk, and a change to this helper that stopped writing
 /// them would still find the old ones on `PATH` — which is exactly how the
 /// "shims absent" probe first came back green.
-fn producer_shims(directory: &Path, names: &[&str]) -> PathBuf {
+///
+/// Two logs, not one. `invocations.log` records work requests and must be empty;
+/// `versions.log` records version queries and must NOT be, because that is the
+/// only evidence that the shims were installed and that `PATH` reached them. An
+/// adversarial review passed this test with `producer_shims(dir, &[])` — no
+/// shims at all — because an empty work log and an absent shim are the same
+/// observation until something proves the shim answered.
+fn producer_shims(directory: &Path, names: &[&str]) -> (PathBuf, PathBuf) {
     let _ = fs::remove_dir_all(directory);
     fs::create_dir_all(directory).unwrap();
     let log = directory.join("invocations.log");
+    let versions = directory.join("versions.log");
     let _ = fs::remove_file(&log);
+    let _ = fs::remove_file(&versions);
     for name in names {
         let path = directory.join(name);
         fs::write(
@@ -270,11 +279,13 @@ fn producer_shims(directory: &Path, names: &[&str]) -> PathBuf {
                 "#!/bin/sh\n\
                  for argument in \"$@\"; do\n\
                  case \"$argument\" in\n\
-                 --version|-V) echo \"{name} 9.9.9 (shim)\"; exit 0 ;;\n\
+                 --version|-V) echo \"{name} 9.9.9 (shim)\"; \
+                 echo \"$0 $@\" >> {}; exit 0 ;;\n\
                  esac\n\
                  done\n\
                  echo \"$0 $@\" >> {}\n\
                  exit 97\n",
+                versions.display(),
                 log.display()
             ),
         )
@@ -285,7 +296,7 @@ fn producer_shims(directory: &Path, names: &[&str]) -> PathBuf {
             fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
         }
     }
-    log
+    (log, versions)
 }
 
 fn run_chain_with_path(shims: &Path) -> std::process::Output {
@@ -327,9 +338,11 @@ fn the_chain_never_executes_a_producer_and_the_probe_can_prove_it() {
     );
 
     let producers = root().join("target/producer-shims");
-    let producer_log = producer_shims(&producers, &["cargo", "rustup", "rustc"]);
+    let (producer_log, producer_versions) =
+        producer_shims(&producers, &["cargo", "rustup", "rustc"]);
     let output = run_chain_with_path(&producers);
     let logged = fs::read_to_string(&producer_log).unwrap_or_default();
+    let versions = fs::read_to_string(&producer_versions).unwrap_or_default();
     assert!(
         output.status.success(),
         "the assurance chain failed with producers stubbed, which means it ran one:\n{}\n{}",
@@ -340,9 +353,22 @@ fn the_chain_never_executes_a_producer_and_the_probe_can_prove_it() {
         logged.trim().is_empty(),
         "the assurance driver asked a producer to do work, not just to name its version:\n{logged}"
     );
+    // The half that makes the half above mean anything. Without it, removing the
+    // shims entirely gives an empty work log and a green test.
+    assert!(
+        !versions.trim().is_empty(),
+        "no shim answered a version query, so the shims were not installed or PATH \
+         did not reach them, and the empty invocation log above proves nothing"
+    );
+    for required in ["cargo", "rustc"] {
+        assert!(
+            versions.contains(required),
+            "the {required} shim was never consulted; the log is:\n{versions}"
+        );
+    }
 
     let tools = root().join("target/tool-shims");
-    let tool_log = producer_shims(&tools, &["quoin"]);
+    let (tool_log, _) = producer_shims(&tools, &["quoin"]);
     let control = run_chain_with_path(&tools);
     let tool_logged = fs::read_to_string(&tool_log).unwrap_or_default();
     assert!(
@@ -354,6 +380,54 @@ fn the_chain_never_executes_a_producer_and_the_probe_can_prove_it() {
         !control.status.success(),
         "the chain succeeded with quoin stubbed out, so it is not actually using it"
     );
+
+    // The third instrument, and the only one that can see a driver which runs a
+    // producer and throws the output away. PATH shims cannot: `quoin evidence
+    // record` itself runs `quire coverage`, so shimming `quire` fails the run for
+    // a reason that is not a boundary violation. The digest check below cannot
+    // either, because a discarded output moves no byte. The driver therefore
+    // records every command it executes and refuses anything outside quoin and
+    // the declared version observations.
+    let report = chain_report();
+    assert!(
+        report["command_audit_violations"]
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "the driver executed a command it is not permitted to run: {}",
+        report["command_audit_violations"]
+    );
+    let executed = report["executed_commands"].as_array().unwrap();
+    assert!(
+        executed.len() >= 5,
+        "the command audit recorded only {} commands, which is too few to be a census",
+        executed.len()
+    );
+    assert!(
+        executed
+            .iter()
+            .any(|item| item.as_str().unwrap_or_default().starts_with("quoin ")),
+        "the command audit recorded no quoin invocation at all: {executed:?}"
+    );
+    // `make assurance-inputs` invokes five programs — cargo, rustup, quire,
+    // python3 and .venv-assurance/bin/python — and the PATH shims above can only
+    // cover three of them. `python3` is the interpreter this very driver runs
+    // under and `quire` is invoked by Quoin itself, so neither can be shimmed
+    // without breaking the run for a reason that is not a boundary violation.
+    // The audit closes the remaining two: every program the driver executed must
+    // be one of the five it is permitted to name.
+    let permitted: BTreeSet<&str> = ["quoin", "quire", "ix-flow", "rustc", "rustup"]
+        .into_iter()
+        .collect();
+    for item in executed {
+        let command = item.as_str().unwrap_or_default();
+        let program = command.split_whitespace().next().unwrap_or_default();
+        assert!(
+            permitted.contains(program),
+            "the driver executed {program}, which is not one of the five programs it \
+             may name; the full command was: {command}"
+        );
+    }
 
     let inputs_after = assurance_input_digests();
     assert_eq!(
@@ -444,6 +518,19 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );
+    // The field that actually moves. An adversarial review measured that
+    // repointing one matrix row at nonexistent test cases leaves `totals.backed`
+    // at 72/72 while `unbacked_rows` gains an entry, so the totals alone are not
+    // a check.
+    assert!(
+        parsed["unbacked_rows"].as_array().unwrap().is_empty(),
+        "the Quire export names a matrix row backed by nothing: {}",
+        parsed["unbacked_rows"]
+    );
+    // Kept, and known not to fire for the Functional and Stakeholder tables:
+    // Quire reports `status-column-matches-nothing` for them because the
+    // configured status column and the archetype's asserted columns are mutually
+    // exclusive in a validated repository. agent-ix/quire-contract-ir#21.
     assert!(
         parsed["status_lies"].as_array().unwrap().is_empty(),
         "Quire reported a row whose declared status disagrees with its evidence: {}",
@@ -660,6 +747,18 @@ fn every_counterexample_is_a_replayed_witness_and_never_a_boolean() {
         "the counterexample corpus declares {declared} mismatch cases; if a case was \
          added or removed this expectation should move deliberately"
     );
+    // Every count, not only the one the scenario compares against. The corpus
+    // cross-checks its `counts` block against its own `cases` list, which a
+    // single coordinated edit moves on both sides; these literals are the part
+    // that does not move with it.
+    let counts = &report["declared_counterexample_counts"];
+    assert_eq!(counts["non_conclusive"], 5, "counts: {counts}");
+    assert_eq!(counts["malformed"], 1, "counts: {counts}");
+    assert_eq!(counts["total"], 11, "counts: {counts}");
+    let rule_counts = &report["declared_rule_counts"];
+    assert_eq!(rule_counts["enabled"], 38, "rule counts: {rule_counts}");
+    assert_eq!(rule_counts["excluded"], 2, "rule counts: {rule_counts}");
+    assert_eq!(rule_counts["total"], 40, "rule counts: {rule_counts}");
     assert_eq!(
         reported, declared,
         "the producer reported {reported} counterexamples for {declared} declared cases"
@@ -900,7 +999,7 @@ fn no_local_evidence_framework_remains_and_the_retained_schemas_are_referenced_b
         }
     }
     assert!(
-        inspected > 40,
+        inspected > 60,
         "the source census is unexpectedly small ({inspected}) to make this claim"
     );
 
@@ -1133,8 +1232,8 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
     .unwrap();
     let library = fs::read_to_string(root().join("src/lib.rs")).unwrap();
     let stale = library.replace(
+        "f7eb8bdf93f588050a40b2a4bf7b418f7c63a0e9",
         "fe1c620d7baa743d9c6b4dda27f40d207721fcc9",
-        "da2c7704a5347d063398c852acf6aa5bf9b5752d",
     );
     assert_ne!(stale, library, "the probe's mutation did not apply");
     fs::write(scratch.join("src/lib.rs"), stale).unwrap();

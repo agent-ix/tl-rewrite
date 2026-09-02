@@ -77,22 +77,32 @@
       ]
     }
   },
-  "upstream_dependency": {
-    "component": "tl-syntax",
-    "pinned_revision": "740182f13b84858008d6f176f75136737d405c1b",
-    "not_repinned": true,
-    "why": "tl-parse repinned tl-syntax from 740182f1 to 953ee825 on main and this repository intended to follow. It cannot. tl-rewrite's bounded comparison passes tl_syntax::Formula values straight into tl_mltl::evaluate_closed, so the two crates must resolve the SAME tl-syntax revision. tl-mltl at its merged main fe1c620d still pins 740182f1, so moving only this repository's pin puts two tl-syntax versions in the graph and the crate stops compiling: cargo reports E0308 with 'there are multiple different versions of crate tl_syntax in the dependency graph' at four call sites in src/equivalence.rs. Measured, not predicted. The repin is therefore blocked on tl-mltl repinning first, which is that repository's own migration (agent-ix/tl-mltl#13), and it is recorded as an open unknown rather than forced.",
-    "tracked": "agent-ix/tl-rewrite#10"
-  },
   "corrected_wire_constant": {
     "constant": "TL_MLTL_REVISION",
     "was": "da2c7704a5347d063398c852acf6aa5bf9b5752d",
-    "now": "fe1c620d7baa743d9c6b4dda27f40d207721fcc9",
-    "why": "Every ConformanceReport this crate emits carries evaluator_revision, and it carried a revision the build had not used since the tl-mltl pin moved to merged main. The only test that touched the field compared the constant to itself, so nothing could see it. scripts/check_provenance.py now requires src/lib.rs, Cargo.toml and Cargo.lock to name the same revision for both temporal dependencies, and a mutation probe restores the old value to show the check goes red."
+    "now": "f7eb8bdf93f588050a40b2a4bf7b418f7c63a0e9",
+    "why": "Every ConformanceReport this crate emits carries evaluator_revision, and it carried a revision the build had not used since the tl-mltl pin moved off it \u2014 and one that was reachable from no remote ref at all. The only test that touched the field compared the constant to itself, so nothing could see it. scripts/check_provenance.py now requires src/lib.rs, Cargo.toml and Cargo.lock to name the same revision for both temporal dependencies, and TC-030 restores the previous value to show the check goes red."
   },
   "known_drift": [
     "engineering-assurance v0.2.0 packages compatibility-matrix.json with accepted.state = pending_human_acceptance and ships no human_acceptance_recorded predicate. Both landed on main after the tag and no v0.2.1 was cut. Filed as agent-ix/engineering-assurance#20. scripts/check_shared_pins.py reports the acceptance state the installed package records and gates only on the local toolchain, so an absent field is never read as an approval in either direction.",
     "The human acceptance itself is not in doubt: Peter Krenesky accepted the FR-012 matrix on 2026-09-01 and it is attributed on engineering-assurance main. What is missing is a release carrying it. Pinning a branch head to obtain it is exactly what FR-012-AC-1 forbids, so this repository does not.",
     "map_pgm01_bytes at v0.2.0 covers quire.pgm01-evidence v1 and v2 only. It has no mapping for quire.derivation-evidence/v1, which is the family this repository and its temporal siblings retained. Filed as agent-ix/engineering-assurance#21. Reported, not worked around."
-  ]
+  ],
+  "upstream_dependencies": {
+    "statement": "Both temporal dependencies now resolve to revisions reachable from their own main. tl-rewrite hands tl_syntax::Formula values straight to tl_mltl::evaluate_closed, so the two crates must resolve the SAME tl-syntax revision; that is why this repin could not happen until tl-mltl's own migration merged, and why scripts/check_provenance.py now requires src/lib.rs, Cargo.toml and Cargo.lock to agree for both.",
+    "tl-syntax": {
+      "was": "740182f13b84858008d6f176f75136737d405c1b",
+      "now": "953ee825e5060335b4c79682f5f41a78c5a1bfae",
+      "why": "The old pin named a revision reachable only from tl-syntax's feat/tl-syntax-v0.1 branch, never from main, and that repository formally retracted its record. 953ee825 is tl-syntax PR #10 squashed onto main. agent-ix/tl-syntax#8."
+    },
+    "tl-mltl": {
+      "was": "fe1c620d7baa743d9c6b4dda27f40d207721fcc9",
+      "now": "f7eb8bdf93f588050a40b2a4bf7b418f7c63a0e9",
+      "why": "tl-mltl PR #15 squashed onto main, which is the revision that carries its own tl-syntax repin to 953ee825. Pinning it is what unblocks the tl-syntax repin here."
+    },
+    "earlier_dangling_pin": {
+      "revision": "da2c7704a5347d063398c852acf6aa5bf9b5752d",
+      "statement": "This repository's retained evidence records name tl-mltl da2c7704, a commit that was reachable from no remote ref and from no tag, so it existed only on one disk. It is now fetchable from origin/retain/tl-mltl-v0.1-da2c7704 in agent-ix/tl-mltl, which must not be deleted while those records stand. Filed as agent-ix/tl-mltl#11. This repository no longer pins it; the constant that used to name it was itself stale against Cargo.toml and is corrected below."
+    }
+  }
 }

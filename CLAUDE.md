@@ -41,7 +41,8 @@ downstream consumes those files and refuses to create them.
 
 **Read `Makefile`'s header before trusting a green `make ci`.** The parse-time
 guard that policed Make's own execution controls went with the collector it
-protected; `.IGNORE:` still neuters ten of the fourteen `ci` prerequisites and
+protected. Measured on this Makefile: a single `.IGNORE:` line takes `make ci`
+from exit 2 to exit 0 with all 13 `ci` prerequisites reporting success, and
 nothing notices. Tracked as `agent-ix/tl-rewrite#11`.
 
 ## Safety scaffolding

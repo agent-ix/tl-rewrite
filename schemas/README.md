@@ -39,6 +39,8 @@ Both digests are stated in `assurance/pins.json`, re-derived by
 difference in two independent places.
 
 Nothing else in the repository may reference these files by name. A test asserts
-that, over a recursive census of every source, spec, corpus, workflow and build
-file, with only this README, `assurance/pins.json`,
-`assurance/change-assurance.json` and the test itself permitted to name them.
+that over a census of ten directories walked recursively — `scripts`, `tests`,
+`examples`, `src`, `spec`, `docs`, `.github`, `assurance`, `corpus`, `schemas` —
+plus every file at the repository root, discovered rather than listed. Only this
+README, `assurance/pins.json`, `assurance/change-assurance.json` and the test
+itself may name them.

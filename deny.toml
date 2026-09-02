@@ -23,9 +23,14 @@ db-path = "$CARGO_HOME/tl-rewrite-advisory-db"
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-# Exact-source exceptions for the merged tl-mltl revision and the temporary
-# tl-syntax candidate. AA-001 blocks source release on the latter until merge
-# or 2026-09-07, whichever comes first.
+# Exact-source exceptions for two git dependencies, both pinned to revisions
+# reachable from their own `main`: tl-syntax 953ee825 and tl-mltl f7eb8bdf.
+# These are no longer time-boxed exceptions for pull-request branches, and
+# neither blocks the source-release claim. The pins must move together —
+# src/equivalence.rs passes tl_syntax::Formula values into
+# tl_mltl::evaluate_closed, so both crates have to resolve the same tl-syntax
+# revision — and scripts/check_provenance.py enforces that the crate's published
+# revision constants agree with Cargo.toml and Cargo.lock.
 allow-git = [
     "https://github.com/agent-ix/tl-mltl.git",
     "https://github.com/agent-ix/tl-syntax.git",

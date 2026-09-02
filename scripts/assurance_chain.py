@@ -49,6 +49,7 @@ COUNTEREXAMPLE_CORPUS = ROOT / "corpus" / "counterexamples" / "manifest.json"
 
 RULE_PROTOCOL = "tl-rewrite.rule-conformance/v1"
 COUNTEREXAMPLE_PROTOCOL = "tl-rewrite.counterexample-evidence/v1"
+NORMALIZATION_PROTOCOL = "tl-rewrite.normalization-sweep/v1"
 
 # Every proof obligation's retained result, and the media type its producer
 # declares. Stated rather than sniffed, because a producer's content type is
@@ -63,42 +64,58 @@ INPUTS = {
     "PROOF-msrv": ("msrv.jsonl", "application/x-ndjson"),
 }
 
-# The outcome vocabulary a producer's rows may use, and the attestation result
-# each maps to. Every value is listed; an unlisted one is refused.
+# The outcome vocabulary each row-shaped producer may use, and the attestation
+# result each maps to. This is **per producer**, not one global table, and that
+# is the whole point of it.
 #
-# Two entries map a non-`pass` word to `passed`, and both are deliberate.
+# An earlier version had a single table with `malformed` and `unsupported`
+# mapping to `passed`, argued from two specific producers that had earned it. An
+# adversarial review then reached it from a third: `scripts/check_provenance.py`
+# emits `malformed` when the WEST checksum manifest carries a line that is not a
+# checksum line, and the chain sealed `passed` and exited 0 over a producer that
+# had exited 1 saying it could not read its own input. That is precisely the
+# failure this file exists to prevent, so the argument now travels with the
+# producer that made it.
 #
-# `unsupported` is what an excluded catalog rule reports. The two `west.nested-*`
-# rules are retained for review and are not executable in v1. The OBLIGATION —
-# an excluded rule stays excluded, keeps its primary-source provenance and names
-# its reason — is discharged when the producer reports `unsupported`, so the
-# proof passes. It is not thereby collapsed into `pass`: the word survives in
-# the producer's rows and in the retained bytes, and a chain scenario below
-# requires the number of `unsupported` rows to equal the number of exclusions
-# the rule corpus declares.
-#
-# `malformed` is what a document that will not decode reports. tl-rewrite
-# consumes documents tl-syntax has already validated, so the obligation is that
-# the engine NAMES the state rather than answering; naming it discharges the
-# obligation. This is the same mapping tl-parse chose but for a narrower reason:
-# six of tl-parse's seven fixtures are malformed by design and the parser's whole
-# job is rejection, whereas exactly one case here is malformed and the point is
-# that the state is reported rather than tolerated. The count is likewise checked
-# against the counterexample corpus rather than against the producer.
-#
-# A bounded comparison that DECLINED for a declared reason is not in this table
-# at all: the producer reports it as `pass` with a `non_conclusive:<reason>`
-# domain outcome, because the obligation "the boundary is reported" was computed
-# and met. `not-computed` here means a case that unexpectedly reached no verdict,
-# which is a real not-computed and is meant to poison the proof.
-ROW_RESULTS = {
+# The base vocabulary. `malformed` means "this producer could not read what it
+# was given", which is a defect, so it fails.
+BASE_ROW_RESULTS = {
     "pass": "passed",
-    "unsupported": "passed",
-    "malformed": "passed",
     "fail": "failed",
+    "malformed": "failed",
     "unavailable": "unavailable",
     "not-computed": "not_computed",
     "vacuous": "not_computed",
+}
+
+# PROOF-rule-conformance additionally names `unsupported`, and it maps to
+# `passed`. The two `west.nested-*` rules are retained for review and are not
+# executable in v1. The OBLIGATION — an excluded rule stays excluded, keeps its
+# primary-source provenance and names its reason — is discharged when the
+# producer reports `unsupported`. It is not thereby collapsed into `pass`: the
+# word survives in the producer's rows and in the retained bytes, and a chain
+# scenario requires the number of `unsupported` rows to equal the number of
+# exclusions the rule corpus declares. `malformed` keeps its base meaning here:
+# a rule-corpus document that will not decode is a defect.
+#
+# PROOF-counterexample-evidence additionally maps `malformed` to `passed`,
+# because for that producer the word means something else — the INPUT was
+# declared malformed and the engine named it as such rather than answering,
+# which is the obligation. This is the same mapping tl-parse chose, for a
+# narrower reason: exactly one case here is malformed, and the count is checked
+# against the corpus rather than against the producer. That producer does not
+# name `unsupported` at all, so a row claiming it is refused.
+#
+# A bounded comparison that DECLINED for a declared reason is in none of these
+# tables: the producer reports it as `pass` with a `non_conclusive:<reason>`
+# domain outcome, because the obligation "the boundary is reported" was computed
+# and met. `not-computed` here means a case that unexpectedly reached no
+# verdict, which is a real not-computed and is meant to poison the proof.
+ROW_RESULTS = {
+    "PROOF-rule-conformance": {**BASE_ROW_RESULTS, "unsupported": "passed"},
+    "PROOF-counterexample-evidence": {**BASE_ROW_RESULTS, "malformed": "passed"},
+    "PROOF-normalization-sweep": dict(BASE_ROW_RESULTS),
+    "PROOF-provenance-integrity": dict(BASE_ROW_RESULTS),
 }
 
 # Precedence when a stream carries more than one outcome. A single failure
@@ -111,6 +128,53 @@ class ChainError(RuntimeError):
     """The chain could not be driven. Distinct from a scenario that did not match."""
 
 
+# Every command this process has executed, in order. One list, because every
+# subprocess in this file goes through `_execute` below.
+EXECUTED: list[list[str]] = []
+
+# The commands this driver is permitted to run. Anything else is a producer
+# execution and the run is refused.
+#
+# PATH shims cannot enforce this on their own and it is worth writing down why,
+# because the obvious test does not work. Shimming `quire` breaks the run for a
+# reason that is not a boundary violation: `quoin evidence record` itself shells
+# out to `quire coverage` to resolve the obligations an entry binds to, which is
+# a static export and not a producer execution. And a driver that runs a
+# producer and throws the output away leaves no trace on disk at all, so a
+# before/after digest of the inputs cannot see it either.
+#
+# So the audit lives inside the driver, where every invocation passes through
+# one function. `quoin` may be called with any arguments — it is the tool this
+# file exists to drive. Everything else is an exact argv, and every one of them
+# is a version observation, which is what the compatibility matrix's own
+# `observe` column does.
+PERMITTED_COMMANDS: tuple[tuple[str, ...], ...] = (
+    ("quoin", "--version"),
+    ("quire", "provenance"),
+    ("ix-flow", "--version"),
+    ("rustc", "--version"),
+    ("rustup", "run", "1.75.0", "cargo", "--version"),
+)
+
+
+def _execute(argv: list[str], **keywords: Any) -> subprocess.CompletedProcess[str]:
+    """Run a command and record it. The only place this file calls a subprocess."""
+    EXECUTED.append(list(argv))
+    return subprocess.run(argv, capture_output=True, text=True, check=False, **keywords)
+
+
+def command_audit() -> list[str]:
+    """Every command this run executed that it was not permitted to."""
+    violations = []
+    for argv in EXECUTED:
+        if argv and argv[0] == "quoin":
+            continue
+        if tuple(argv) in PERMITTED_COMMANDS:
+            continue
+        violations.append(" ".join(argv))
+    return violations
+
+
 def digest_of(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
 
@@ -119,9 +183,7 @@ def quoin(*arguments: str, stdin: str | None = None) -> subprocess.CompletedProc
     """Invoke the pinned Quoin CLI. It is the only command this file runs."""
     if shutil.which("quoin") is None:
         raise ChainError("quoin is not on PATH; the pinned CLI is required")
-    return subprocess.run(
-        ["quoin", *arguments], input=stdin, capture_output=True, text=True, check=False
-    )
+    return _execute(["quoin", *arguments], input=stdin)
 
 
 def tool_version(argv: list[str]) -> str | None:
@@ -133,7 +195,7 @@ def tool_version(argv: list[str]) -> str | None:
     reader cannot tell it apart from a real observation.
     """
     try:
-        result = subprocess.run(argv, capture_output=True, text=True, check=False)
+        result = _execute(argv)
     except OSError:
         return None
     if result.returncode != 0:
@@ -155,7 +217,7 @@ def semantic_version(text: str | None) -> str | None:
 def observe_environment() -> dict[str, Any]:
     quire_version: str | None = None
     try:
-        raw = subprocess.run(["quire", "provenance"], capture_output=True, text=True, check=False)
+        raw = _execute(["quire", "provenance"])
     except OSError:
         # An absent tool is an unobserved tool, recorded as null. It is not a
         # crash, and it is certainly not a version.
@@ -190,14 +252,19 @@ def observe_environment() -> dict[str, Any]:
 # states live in the producer's own structured result, which Quoin retains byte
 # for byte, and the adapter carries the domain word alongside rather than
 # discarding it.
-CONFORMANCE_OUTCOMES = {
+BASE_CONFORMANCE_OUTCOMES = {
     "pass": "pass",
-    "unsupported": "pass",
-    "malformed": "pass",
     "fail": "fail",
+    "malformed": "fail",
     "unavailable": "skip",
     "not-computed": "skip",
     "vacuous": "skip",
+}
+
+CONFORMANCE_OUTCOMES = {
+    RULE_PROTOCOL: {**BASE_CONFORMANCE_OUTCOMES, "unsupported": "pass"},
+    COUNTEREXAMPLE_PROTOCOL: {**BASE_CONFORMANCE_OUTCOMES, "malformed": "pass"},
+    NORMALIZATION_PROTOCOL: dict(BASE_CONFORMANCE_OUTCOMES),
 }
 
 
@@ -208,6 +275,9 @@ def adapt_conformance(raw: str, protocol: str = RULE_PROTOCOL) -> dict[str, Any]
     vocabulary it enumerates, and refuses anything else. It runs nothing, judges
     nothing, and never looks at a process's output stream to decide an outcome.
     """
+    table = CONFORMANCE_OUTCOMES.get(protocol)
+    if table is None:
+        raise ChainError(f"this adapter transcribes no protocol named {protocol!r}")
     entries = []
     lines = [line for line in raw.splitlines() if line.strip()]
     if not lines:
@@ -224,15 +294,15 @@ def adapt_conformance(raw: str, protocol: str = RULE_PROTOCOL) -> dict[str, Any]
                 f"this adapter transcribes {protocol} and refuses to guess"
             )
         outcome = row.get("outcome")
-        if outcome not in CONFORMANCE_OUTCOMES:
+        if outcome not in table:
             raise ChainError(
                 f"conformance stream line {number} declares outcome {outcome!r}, "
-                "which this adapter does not name"
+                f"which {protocol} does not name. Its vocabulary is {sorted(table)}."
             )
         entries.append(
             {
                 "symbol": row["symbol"],
-                "outcome": CONFORMANCE_OUTCOMES[outcome],
+                "outcome": table[outcome],
                 "traceIds": list(row.get("traceIds", [])),
                 # The domain outcome is carried alongside rather than discarded.
                 # Quoin normalizes to three values; the twelve-state vocabulary
@@ -303,11 +373,21 @@ class Chain:
         raise ChainError("Cargo.toml declares no package version")
 
     def observe_tool_versions(self) -> dict[str, str]:
-        """One observed version per declared tool identity.
+        """One version per declared tool identity, and where it came from.
 
-        A tool whose version cannot be observed raises. The alternative is a
-        sealed attestation naming a version nobody measured, and an attestation
-        is only worth its weakest field.
+        Two sources, and the distinction is recorded rather than blurred.
+
+        `cargo` and `quire` are **observed**: their versions are read by asking
+        the installed tool, and a tool whose version cannot be observed raises
+        rather than being given a default. A sealed attestation naming a version
+        nobody measured is worse than one that refuses to seal.
+
+        Every other identity here is a tool this repository owns — the three
+        producers under `examples/` and the two scripts under `scripts/` — and
+        their version is this crate's version, **declared** in `Cargo.toml`. They
+        have no `--version` to ask. Calling that "observed" would overstate it,
+        so `version_sources` below records which is which and the report carries
+        it.
         """
         crate = self.crate_version()
         probes = {
@@ -323,6 +403,7 @@ class Chain:
             ),
         }
         versions: dict[str, str] = {}
+        self.version_sources: dict[str, str] = {}
         for proof in self.declaration["record"]["definition"]["proof_obligations"]:
             identity = proof["tool_identity"]
             if identity in versions:
@@ -334,6 +415,11 @@ class Chain:
                     "will not be sealed naming a version nobody measured"
                 )
             versions[identity] = observed
+            self.version_sources[identity] = (
+                "observed from the installed tool"
+                if identity in probes
+                else "declared by this crate's Cargo.toml version; the tool has no --version"
+            )
         return versions
 
     def __init__(self, candidate_revision: str, store: Path) -> None:
@@ -534,18 +620,24 @@ def _worst(results: list[str]) -> str:
     raise ChainError("a producer result stream carried no outcome at all")
 
 
-def _rows_result(rows: list[dict[str, Any]], where: str) -> str:
+def _rows_result(rows: list[dict[str, Any]], where: str, proof_id: str) -> str:
     if not rows:
         raise ChainError(
             f"{where} carries no rows. A producer that reported nothing is vacuous, "
             "and vacuous is not passed."
         )
+    table = ROW_RESULTS.get(proof_id)
+    if table is None:
+        raise ChainError(f"{proof_id} declares no outcome vocabulary of its own")
     results = []
     for index, row in enumerate(rows):
         outcome = row.get("outcome")
-        if outcome not in ROW_RESULTS:
-            raise ChainError(f"{where} row {index} declares outcome {outcome!r}, which is not named")
-        results.append(ROW_RESULTS[outcome])
+        if outcome not in table:
+            raise ChainError(
+                f"{where} row {index} declares outcome {outcome!r}, which {proof_id} "
+                f"does not name. Its vocabulary is {sorted(table)}."
+            )
+        results.append(table[outcome])
     return _worst(results)
 
 
@@ -594,9 +686,9 @@ def derive_result(proof_id: str, path: Path) -> str:
         "PROOF-counterexample-evidence",
         "PROOF-normalization-sweep",
     ):
-        return _rows_result(rows_of(path), path.name)
+        return _rows_result(rows_of(path), path.name, proof_id)
     if proof_id == "PROOF-provenance-integrity":
-        return _rows_result(_load_json(raw, path)["entries"], path.name)
+        return _rows_result(_load_json(raw, path)["entries"], path.name, proof_id)
     if proof_id == "PROOF-legacy-compatibility":
         census = _load_json(raw, path)
         return "passed" if census["matched"] else "failed"
@@ -622,8 +714,22 @@ def derive_result(proof_id: str, path: Path) -> str:
             # A coverage export over no rows, or one in which nothing is backed,
             # measured nothing worth snapshotting.
             return "not_computed"
+        if export.get("unbacked_rows"):
+            # A matrix row that names no backing symbol. This is the field that
+            # actually moves: an adversarial review measured that repointing one
+            # row at nonexistent test cases leaves `totals.backed` at 72/72 while
+            # `unbacked_rows` gains an entry, so gating on the totals alone let a
+            # fabricated row through.
+            return "failed"
         if export.get("status_lies"):
             # Quire found a row whose declared status disagrees with its evidence.
+            # This branch is known not to fire for the Functional and Stakeholder
+            # tables: Quire reports `status-column-matches-nothing` for them,
+            # because the configured status column and the archetype's asserted
+            # columns are mutually exclusive in a validated repository. It is kept
+            # because it does fire for the tables Quire can classify, and the
+            # limitation is recorded rather than left for a reader to discover.
+            # agent-ix/quire-contract-ir#21.
             return "failed"
         # A partially-backed export is not a failure. The exact figures are pinned
         # by a test, so a doctored export changes a number a test asserts rather
@@ -648,21 +754,23 @@ def derive_result(proof_id: str, path: Path) -> str:
     raise ChainError(f"no result rule is declared for {proof_id}")
 
 
-def derive_failed_stream(raw: str) -> str:
-    """One named edit to the real rule stream: the first pass becomes a fail.
+def derive_stream(raw: str, outcome: str) -> str:
+    """One named edit to the real rule stream: the first pass becomes `outcome`.
 
-    The corpus is green and has to stay green, so the failing case is derived from
-    the real run rather than invented. A `fail` state demonstrated by a stream
-    nobody produced is a state nobody has actually seen travel the chain.
+    The corpus is green and has to stay green, so every non-success case is
+    derived from the real run rather than invented. A state demonstrated by a
+    stream nobody produced is a state nobody has actually seen travel the chain,
+    and a state sealed as a literal is a state the caller asserted rather than
+    one the driver read.
     """
     lines = [line for line in raw.splitlines() if line.strip()]
     for index, line in enumerate(lines):
         row = json.loads(line)
         if row.get("outcome") == "pass":
-            row["outcome"] = "fail"
+            row["outcome"] = outcome
             lines[index] = json.dumps(row)
             return "\n".join(lines) + "\n"
-    raise ChainError("the rule stream contains no passing row to derive a failure from")
+    raise ChainError(f"the rule stream contains no passing row to derive {outcome} from")
 
 
 # ---------------------------------------------------------------------------
@@ -756,11 +864,17 @@ def run_chain(candidate_revision: str, workspace: Path) -> dict[str, Any]:
                 identical,
                 {"retained": str(retained), "bytes": retained.stat().st_size},
             )
+            # A different fact from the scenario above, deliberately. The
+            # scenario asks whether the bytes came back identical; this asks
+            # whether Quoin ACCEPTED them at all, which is what makes the
+            # refusal in `retained-bytes-changed-after-sealing` meaningful. A
+            # control that reads its paired scenario's own boolean is not a
+            # control.
             control(
                 "intake-accepts-unchanged-bytes",
                 "retained-bytes-changed-after-sealing",
-                identical,
-                {"proof": proof_id},
+                taken.returncode == 0 and bool(detail.get("directory")),
+                {"proof": proof_id, "exit": taken.returncode},
             )
 
     # Every proof's own declared state is gated, not merely the byte identity of
@@ -781,6 +895,9 @@ def run_chain(candidate_revision: str, workspace: Path) -> dict[str, Any]:
     # implementation that got it wrong.
     rule_rows = rows_of(inputs["PROOF-rule-conformance"])
     counterexample_rows = rows_of(inputs["PROOF-counterexample-evidence"])
+    # `rows_of` routes every line through `_load_json`, so an unreadable line is
+    # a ChainError with exit 2 rather than a bare JSONDecodeError traceback that
+    # would exit 1 — the code a scenario mismatch uses.
     declared_rules = declared_rule_counts()
     declared_counterexamples = declared_counterexample_counts()
 
@@ -833,15 +950,13 @@ def run_chain(candidate_revision: str, workspace: Path) -> dict[str, Any]:
     )
     # And the witnesses survive into the bytes Quoin retained, so they are not
     # merely computed and discarded.
-    retained_mismatch = [
-        row
-        for row in (
-            json.loads(line)
-            for line in retained_counterexamples.decode("utf-8", errors="replace").splitlines()
-            if line.strip()
-        )
-        if row.get("domainOutcome") == "mismatch"
+    retained_path = inputs["PROOF-counterexample-evidence"]
+    retained_rows = [
+        _load_json(line, retained_path)
+        for line in retained_counterexamples.decode("utf-8", errors="replace").splitlines()
+        if line.strip()
     ]
+    retained_mismatch = [row for row in retained_rows if row.get("domainOutcome") == "mismatch"]
     scenario(
         "counterexamples-survive-into-retained-bytes",
         None,
@@ -878,7 +993,8 @@ def run_chain(candidate_revision: str, workspace: Path) -> dict[str, Any]:
     scenario(
         "non-conclusive-reasons-stay-distinct",
         "inconclusive",
-        observed_reasons_domain == declared_counterexamples["reasons"]
+        declared_counterexamples["non_conclusive"] > 0
+        and observed_reasons_domain == declared_counterexamples["reasons"]
         and len(observed_reasons_domain) == declared_counterexamples["non_conclusive"],
         {
             "declared": declared_counterexamples["reasons"],
@@ -1036,34 +1152,40 @@ def run_chain(candidate_revision: str, workspace: Path) -> dict[str, Any]:
         {"reasons": passing_row["reasons"]},
     )
 
-    failed_stream = scratch / "failed.jsonl"
-    failed_stream.write_text(
-        derive_failed_stream(inputs["PROOF-rule-conformance"].read_text(encoding="utf-8")),
-        encoding="utf-8",
-    )
-    # The derived stream is a real edit and the driver must read a real failure
-    # out of it. Without this the `failed` state below would be a literal the
-    # caller supplied rather than a verdict anything derived.
-    control(
-        "the-derived-failing-stream-actually-derives-a-failure",
-        "attested-failed",
-        derive_result("PROOF-rule-conformance", failed_stream) == "failed",
-        {"derived": derive_result("PROOF-rule-conformance", failed_stream)},
-    )
+    # Each non-success state is DERIVED from the real stream by one named edit,
+    # and the state sealed into the attestation is what `derive_result` read back
+    # out of those bytes — never a literal this loop supplied. An earlier version
+    # derived only `failed` this way and sealed `unavailable` and `not_computed`
+    # as caller-supplied strings over the real, passing stream; Quoin's reaction
+    # was measured but the state itself was a label.
     expected_reason = {
         "failed": "result_failed",
         "unavailable": "result_unavailable",
         "not_computed": "result_not_computed",
     }
     state_name = {"failed": "fail", "unavailable": "unavailable", "not_computed": "not-computed"}
+    derived_from = {"failed": "fail", "unavailable": "unavailable", "not_computed": "not-computed"}
+    real_stream = inputs["PROOF-rule-conformance"].read_text(encoding="utf-8")
     observed_reasons: dict[str, set[str]] = {}
-    for state, source in (
-        ("failed", failed_stream),
-        ("unavailable", inputs["PROOF-rule-conformance"]),
-        ("not_computed", inputs["PROOF-rule-conformance"]),
-    ):
-        body = chain.attestation_body(record_digest, "PROOF-rule-conformance", state)
-        body["attestation_id"] = f"PROOF-rule-conformance:{state}"
+    for state, row_outcome in derived_from.items():
+        source = scratch / f"derived-{state}.jsonl"
+        source.write_text(derive_stream(real_stream, row_outcome), encoding="utf-8")
+        derived_state = derive_result("PROOF-rule-conformance", source)
+        control(
+            f"the-derived-{state}-stream-actually-derives-{state}",
+            f"attested-{state}",
+            derived_state == state,
+            {
+                "derived": derived_state,
+                "expected": state,
+                "why": (
+                    "the state sealed below is what the driver read out of these bytes, "
+                    "not a literal this loop chose"
+                ),
+            },
+        )
+        body = chain.attestation_body(record_digest, "PROOF-rule-conformance", derived_state)
+        body["attestation_id"] = f"PROOF-rule-conformance:{derived_state}"
         sealed_state = chain.seal_attestation(body, source, "application/x-ndjson")
         taken = chain.intake(sealed_state, source)
         if taken.returncode != 0:
@@ -1144,6 +1266,35 @@ def run_chain(candidate_revision: str, workspace: Path) -> dict[str, Any]:
         {"declared": sorted(declared_unknowns), "carried": sorted(carried_unknowns)},
     )
 
+    # -- 10. the driver ran nothing it was not permitted to --------------------
+    #
+    # This is the producer boundary asserted from the inside. The two external
+    # instruments cannot see a driver that runs a producer and discards its
+    # output: PATH shims break on `quire`, which Quoin itself invokes, and an
+    # input digest only moves if the output was kept.
+    violations = command_audit()
+    executed = sorted({" ".join(argv) for argv in EXECUTED})
+    scenario(
+        "driver-ran-only-permitted-commands",
+        None,
+        not violations and bool(EXECUTED),
+        {
+            "executed": executed,
+            "violations": violations,
+            "why": (
+                "every subprocess in this driver goes through one function, which records "
+                "it; anything outside quoin and the declared version observations is a "
+                "producer execution"
+            ),
+        },
+    )
+    control(
+        "the-command-audit-recorded-something",
+        "driver-ran-only-permitted-commands",
+        len(EXECUTED) > 5,
+        {"recorded": len(EXECUTED)},
+    )
+
     names = {item["scenario"] for item in scenarios}
     dangling = sorted(item["control"] for item in controls if item["pairs_with"] not in names)
     if dangling:
@@ -1175,6 +1326,10 @@ def run_chain(candidate_revision: str, workspace: Path) -> dict[str, Any]:
             }
             for row in mismatch_rows
         ],
+        "tool_versions": chain.tool_versions,
+        "tool_version_sources": chain.version_sources,
+        "executed_commands": sorted({" ".join(argv) for argv in EXECUTED}),
+        "command_audit_violations": command_audit(),
         "receipt_outcome": receipt["outcome"],
         "audited_receipt_outcome": audited["outcome"],
         "audited_receipt_reasons": audited["reasons"],
@@ -1330,8 +1485,10 @@ def adapter_probes(workspace: Path) -> list[dict[str, Any]]:
     refused = False
     try:
         adapt_conformance(foreign)
-    except ChainError:
-        refused = True
+    except ChainError as error:
+        # The reason is asserted, not merely the refusal. A refusal for the wrong
+        # reason is not a detection.
+        refused = "refuses to guess" in str(error)
     results.append(
         {
             "probe": "refuses-a-foreign-protocol",
@@ -1345,8 +1502,8 @@ def adapter_probes(workspace: Path) -> list[dict[str, Any]]:
     empty_refused = False
     try:
         adapt_conformance("")
-    except ChainError:
-        empty_refused = True
+    except ChainError as error:
+        empty_refused = "is empty" in str(error)
     results.append(
         {
             "probe": "refuses-an-empty-stream",
@@ -1368,8 +1525,8 @@ def adapter_probes(workspace: Path) -> list[dict[str, Any]]:
     unnamed_refused = False
     try:
         adapt_conformance(unnamed)
-    except ChainError:
-        unnamed_refused = True
+    except ChainError as error:
+        unnamed_refused = "does not name" in str(error)
     results.append(
         {
             "probe": "refuses-an-unnamed-outcome",
@@ -1389,8 +1546,8 @@ def adapter_probes(workspace: Path) -> list[dict[str, Any]]:
             inputs["PROOF-counterexample-evidence"].read_text(encoding="utf-8"),
             protocol=RULE_PROTOCOL,
         )
-    except ChainError:
-        crossed_refused = True
+    except ChainError as error:
+        crossed_refused = "refuses to guess" in str(error)
     accepted_own = False
     try:
         adapted = adapt_conformance(
@@ -1485,7 +1642,12 @@ def main(argv: list[str]) -> int:
             item["matched"]
             for group in (chain["scenarios"], chain["controls"], probes)
             for item in group
-        ),
+        )
+        # `all()` over an empty sequence is True. A chain that demonstrated
+        # nothing must not report a match.
+        and bool(chain["scenarios"])
+        and bool(chain["controls"])
+        and bool(probes),
     }
     if arguments.json:
         print(json.dumps(report, indent=2, sort_keys=True))

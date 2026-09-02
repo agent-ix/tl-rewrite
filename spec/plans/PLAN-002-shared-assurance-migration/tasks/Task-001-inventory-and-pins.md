@@ -27,13 +27,16 @@ reachable from that repository's `main`.
 hosted workflow's `@agent-ix/quoin@0.22.5` pin — a version the matrix names
 explicitly incompatible — is repinned to 0.23.1 and `ix-flow@0.0.4` is added.
 
-The tl-syntax repin was attempted and is blocked, with the reason measured
-rather than assumed: `tl-mltl` at its merged `main` `fe1c620d` still pins
-`740182f1`, this crate passes `tl_syntax::Formula` values straight into
-`tl_mltl::evaluate_closed`, and moving only this pin puts two `tl-syntax`
-versions in the graph, which cargo reports as E0308 at four call sites in
-`src/equivalence.rs`. Recorded as an open unknown and filed as
-`agent-ix/tl-rewrite#10`.
+Both temporal pins move onto revisions reachable from their own `main`:
+`tl-syntax` `740182f1` to `953ee825`, and `tl-mltl` `fe1c620d` to `f7eb8bdf`.
+
+The order was forced and was measured rather than assumed. The `tl-syntax` repin
+was attempted first, while `tl-mltl` still pinned `740182f1`, and cargo reported
+E0308 at four call sites in `src/equivalence.rs` — this crate passes
+`tl_syntax::Formula` values straight into `tl_mltl::evaluate_closed`, so both
+must resolve the same revision. It was reverted and carried as an open unknown
+until `tl-mltl`'s own migration merged carrying its repin, after which both moved
+together.
 
 A separate pin defect was found and fixed: `TL_MLTL_REVISION` disagreed with
 `Cargo.toml`, so every conformance report named an evaluator revision the build

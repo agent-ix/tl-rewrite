@@ -14,10 +14,16 @@
 # collector they were protecting.
 #
 # Read this before trusting a green `make ci`. Measured on this file, not
-# inherited from a sibling: with every tool variable pointed at `false` so no
-# gate's work happens, `make ci` exits 2 and stops at the first prerequisite;
-# prepending a single `.IGNORE:` line makes the identical run exit 0 after 27
-# ignored recipe failures, with all 13 `ci` prerequisites reporting success.
+# inherited from a sibling, with the command named so it can be re-derived:
+#
+#   make ci CARGO=false PYTHON=false QUIRE=false QUOIN=false \
+#     ASSURANCE_DIR=target/ig-probe ASSURANCE_PYTHON=/bin/false
+#
+# exits 2 and stops at the first prerequisite. Prepend a single `.IGNORE:`
+# line and the identical command exits 0 after 28 ignored recipe failures,
+# with all 13 `ci` prerequisites reporting success: eleven whose own recipe
+# failed, `assurance` whose three sub-targets each failed, and `audit-unsafe`,
+# which invokes bash directly and the sabotage does not reach.
 # The structural backstop only goes so far — Quoin binds
 # each retained input by digest and the chain derives every attested result from
 # the producer's own bytes, so a producer that did not run yields an absent or
