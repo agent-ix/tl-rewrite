@@ -1,6 +1,6 @@
 {
   "schema_version": "tl-rewrite.change-assurance-declaration/v1",
-  "purpose": "What this repository states about the change under issue #9, in the shape Quoin's FR-063 record requires. Quoin owns the record schema, its digest, and its retention; this file is the author's statement that gets sealed into one.",
+  "purpose": "What this repository states about the change under issues #9 and #13, in the shape Quoin's FR-063 record requires. Quoin owns the record schema, its digest, and its retention; this file is the author's statement that gets sealed into one.",
   "not_an_envelope": "Quoin's packaged change-assurance-record-v1, proof-attestation-v1, and verification-receipt-v1 schemas are the shapes. This file projects into the record body Quoin requires and derives nothing beyond the digests its own derived_fields names. It is not a local evidence envelope, it retains nothing, and it computes no verdict.",
   "derived_fields": [
     "subject.base_revision and impact_snapshot.revision come from the candidate revision the caller names.",
@@ -141,14 +141,6 @@
           ]
         },
         {
-          "id": "FR-006-AC-4",
-          "statement": "Retained evidence bytes are read through the Engineering Assurance compatibility mapping and are not modified, and the mapping's answer is reported without collapsing it into pass or fail.",
-          "source_ids": [
-            "FR-006",
-            "NFR-002"
-          ]
-        },
-        {
           "id": "FR-006-AC-5",
           "statement": "Pass, fail, unavailable, unsupported, inconclusive, not-computed, malformed, partial, stale, suspect, vacuous, and tampered remain twelve distinguishable states across the intake path.",
           "source_ids": [
@@ -176,18 +168,11 @@
       ],
       "preservation_constraints": [
         {
-          "id": "PRESERVE-legacy-bytes",
-          "statement": "Every retained byte under evidence/ is unchanged by this migration: ANCHORS, RETRACTIONS.json, all 11 record directories and all 11 .sha256 manifests, 581 files in total. The single file that changed is evidence/README.md, which is human-facing prose and was rewritten to say how the records are read now that their verifier is gone; it is named here rather than covered by a sentence that would otherwise be literally false. The verifier is what was removed; the record is not.",
+          "id": "PRESERVE-no-rewritten-record",
+          "statement": "The 582 files under evidence/, the 8 legacy-compat fixtures and the 3 files under schemas/ are DELETED by this change, under the authority of agent-ix/engineering-assurance#7 section 'Preservation constraint released for the pre-stable phase', decided by the repository owner on 2026-09-02. What that release does not permit is still binding here and is the constraint this entry states: no record was rewritten, backdated, re-sealed, moved, or edited to look like it still verifies, and no claim that argued from the retained evidence was restated more weakly instead of being removed. The two earlier entries PRESERVE-legacy-bytes and PRESERVE-retained-schemas were satisfied as written for the duration of the migration and are removed rather than reworded, because a preservation constraint over a deleted set asserts nothing. Git history remains the integrity boundary for the deleted bytes, which is what CONTRIBUTING.md has always declared. The constraint re-applies unchanged at the move toward stable releases.",
           "source_ids": [
             "NFR-002",
             "FR-006"
-          ]
-        },
-        {
-          "id": "PRESERVE-retained-schemas",
-          "statement": "schemas/tl-rewrite-evidence-manifest-v1.schema.json is frozen: all 11 retained envelopes name its exact committed bytes by SHA-256. schemas/tl-rewrite-evidence-input-v1.schema.json is retained but is measurably NOT the artifact any retained envelope names \u2014 the envelopes reference three earlier digests, each recoverable from Git history at a named revision, and assurance/pins.json records which. Nothing validates against either any more and no script may reference them.",
-          "source_ids": [
-            "NFR-002"
           ]
         },
         {
@@ -334,24 +319,6 @@
           "configuration": "spec/test-matrix.md"
         },
         {
-          "proof_id": "PROOF-legacy-compatibility",
-          "statement": "All 11 retained evidence envelopes are read through the pinned Engineering Assurance mapping, their bytes are unchanged, and the mapping's answer for each is reported as it stands.",
-          "obligation_ids": [
-            "FR-006-AC-4"
-          ],
-          "evidence_kind": "Static",
-          "command": {
-            "argv": [
-              ".venv-assurance/bin/python",
-              "scripts/legacy_evidence_view.py",
-              "--json"
-            ],
-            "working_directory": "."
-          },
-          "tool_identity": "tl-rewrite/legacy_evidence_view",
-          "configuration": "tests/fixtures/legacy-compat/expectations.json"
-        },
-        {
           "proof_id": "PROOF-msrv",
           "statement": "The declared MSRV compiles every target and feature of this crate at this candidate revision, against the locked dependency graph, and reports it in cargo's own JSON message stream.",
           "obligation_ids": [
@@ -385,13 +352,13 @@
         },
         {
           "id": "UNKNOWN-derivation-evidence-not-mapped",
-          "statement": "map_pgm01_bytes at the pinned release covers quire.pgm01-evidence v1 and v2. This repository's 11 retained envelopes are quire.derivation-evidence/v1, so the mapping refuses them as an unknown schema version. That refusal is reported as the compatibility result; no local mapper was written to make it read as a pass. Filed as agent-ix/engineering-assurance#21.",
-          "disposition": "open",
+          "statement": "map_pgm01_bytes at the pinned release covers quire.pgm01-evidence v1 and v2 only. This repository's 11 retained envelopes were quire.derivation-evidence/v1, so the mapping refused every one as an unknown PGM-01 schema version. That was measured and reported, and no local mapper was written to make it read as a pass. Those envelopes are now deleted under agent-ix/engineering-assurance#7, so this repository holds nothing the gap applies to. The disposition is 'accepted' and not 'resolved', and the difference is the point: the upstream mapping still has no reader for quire.derivation-evidence/v1 and nothing here fixed that. What changed is that this repository no longer has a subject the gap applies to. It is kept in this record rather than deleted with the envelopes, so that a reader can see the gap was accepted and never closed. agent-ix/engineering-assurance#21 stays open on its own terms until the campaign closes it as moot.",
+          "disposition": "accepted",
           "owner": "agent-ix/engineering-assurance"
         },
         {
           "id": "UNKNOWN-upstream-pins-are-newly-merged",
-          "statement": "Both temporal dependencies were repinned in this change onto revisions reachable from their own main: tl-syntax 740182f1 -> 953ee825 and tl-mltl fe1c620d -> f7eb8bdf. The order was forced: tl-rewrite passes tl_syntax::Formula values straight into tl_mltl::evaluate_closed, so both crates must resolve the same tl-syntax revision, and repinning only this crate before tl-mltl merged produced E0308 at four call sites in src/equivalence.rs. That was measured during this change, not predicted. Separately, this repository's retained evidence names tl-mltl da2c7704, which was reachable from no remote ref until agent-ix/tl-mltl pushed origin/retain/tl-mltl-v0.1-da2c7704; that branch is what keeps those records' declared revision fetchable and must not be deleted. Filed as agent-ix/tl-mltl#11.",
+          "statement": "Both temporal dependencies were repinned in this change onto revisions reachable from their own main: tl-syntax 740182f1 -> 953ee825 and tl-mltl fe1c620d -> f7eb8bdf. The order was forced: tl-rewrite passes tl_syntax::Formula values straight into tl_mltl::evaluate_closed, so both crates must resolve the same tl-syntax revision, and repinning only this crate before tl-mltl merged produced E0308 at four call sites in src/equivalence.rs. That was measured during this change, not predicted. Separately, this repository's retained evidence named tl-mltl da2c7704, a revision reachable from no remote ref until agent-ix/tl-mltl pushed origin/retain/tl-mltl-v0.1-da2c7704 to keep it fetchable while those records stood. They no longer stand: agent-ix/tl-rewrite#13 deleted all eleven, and tl-mltl's own deletion (merged as 58f858e) had already removed the eight files on its side that named the revision. Those eleven records were the last references to da2c7704 anywhere in the campaign, so nothing now requires it fetchable. This change does not delete the retention branch and does not close agent-ix/tl-mltl#11; both are handled separately once all eight deletions have landed. This repository never pinned da2c7704 for the build.",
           "disposition": "open",
           "owner": "agent-ix/tl-mltl"
         },
@@ -403,7 +370,7 @@
         },
         {
           "id": "UNKNOWN-make-execution-control-guard-removed",
-          "statement": "scripts/check_failure_propagation.py and the Makefile parse-time guard that policed Make's own execution controls are removed with the collector they protected. The class they guarded is real and was measured on this repository's own Makefile with a named command: running `make ci CARGO=false PYTHON=false QUIRE=false QUOIN=false ASSURANCE_DIR=target/ig-probe ASSURANCE_PYTHON=/bin/false` so that no gate's work happens, `make ci` exits 2 and stops at the first prerequisite; prepending a single `.IGNORE:` line makes the identical command exit 0 after 28 ignored recipe failures, with all 13 ci prerequisites reporting success \u2014 eleven whose own recipe failed, `assurance` whose three sub-targets each failed, and `audit-unsafe`, which invokes bash directly and the sabotage does not reach; a skeleton in which every recipe is replaced by `false` confirms it reports success too. What replaces them is structural rather than another guard: Quoin binds each retained input by digest and the chain derives every attested result from the producer's own bytes, so a Makefile that lies about what it ran produces an absent or empty input, which the chain reports as an error naming the missing target rather than as a pass. That covers the work re-run inside assurance-inputs. It does not cover fmt-check, lint, test, check-corpus, deny, audit-unsafe, rustdoc, or the `quire validate` half of spec, which are simply neutered. This is a genuine reduction in local detection and it is recorded rather than claimed away. Filed as agent-ix/tl-rewrite#11.",
+          "statement": "scripts/check_failure_propagation.py and the Makefile parse-time guard that policed Make's own execution controls are removed with the collector they protected. The class they guarded is real and was measured on this repository's own Makefile with a named command: running `make ci CARGO=false PYTHON=false QUIRE=false QUOIN=false ASSURANCE_DIR=target/ig-probe ASSURANCE_PYTHON=/bin/false` so that no gate's work happens, `make ci` exits 2 and stops at the first prerequisite; prepending a single `.IGNORE:` line makes the identical command exit 0 after 25 ignored recipe failures, with all 13 ci prerequisites reporting success \u2014 eleven whose own recipe failed, `assurance` whose two sub-targets each failed, and `audit-unsafe`, which invokes bash directly and the sabotage does not reach; that figure was 28 with three sub-targets before agent-ix/tl-rewrite#13, and it is re-measured here with the same named command rather than carried forward: three sabotaged recipe lines went with the deleted compatibility view, so there is less to neuter and nothing was fixed; a skeleton in which every recipe is replaced by `false` confirms it reports success too. What replaces them is structural rather than another guard: Quoin binds each retained input by digest and the chain derives every attested result from the producer's own bytes, so a Makefile that lies about what it ran produces an absent or empty input, which the chain reports as an error naming the missing target rather than as a pass. That covers the work re-run inside assurance-inputs. It does not cover fmt-check, lint, test, check-corpus, deny, audit-unsafe, rustdoc, or the `quire validate` half of spec, which are simply neutered. This is a genuine reduction in local detection and it is recorded rather than claimed away. Filed as agent-ix/tl-rewrite#11.",
           "disposition": "open",
           "owner": "agent-ix/tl-rewrite"
         }

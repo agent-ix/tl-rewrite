@@ -23,7 +23,16 @@ reference evaluator and permitted WEST cases.
 PGM-01 governs compatibility, provenance, evidence, human authority, and
 qualification boundaries. Formula/profile identities come from the exact
 tl-syntax revision; semantic comparison comes from the exact tl-mltl revision
-named by retained evidence.
+that `Cargo.toml`, `Cargo.lock` and `src/lib.rs` all resolve, which
+`scripts/check_provenance.py` requires to agree on every run.
+
+That revision used to be named by retained evidence instead. It is not any more:
+issue #13 deleted the retained records under the authority of
+`agent-ix/engineering-assurance#7`, and a specification that still sourced an
+identity from them would name an authority this repository no longer has. The
+resolved dependency graph was already the enforced authority — the retained
+records named `da2c7704`, a revision the build had not used since the pin moved,
+which is the defect `TC-030` exists to catch.
 
 ## Scope
 
@@ -53,9 +62,14 @@ finite trace domain and invokes tl-mltl without embedding a second evaluator.
 ## Requirements Architecture
 
 FR-001 owns the rule catalog, FR-002 bounded execution, FR-003 trace/replay,
-FR-004 equivalence and WEST evidence, and FR-005 the versioned interchange and
-PGM-01 evidence boundary. NFR-001 constrains determinism/resources and NFR-002
-constrains provenance and qualification claims.
+FR-004 equivalence and WEST evidence, FR-005 the versioned interchange boundary,
+and FR-006 the shared assurance intake path. NFR-001 constrains
+determinism/resources, NFR-002 constrains provenance and qualification claims,
+and NFR-003 owns the qualification controls.
+
+FR-005 owned the PGM-01 evidence boundary as well until issue #13 deleted the
+retained archive; that allocation is removed rather than reassigned, because no
+requirement owns an evidence boundary this repository no longer has.
 
 ## References
 

@@ -98,7 +98,22 @@ def observe_engineering_assurance() -> str | None:
 
 
 def artifact_digest_mismatches(pins: dict[str, Any]) -> list[str]:
-    """Re-hash every artifact this repository reads out of the pinned release."""
+    """Re-hash every artifact this repository reads out of the pinned release.
+
+    The population was rebuilt by agent-ix/tl-rewrite#13 and the reason is worth
+    stating here rather than only in `assurance/pins.json`. Four of the five
+    entries this loop used to walk were read by exactly one caller — the
+    compatibility view over the retained evidence archive — and that issue
+    deleted the archive, the view and all four pins with it. Removing them left
+    `compatibility-matrix.json`, which deliberately carries no digest, and this
+    function would then have re-hashed nothing and returned clean. The
+    `digested == 0` branch below existed for precisely that shape and would have
+    caught it. Rather than let a real check degrade into a caught vacuity, the
+    list now pins `engineering_assurance/compatibility.py`, the module
+    `build_report` imports for every component verdict. It is a live read on each
+    run, so the check has a subject the deletion cannot take away, and a one-byte
+    edit to the installed module was measured to make it exit 1.
+    """
     import engineering_assurance
 
     package_root = Path(engineering_assurance.__file__).resolve().parent
@@ -124,35 +139,6 @@ def artifact_digest_mismatches(pins: dict[str, Any]) -> list[str]:
             "nothing to re-derive and a clean answer would be vacuous"
         )
     return mismatches
-
-
-def frozen_schema_mismatches(pins: dict[str, Any]) -> list[str]:
-    """Re-hash the retained evidence schemas against what pins.json states.
-
-    One of the two is frozen because every retained envelope names its exact
-    bytes; the other is retained while explicitly NOT being the artifact any
-    record references. Both digests are stated in pins.json and both are
-    re-derived here, so a silent edit to either is reported rather than being
-    covered by a word.
-    """
-    problems: list[str] = []
-    for relative, declaration in pins["frozen_schemas"].items():
-        if not isinstance(declaration, dict) or "sha256" not in declaration:
-            continue
-        path = ROOT / relative
-        if not path.is_file():
-            problems.append(f"{relative}: absent; it is retained, not removed")
-            continue
-        actual = hashlib.sha256(path.read_bytes()).hexdigest()
-        if actual != declaration["sha256"]:
-            problems.append(f"{relative}: {actual}, pins record {declaration['sha256']}")
-    if not problems and not any(
-        isinstance(value, dict) and "sha256" in value for value in pins["frozen_schemas"].values()
-    ):
-        # A declaration block with no digests in it would pass this check while
-        # checking nothing at all.
-        problems.append("assurance/pins.json declares no retained-schema digests to re-derive")
-    return problems
 
 
 def mirror_references(pins: dict[str, Any]) -> list[str]:
@@ -200,7 +186,6 @@ def build_report() -> dict[str, Any]:
     classifications = classify_all(matrix, observed)
     mismatches = artifact_digest_mismatches(pins)
     offenders = mirror_references(pins)
-    schemas = frozen_schema_mismatches(pins)
     # `accepted([])` is True. A matrix that classified nothing must not be read
     # as a matrix that approved everything.
     versions_ok = bool(classifications) and accepted(classifications)
@@ -218,8 +203,7 @@ def build_report() -> dict[str, Any]:
         "versions_compatible": versions_ok,
         "artifact_mismatches": mismatches,
         "mirror_references": offenders,
-        "retained_schema_mismatches": schemas,
-        "accepted": versions_ok and not mismatches and not offenders and not schemas,
+        "accepted": versions_ok and not mismatches and not offenders,
         "components": [
             {
                 "component": item.component,
@@ -253,8 +237,6 @@ def main(argv: list[str]) -> int:
             print(f"consumed artifact digest mismatch: {mismatch}", file=sys.stderr)
         for offender in report["mirror_references"]:
             print(f"mirror registry reference: {offender}", file=sys.stderr)
-        for problem in report["retained_schema_mismatches"]:
-            print(f"retained schema digest disagreement: {problem}", file=sys.stderr)
         print(
             f"acceptance state recorded by the pinned release: {report['acceptance_state']} "
             "(reported, not gated on; see agent-ix/engineering-assurance#20)"

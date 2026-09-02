@@ -17,8 +17,8 @@ relationships:
 | FR-002 | FR-002-AC-1 through FR-002-AC-3 | TC-005 through TC-008, TC-020, TC-021 | ✅ covered |
 | FR-003 | FR-003-AC-1 through FR-003-AC-3 | TC-009 through TC-012 | ✅ covered |
 | FR-004 | FR-004-AC-1 through FR-004-AC-3 | TC-013 through TC-016, TC-028 | ✅ covered |
-| FR-005 | FR-005-AC-1 through FR-005-AC-3 | TC-017, TC-019, TC-026 | ✅ covered |
-| FR-006 | FR-006-AC-1 through FR-006-AC-7 | TC-023 through TC-029 | ✅ covered |
+| FR-005 | FR-005-AC-1, FR-005-AC-3 | TC-017, TC-019 | ✅ covered |
+| FR-006 | FR-006-AC-1 through FR-006-AC-3, FR-006-AC-5 through FR-006-AC-7 | TC-023, TC-024, TC-025, TC-027, TC-028, TC-029 | ✅ covered |
 
 ## Stakeholder Requirement Coverage
 
@@ -33,7 +33,7 @@ relationships:
 |---|---|---|---|
 | NFR-001 | deterministic and resource-bound tests | TC-004 through TC-008, TC-015, TC-017, TC-021 | ✅ covered |
 | NFR-002 | catalog, corpus, and provenance inspection | TC-001, TC-002, TC-016, TC-019, TC-030 | ✅ covered |
-| NFR-003 | producer-boundary, outcome-distinguishability, and mutation probes | TC-024, TC-026, TC-027, TC-030 | ✅ covered |
+| NFR-003 | producer-boundary, outcome-distinguishability, and mutation probes | TC-024, TC-027, TC-030 | ✅ covered |
 
 ## Test Case Summary
 
@@ -63,7 +63,6 @@ relationships:
 | TC-023 | Classify every shared pin through the packaged matrix | Integration | P0 | FR-006-AC-1 | ✅ implemented |
 | TC-024 | Reach Quoin without Quoin or Quire executing a producer | Integration | P0 | FR-006-AC-2, NFR-003-AC-1, NFR-003-AC-2 | ✅ implemented |
 | TC-025 | Bind the sealed record's impact snapshot to the Quire export | Integration | P0 | FR-006-AC-3 | ✅ implemented |
-| TC-026 | Read retained evidence through the shared mapping without moving a byte | Integration | P0 | FR-006-AC-4, FR-005-AC-2, NFR-003-AC-4 | ✅ implemented |
 | TC-027 | Demonstrate all twelve verification outcomes with paired controls | Integration | P0 | FR-006-AC-5, NFR-003-AC-3 | ✅ implemented |
 | TC-028 | Retain every counterexample as an independently replayed witness | Integration | P0 | FR-006-AC-6, FR-004-AC-1, StR-002-VC-2 | ✅ implemented |
 | TC-029 | Confirm no local evidence framework remains | Integration | P0 | FR-006-AC-7 | ✅ implemented |

@@ -111,14 +111,6 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
     assert_eq!(report["accepted"], true);
     assert!(report["artifact_mismatches"].as_array().unwrap().is_empty());
     assert!(report["mirror_references"].as_array().unwrap().is_empty());
-    assert!(
-        report["retained_schema_mismatches"]
-            .as_array()
-            .unwrap()
-            .is_empty(),
-        "a retained evidence schema is not the bytes assurance/pins.json records: {}",
-        report["retained_schema_mismatches"]
-    );
 
     // Acceptance is reported and never gated on: the pinned release records
     // `pending_human_acceptance` and ships no predicate for it
@@ -147,7 +139,41 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
         "a mirror registry reference was not detected; the check matches nothing"
     );
 
-    // And the retained-schema check must be seen to refuse too.
+    // The consumed-artifact digest check must be seen to refuse. Issue #13
+    // deleted the four artifacts this check used to walk — every one of them was
+    // read only by the compatibility view — and refilled the list with
+    // `engineering_assurance/compatibility.py`, the module `build_report`
+    // imports for every component verdict. This probe is what keeps that pin
+    // from being decoration.
+    let (code, stdout, stderr) = run(
+        &python,
+        &[
+            "-c",
+            // Targeted by path, not by position. `[0]` would still have
+            // reported a mismatch if the entries were reordered — it would have
+            // written a sha256 onto the deliberately undigested matrix entry and
+            // caught a file-not-found instead, which is a pass for the wrong
+            // reason.
+            "import json,sys;sys.path.insert(0,'scripts');\
+             import check_shared_pins as m;\
+             pins=json.load(open('assurance/pins.json'));\
+             hit=[a for a in pins['consumed_artifacts'] \
+             if a['path']=='compatibility.py' and 'sha256' in a];\
+             assert len(hit)==1, 'compatibility.py is not digest-pinned';\
+             hit[0]['sha256']='0'*64;\
+             print(json.dumps(m.artifact_digest_mismatches(pins)))",
+        ],
+    );
+    assert_eq!(code, 0, "the consumed-artifact probe failed: {stderr}");
+    let problems: Vec<String> = serde_json::from_str(stdout.trim()).unwrap();
+    assert!(
+        !problems.is_empty(),
+        "a changed consumed-artifact digest was not detected; the check matches nothing"
+    );
+
+    // And the empty-population branch must fire, because that is the exact shape
+    // the deletion would have produced had the list simply been emptied: a
+    // re-hash of nothing, reported clean.
     let (code, stdout, stderr) = run(
         &python,
         &[
@@ -155,17 +181,44 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
             "import json,sys;sys.path.insert(0,'scripts');\
              import check_shared_pins as m;\
              pins=json.load(open('assurance/pins.json'));\
-             key='schemas/tl-rewrite-evidence-manifest-v1.schema.json';\
-             pins['frozen_schemas'][key]['sha256']='0'*64;\
-             print(json.dumps(m.frozen_schema_mismatches(pins)))",
+             pins['consumed_artifacts']=[a for a in pins['consumed_artifacts'] \
+             if 'sha256' not in a];\
+             print(json.dumps(m.artifact_digest_mismatches(pins)))",
         ],
     );
-    assert_eq!(code, 0, "the retained-schema probe failed: {stderr}");
-    let problems: Vec<String> = serde_json::from_str(stdout.trim()).unwrap();
+    assert_eq!(code, 0, "the empty-population probe failed: {stderr}");
+    let vacuous: Vec<String> = serde_json::from_str(stdout.trim()).unwrap();
     assert!(
-        !problems.is_empty(),
-        "a changed retained-schema digest was not detected; the check matches nothing"
+        vacuous.iter().any(|entry| entry.contains("vacuous")),
+        "a consumed-artifact list with no digest in it re-hashed nothing and \
+         reported clean: {vacuous:?}"
     );
+
+    // The pin itself must be the live module, not a retained-evidence artifact
+    // that nothing opens. Named here so that quietly repointing it at a dead
+    // file has to move a literal in this test.
+    let pinned = digest_pinned_artifacts();
+    assert!(
+        pinned.contains("compatibility.py"),
+        "assurance/pins.json no longer digest-pins the module check_shared_pins \
+         imports for every verdict; the digest check has lost its live subject: \
+         {pinned:?}"
+    );
+}
+
+/// The digest-pinned consumed artifacts, as `assurance/pins.json` declares them.
+fn digest_pinned_artifacts() -> BTreeSet<String> {
+    let pins: Value = serde_json::from_str(
+        &fs::read_to_string(root().join("assurance/pins.json")).expect("assurance/pins.json"),
+    )
+    .expect("assurance/pins.json is JSON");
+    pins["consumed_artifacts"]
+        .as_array()
+        .expect("consumed_artifacts")
+        .iter()
+        .filter(|artifact| artifact.get("sha256").is_some())
+        .map(|artifact| artifact["path"].as_str().unwrap_or_default().to_owned())
+        .collect()
 }
 
 // Trace: TC-024, FR-006-AC-2, NFR-003-AC-1, SUITE-004, SUITE-005, SUITE-006, SUITE-007
@@ -197,8 +250,10 @@ fn the_chain_reaches_quoin_without_quoin_or_quire_executing_a_producer() {
         .expect("attested_results");
     assert_eq!(
         attested.len(),
-        7,
-        "seven proof obligations are declared; {} were attested",
+        6,
+        "six proof obligations are declared; {} were attested. This was seven \
+         until issue #13 removed PROOF-legacy-compatibility with the retained \
+         evidence it read.",
         attested.len()
     );
     for (proof, result) in attested {
@@ -511,17 +566,23 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
+    // 68, and the arithmetic is stated so the drop is auditable rather than
+    // merely smaller. It was 72 before issue #13, which removed exactly four
+    // rows: FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4 and TC-026. Each was a claim
+    // about retained evidence that no longer exists, and each went with its test
+    // rather than being left to report unbacked.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 72, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 68, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 72,
+        totals["backed"], 68,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );
     // The field that actually moves. An adversarial review measured that
     // repointing one matrix row at nonexistent test cases leaves `totals.backed`
-    // at 72/72 while `unbacked_rows` gains an entry, so the totals alone are not
-    // a check.
+    // at its full count while `unbacked_rows` gains an entry, so the totals alone
+    // are not a check. That was measured at 72/72 and the count is 68/68 now;
+    // the figure is left out so it does not go stale again.
     assert!(
         parsed["unbacked_rows"].as_array().unwrap().is_empty(),
         "the Quire export names a matrix row backed by nothing: {}",
@@ -542,89 +603,6 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
         report["attested_results"]["PROOF-quire-static-export"], "passed",
         "the Quire export was attested as {}",
         report["attested_results"]["PROOF-quire-static-export"]
-    );
-}
-
-fn walk(directory: &Path) -> u64 {
-    let mut count = 0;
-    for entry in fs::read_dir(directory).expect("evidence directory") {
-        let path = entry.expect("directory entry").path();
-        if path.is_dir() {
-            count += walk(&path);
-        } else {
-            count += 1;
-        }
-    }
-    count
-}
-
-// Trace: TC-026, FR-006-AC-4, FR-005-AC-2, NFR-002-AC-2, NFR-003-AC-4
-#[test]
-fn retained_evidence_is_read_through_the_shared_mapping_without_moving_a_byte() {
-    let python = assurance_python();
-    let census = json_gate(&python, &["scripts/legacy_evidence_view.py", "--json"]);
-
-    // Two different claims, kept apart. The first is that this run wrote nothing;
-    // the second is that the retained bytes are the bytes that were committed.
-    // Only Git can answer the second, and it is asked rather than assumed.
-    assert!(census["evidence_bytes_moved_during_this_run"]
-        .as_array()
-        .unwrap()
-        .is_empty());
-    assert!(
-        census["uncommitted_evidence_changes"]
-            .as_array()
-            .unwrap()
-            .is_empty(),
-        "retained evidence differs from what was committed: {}",
-        census["uncommitted_evidence_changes"]
-    );
-    assert!(census["misattributed_records"]
-        .as_array()
-        .unwrap()
-        .is_empty());
-    assert_eq!(census["matched"], true);
-
-    let files = census["evidence_files_read"].as_u64().unwrap();
-    let on_disk = walk(&root().join("evidence"));
-    assert_eq!(
-        files, on_disk,
-        "the compatibility view read {files} evidence files but {on_disk} are present"
-    );
-
-    let retained = &census["retained"];
-    assert_eq!(
-        retained["count"].as_u64().unwrap(),
-        11,
-        "this repository retains eleven evidence records"
-    );
-    // The honest answer for this repository, measured rather than inherited. Its
-    // retained family is quire.derivation-evidence/v1, which the pinned mapping
-    // does not cover, so every envelope is refused. That refusal is reported as
-    // it stands. Filed as agent-ix/engineering-assurance#21.
-    assert_eq!(
-        retained["outcomes"],
-        serde_json::json!(["incompatible"]),
-        "the retained-evidence outcome changed; if the shared mapping gained a \
-         derivation-evidence reader this assertion should be updated deliberately"
-    );
-
-    // The mapping must be seen to accept, or a refusal proves nothing.
-    let accepted = census["accepted_positive_controls"].as_array().unwrap();
-    assert!(
-        !accepted.is_empty(),
-        "no positive control was accepted; a mapping only ever seen refusing is \
-         indistinguishable from a step that never worked"
-    );
-
-    let (code, stdout, stderr) = run(
-        &python,
-        &["scripts/legacy_evidence_view.py", "--mutation-probes"],
-    );
-    assert_eq!(
-        code, 0,
-        "a load-bearing compatibility check was removed and the census did not \
-         notice\n{stdout}\n{stderr}"
     );
 }
 
@@ -653,30 +631,27 @@ fn all_twelve_verification_outcomes_are_demonstrated_and_paired_with_controls() 
         ("tampered", "chain"),
     ];
 
-    let python = assurance_python();
     let report = chain_report();
-    let census = json_gate(&python, &["scripts/legacy_evidence_view.py", "--json"]);
 
-    // Only MEASURED outcomes count. The chain's `states_demonstrated` is already
-    // built from cases that ran and matched. The compatibility lane contributes
-    // the outcome the mapping actually returned and the states it actually
-    // mapped — never the case's `kind`, which is a free-text label in
-    // expectations.json. Counting the label would let a state stop being
-    // demonstrated while this test stayed green.
-    let mut demonstrated: BTreeSet<String> = report["states_demonstrated"]
+    // Only MEASURED outcomes count: the chain's `states_demonstrated` is built
+    // from cases that ran and matched, never from a label.
+    //
+    // Before issue #13 this set was the union of the chain's states and the
+    // compatibility census's `mapped_states`. That union was measured at the
+    // pre-deletion tree and the census contributed nothing the chain did not
+    // already have: the chain alone demonstrated all twelve — fail,
+    // inconclusive, malformed, not-computed, partial, pass, stale, suspect,
+    // tampered, unavailable, unsupported and vacuous. The census's own six-word
+    // legacy vocabulary intersected this list only at `inconclusive` and
+    // `unavailable`, both owned by the chain in the table above. No verification
+    // outcome was reachable only through the census, which is why deleting it
+    // costs this test no coverage rather than costing it two states quietly.
+    let demonstrated: BTreeSet<String> = report["states_demonstrated"]
         .as_array()
         .unwrap()
         .iter()
         .map(|value| value.as_str().unwrap().to_owned())
         .collect();
-    for case in census["cases"].as_array().unwrap() {
-        if case["matched"] != serde_json::Value::Bool(true) {
-            continue;
-        }
-        for state in case["mapped_states"].as_array().unwrap() {
-            demonstrated.insert(state.as_str().unwrap().to_owned());
-        }
-    }
 
     let missing: Vec<&str> = REQUIRED
         .iter()
@@ -689,23 +664,17 @@ fn all_twelve_verification_outcomes_are_demonstrated_and_paired_with_controls() 
          demonstrated: {demonstrated:?}"
     );
 
-    // The compatibility lane's own six-state vocabulary, measured the same way:
-    // the census reports which states it observed and which it did not.
-    assert!(
-        census["undemonstrated_states"]
-            .as_array()
-            .unwrap()
-            .is_empty(),
-        "the compatibility mapping's state vocabulary is not fully demonstrated: {}",
-        census["undemonstrated_states"]
-    );
-    assert!(
-        census["undemonstrated_outcomes"]
-            .as_array()
-            .unwrap()
-            .is_empty(),
-        "the compatibility mapping's outcome vocabulary is not fully demonstrated: {}",
-        census["undemonstrated_outcomes"]
+    // A set that is merely non-empty proves little; the census that used to
+    // widen it is gone, so the chain must be seen to carry the full vocabulary
+    // on its own rather than to have shrunk quietly to whatever still passes.
+    assert_eq!(
+        demonstrated.len(),
+        REQUIRED.len(),
+        "the chain demonstrated {} states for {} required; the compatibility \
+         census no longer widens this set and the chain must carry all of them: \
+         {demonstrated:?}",
+        demonstrated.len(),
+        REQUIRED.len()
     );
 
     // Every negative names the positive control that proves the step it refuses
@@ -846,30 +815,9 @@ fn every_counterexample_is_a_replayed_witness_and_never_a_boolean() {
     );
 }
 
-/// Collect every readable source file under `directory`, recursively.
-fn collect_sources(directory: &Path, into: &mut Vec<PathBuf>) {
-    let Ok(entries) = fs::read_dir(directory) else {
-        return;
-    };
-    for entry in entries {
-        let path = entry.expect("directory entry").path();
-        if path.is_dir() {
-            collect_sources(&path, into);
-            continue;
-        }
-        let extension = path.extension().and_then(|value| value.to_str());
-        if matches!(
-            extension,
-            Some("py" | "sh" | "rs" | "txt" | "toml" | "yml" | "md" | "json")
-        ) {
-            into.push(path);
-        }
-    }
-}
-
 // Trace: TC-029, FR-006-AC-7, SUITE-001
 #[test]
-fn no_local_evidence_framework_remains_and_the_retained_schemas_are_referenced_by_nothing() {
+fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() {
     let root = root();
 
     // The generic machinery is gone, by name.
@@ -901,6 +849,19 @@ fn no_local_evidence_framework_remains_and_the_retained_schemas_are_referenced_b
         "scripts/test_traceability_gate.py",
         "tools.lock",
         "tests/wire_evidence.rs",
+        // Issue #13, under the authority of agent-ix/engineering-assurance#7.
+        // The retained archive, its only reader, the fixtures that configured it
+        // and the two schemas that existed only because the retained envelopes
+        // named them by digest. Each schema was proved dead first: neither is
+        // reached by include_str! or include_bytes! anywhere in the tree, no
+        // module imports jsonschema, and nothing validated any document against
+        // either. Two sibling repositories kept schemas that look frozen by name
+        // and are live output contracts, so this was measured here rather than
+        // inherited.
+        "evidence",
+        "schemas",
+        "scripts/legacy_evidence_view.py",
+        "tests/fixtures/legacy-compat",
     ] {
         assert!(
             !root.join(removed).exists(),
@@ -908,99 +869,270 @@ fn no_local_evidence_framework_remains_and_the_retained_schemas_are_referenced_b
         );
     }
 
-    // The two evidence schemas are retained, not deleted, but for two different
-    // and separately measured reasons — assurance/pins.json states both, and the
-    // digests are re-derived here so that a silent edit is caught by a test as
-    // well as by a gate.
-    let retained = [
-        (
-            "schemas/tl-rewrite-evidence-manifest-v1.schema.json",
-            "859ebdd66869023808e88a89e09969731170606692137a56772e5dbc43bf31b0",
-        ),
-        (
-            "schemas/tl-rewrite-evidence-input-v1.schema.json",
-            "5bda9d5f4fafc1910859e28d64c254be546398a54a1168e2c902cde8df28f7ce",
-        ),
-    ];
-    for (path, expected) in retained {
-        let file = root.join(path);
+    // The names must be absent from the tree as well as from disk, or a
+    // reintroduced reader one directory down would not be caught. The census
+    // walks recursively and covers the build and workflow files too. A census
+    // this small would be vacuous, so its size is asserted as well.
+    // The population is TRACKED FILES, enumerated by Git, not a hand-written
+    // directory array. FR-006-AC-7 claims nothing remains "in the repository",
+    // and the repository is what is tracked.
+    //
+    // The array this replaced could not enforce its own completeness. An
+    // independent review probed it: deleting `"scripts",` — five files — removed
+    // the directory from the walk AND from the guard that was supposed to notice,
+    // and the census went green. Deleting `"docs",` did the same. Only a *rename*
+    // was caught, which was the one form the guard handled and the one the probe
+    // happened to use. Any check whose expected set and observed set are the same
+    // literal is decoration; this one is now observed from Git and expected from
+    // a separate constant.
+    //
+    // Reading from Git also fixes three smaller holes at once: `.agent/` is
+    // tracked and the array never listed it; untracked scratch files no longer
+    // inflate the count and restore the headroom the floor removes; and `.git`,
+    // which is a *file* in a linked worktree, is no longer counted.
+    //
+    // Two enumerations, and the split is deliberate. Moving to `git ls-files`
+    // would otherwise have introduced a regression the directory walk did not
+    // have: a reintroduced reader sitting UNTRACKED in the working tree would
+    // stop being scanned, and "not committed yet" is exactly the state such a
+    // file is in while someone is writing it.
+    //
+    //   * the SCAN covers tracked files plus untracked-but-not-ignored ones, so
+    //     a reintroduction is caught before it is ever `git add`ed;
+    //   * the COUNT and the area set are tracked-only, so untracked scratch
+    //     cannot inflate the population back over the floor or invent an area.
+    let git_files = |arguments: &[&str]| -> Vec<String> {
+        let output = Command::new("git")
+            .args(arguments)
+            .current_dir(&root)
+            .output()
+            .expect("git ls-files failed");
         assert!(
-            file.is_file(),
-            "{path} was deleted; it is retained, not removed"
+            output.status.success(),
+            "git ls-files {arguments:?} exited non-zero; the census cannot \
+             enumerate the repository and reporting it clean would be vacuous"
         );
-        let output = Command::new("sha256sum").arg(&file).output().unwrap();
-        let digest = String::from_utf8_lossy(&output.stdout)
-            .split_whitespace()
-            .next()
-            .unwrap()
-            .to_owned();
-        assert_eq!(digest, expected, "{path} changed");
+        String::from_utf8_lossy(&output.stdout)
+            .split('\0')
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned)
+            .collect()
+    };
+    // A DENY-list, not an allow-list, and the difference was a real hole. An
+    // extension allow-list silently dropped `Makefile` — `extension()` is `None`
+    // for it — which is the single worst file to lose here: `compat-view` was a
+    // Make target, `COMPAT_RESULT` a Make variable, and the reader was invoked
+    // from an `assurance-inputs` recipe line. It was covered at every earlier
+    // revision and a probe appending a `compat-view` target to it went green.
+    // The same filter dropped extensionless files and `.yaml` (only `.yml` was
+    // listed), so a reintroduced reader named `reintroduced_reader` or
+    // `reintroduced_reader.yaml` was invisible too.
+    //
+    // Everything tracked is now scanned except things that cannot carry a
+    // reintroduced reader and would only add noise: lockfiles and licence texts.
+    // `read_to_string` below already skips anything that is not UTF-8, so binary
+    // content needs no rule here.
+    let denied = |path: &str| {
+        let name = Path::new(path)
+            .file_name()
+            .and_then(|v| v.to_str())
+            .unwrap_or_default();
+        name.starts_with("LICENSE") || path.ends_with(".lock")
+    };
+    let area_of = |path: &str| match path.split_once('/') {
+        Some((head, _)) => head.to_owned(),
+        None => "<root>".to_owned(),
+    };
+
+    let tracked_all = git_files(&["ls-files", "-z"]);
+    // Areas come from the UNFILTERED list. Computing them from the filtered one
+    // meant a new tracked directory whose files were all filtered out would
+    // never appear here, never trip the equality below, and never be scanned.
+    let observed_areas: BTreeSet<String> = tracked_all.iter().map(|e| area_of(e)).collect();
+    let tracked: Vec<String> = tracked_all
+        .iter()
+        .filter(|entry| !denied(entry))
+        .cloned()
+        .collect();
+
+    // A positive control for the untracked half of the scan, written BEFORE the
+    // scan is built so that it flows through the real enumeration rather than a
+    // parallel one.
+    //
+    // The first version of this control asserted that a fresh
+    // `git ls-files --others` call could see the file. That verified Git works.
+    // It did not verify that this census *uses* what Git reports: deleting the
+    // untracked loop below left it green, because the control was probing its
+    // own call and not the set the scan is built from. The assertion is now
+    // against `scanned` itself, which is the only thing the file scan reads.
+    //
+    // This property has already been lost once — moving the census to
+    // `git ls-files` dropped untracked files silently, and it was caught by
+    // reading rather than by a gate. It is the only property here with a history
+    // of regressing, so it gets a control that runs on every invocation rather
+    // than a probe someone has to remember.
+    // The control lives in a directory that is itself wholly untracked, because
+    // `git ls-files --others` has a `--directory` mode that collapses an
+    // untracked directory to its name instead of listing the files inside it. A
+    // control sitting directly in a *tracked* directory survives that mode and
+    // would report the property intact while a reader dropped into a brand-new
+    // directory went unseen. Verified: `--directory` reports
+    // `scripts/.census-control/` rather than the file, so the control fails in
+    // that mode too.
+    //
+    // It is nested under `scripts/` rather than placed at the repository root,
+    // and that is precautionary rather than a fix for anything. Two tests in this
+    // file symlink *every* root entry into a scratch directory and run the chain
+    // there, so a control that appears and disappears at the root would be
+    // symlinked while it exists and dangle once removed. Nesting keeps the
+    // untracked-directory property and takes that hazard away.
+    //
+    // It is NOT the cause of the intermittent failure in
+    // `a_control_naming_a_scenario_that_does_not_exist_is_refused`. That was
+    // measured at roughly 2 in 8 with this test filtered out entirely, so it
+    // predates this control and is tracked separately as agent-ix/tl-rewrite#15.
+    const CONTROL_DIR: &str = "scripts/.census-control";
+    const CONTROL: &str = "scripts/.census-control/probe.py";
+    let control = root.join(CONTROL);
+    let _ = fs::remove_dir_all(root.join(CONTROL_DIR));
+    fs::create_dir_all(root.join(CONTROL_DIR)).expect("create control directory");
+    fs::write(&control, "# census untracked positive control\n").expect("write control");
+
+    let mut scanned: BTreeSet<String> = tracked.iter().cloned().collect();
+    for entry in git_files(&["ls-files", "-z", "--others", "--exclude-standard"]) {
+        if !denied(&entry) {
+            scanned.insert(entry);
+        }
     }
 
-    // Nothing validates against them any more. The census walks recursively and
-    // covers the build and workflow files too, because a reintroduced validator
-    // one directory down, or a CI step, would otherwise not be caught. A census
-    // this small would be vacuous, so its size is asserted as well.
-    let mut sources = Vec::new();
-    for directory in [
-        "scripts",
-        "tests",
-        "examples",
-        "src",
-        "spec",
-        "docs",
+    // Removed before the assertion so a failure cannot leave the tree dirty.
+    let _ = fs::remove_dir_all(root.join(CONTROL_DIR));
+    assert!(
+        scanned.contains(CONTROL),
+        "the census did not pick up an untracked file that existed while it \
+         enumerated, so the untracked half of the scan is not reaching the set \
+         the file scan reads, and a reintroduced reader would stay invisible \
+         until someone ran `git add`"
+    );
+    scanned.remove(CONTROL);
+
+    let sources: Vec<PathBuf> = scanned.iter().map(|entry| root.join(entry)).collect();
+
+    // The expected areas, as a constant separate from what Git reported. A
+    // directory that stops being tracked, or a new one that appears and is never
+    // inspected, both fail here — and neither can be silenced by editing one
+    // list, because the other side comes from Git.
+    let expected_areas: BTreeSet<String> = [
+        "<root>",
+        ".agent",
         ".github",
         "assurance",
         "corpus",
-    ] {
-        collect_sources(&root.join(directory), &mut sources);
-    }
-    for file in ["Makefile", "Cargo.toml", "requirements-assurance.txt"] {
-        let path = root.join(file);
-        if path.is_file() {
-            sources.push(path);
-        }
-    }
-    let mut inspected = 0;
+        "docs",
+        "examples",
+        "scripts",
+        "spec",
+        "src",
+        "tests",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
+    assert_eq!(
+        observed_areas, expected_areas,
+        "the set of tracked areas the census inspects has changed. A directory \
+         that disappeared here is one the census silently stopped scanning; a \
+         directory that appeared is one it has never scanned. Update this \
+         constant deliberately."
+    );
+    // The deleted machinery, by the names a reintroduction would have to use.
+    // The two schema filenames are here because an evidence schema reappearing
+    // under a different directory is the same defect as the directory coming
+    // back.
+    const DELETED: [&str; 5] = [
+        "legacy_evidence_view",
+        "legacy-compat",
+        "PROOF-legacy-compatibility",
+        "tl-rewrite-evidence-manifest-v1.schema.json",
+        "tl-rewrite-evidence-input-v1.schema.json",
+    ];
+
+    // Counted over TRACKED files only; the scan below covers more.
+    let inspected = tracked.len();
     for path in &sources {
-        inspected += 1;
         let Ok(source) = fs::read_to_string(path) else {
             continue;
         };
-        // Four files name the retained schemas on purpose: this test pins their
-        // digests, schemas/README.md documents their status, assurance/pins.json
-        // records the measurement, and the change-assurance declaration states
-        // the preservation constraint. Everything else must not mention them.
-        let file_name = path
-            .file_name()
-            .and_then(|value| value.to_str())
-            .unwrap_or("");
-        let parent = path
-            .parent()
-            .and_then(|value| value.file_name())
-            .and_then(|value| value.to_str())
-            .unwrap_or("");
-        let permitted = match file_name {
-            "shared_assurance.rs" => true,
-            "README.md" => parent == "schemas",
-            "pins.json" | "change-assurance.json" => parent == "assurance",
-            _ => false,
-        };
-        for (schema, _) in retained {
-            let name = Path::new(schema).file_name().unwrap().to_str().unwrap();
-            if permitted {
-                continue;
-            }
+        // Three files name the deleted machinery on purpose: this test, which
+        // asserts its absence; assurance/pins.json, which records what was
+        // measured before the deletion; and the change-assurance declaration,
+        // which states the constraint the deletion was carried out under.
+        // spec/reviews/ and spec/plans/ are dated records of what was found and
+        // done at the time; they are not rewritten to un-say it. Everything else
+        // must not mention them.
+        //
+        // Those two directories are permitted for `.md` only, not wholesale. A
+        // reintroduced reader dropped into `spec/plans/` as a `.py` or `.rs`
+        // file would otherwise be waved through by a rule meant to protect
+        // prose, which is the same hole in a different place.
+        let relative = path.strip_prefix(&root).unwrap_or(path);
+        let relative = relative.to_string_lossy().replace('\\', "/");
+        let historical_prose = relative.ends_with(".md")
+            && (relative.starts_with("spec/reviews/") || relative.starts_with("spec/plans/"));
+        let permitted = matches!(
+            relative.as_str(),
+            "tests/shared_assurance.rs" | "assurance/pins.json" | "assurance/change-assurance.json"
+        ) || historical_prose;
+        if permitted {
+            continue;
+        }
+        for name in DELETED {
             assert!(
                 !source.contains(name),
-                "{} references the retained schema {name}; nothing may validate against it",
+                "{} references {name}, which issue #13 deleted; nothing may \
+                 reference the removed evidence machinery",
                 path.display()
             );
         }
     }
+    // Re-derived, and the arithmetic is written out because the previous two
+    // attempts at this number were both wrong in ways a stated derivation would
+    // have caught.
+    //
+    // The floor was `> 60` against a population of **87** before issue #13 — 84
+    // files across the nine walked directories plus the three named root files —
+    // so it carried 26 files of slack, not the 30 an earlier draft of this
+    // comment claimed. That draft reached 90 by counting `schemas/`, which was
+    // never in the directory array; the claim that it was came from
+    // `schemas/README.md`, the same document FND-916 records as describing a
+    // census the code had never performed. A rationale anchored on a disproved
+    // document is not a rationale.
+    //
+    // Population now: **93** tracked files — 97 tracked in total, minus the 4 the
+    // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
+    // `corpus/west-v1/LICENSE`). All four are named here, because the previous
+    // version of this comment enumerated four exclusions for a count of five and
+    // the unnamed one was `Makefile` — the comment was masking the hole rather
+    // than describing it.
+    //
+    // By area: 12 root, 46 `spec`, 9 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
+    //
+    // Derivation, stated so the number is reproducible: the loss this floor must
+    // catch is a whole directory going missing, and the largest one a routine
+    // change could plausibly shrink without comment is `tests` at 9. `spec` at
+    // 46 is larger but only ever grows as reviews land, and growth never trips a
+    // lower bound. 93 − 9 = 84, so the floor must be **at least 85** to fail on
+    // that loss. 85 is the derived value and is used as-is rather than padded.
+    //
+    // This number is the coarse instrument. The area-set equality above is what
+    // actually catches a directory disappearing, including the small ones —
+    // `docs` and `.agent` are one file each and no floor could ever see them go.
     assert!(
-        inspected > 60,
-        "the source census is unexpectedly small ({inspected}) to make this claim"
+        inspected >= 85,
+        "the source census inspected {inspected} tracked files, below the derived \
+         floor of 85 (population 93, minus `tests` at 9, is 84). The tree shrank \
+         substantially. Areas observed: {observed_areas:?}"
     );
 
     // The Makefile is orchestration, not a trust root, and carries no gate that

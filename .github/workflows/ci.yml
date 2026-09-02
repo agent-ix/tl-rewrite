@@ -28,8 +28,12 @@ jobs:
     name: Rust Checks
     runs-on: ubuntu-24.04
     steps:
-      # The compatibility view asks Git whether the retained evidence bytes are
-      # the committed bytes, so the full history has to be present.
+      # Full history. The original reason — the compatibility view asking Git
+      # whether the retained evidence bytes were the committed bytes — is gone
+      # with the view, deleted under agent-ix/tl-rewrite#13. No gate in `make ci`
+      # reads Git history any more. It is kept because Git history is now the
+      # only integrity boundary for the deleted bytes, so a reviewer inspecting a
+      # hosted run can still reach them.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0

@@ -60,7 +60,6 @@ INPUTS = {
     "PROOF-normalization-sweep": ("normalization-sweep.jsonl", "application/x-ndjson"),
     "PROOF-provenance-integrity": ("provenance-integrity.json", "application/json"),
     "PROOF-quire-static-export": ("quire-static-export.json", "application/json"),
-    "PROOF-legacy-compatibility": ("legacy-compatibility.json", "application/json"),
     "PROOF-msrv": ("msrv.jsonl", "application/x-ndjson"),
 }
 
@@ -689,9 +688,6 @@ def derive_result(proof_id: str, path: Path) -> str:
         return _rows_result(rows_of(path), path.name, proof_id)
     if proof_id == "PROOF-provenance-integrity":
         return _rows_result(_load_json(raw, path)["entries"], path.name, proof_id)
-    if proof_id == "PROOF-legacy-compatibility":
-        census = _load_json(raw, path)
-        return "passed" if census["matched"] else "failed"
     if proof_id == "PROOF-quire-static-export":
         export = _load_json(raw, path)
         # Quire's export is a static fact set, not a run, so it has no outcome
@@ -717,9 +713,11 @@ def derive_result(proof_id: str, path: Path) -> str:
         if export.get("unbacked_rows"):
             # A matrix row that names no backing symbol. This is the field that
             # actually moves: an adversarial review measured that repointing one
-            # row at nonexistent test cases leaves `totals.backed` at 72/72 while
-            # `unbacked_rows` gains an entry, so gating on the totals alone let a
-            # fabricated row through.
+            # row at nonexistent test cases leaves `totals.backed` at its full
+            # count while `unbacked_rows` gains an entry, so gating on the totals
+            # alone let a fabricated row through. The count was 72/72 when that
+            # was measured and is 68/68 now; the property is what matters here,
+            # so it is stated without a figure that has to be maintained.
             return "failed"
         if export.get("status_lies"):
             # Quire found a row whose declared status disagrees with its evidence.
