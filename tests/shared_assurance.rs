@@ -1241,7 +1241,7 @@ fn a_control_naming_a_scenario_that_does_not_exist_is_refused() {
     // except `scripts` and `target` is symlinked, rather than an enumerated list,
     // so that a driver which starts reading a new directory does not turn this
     // probe into one that fails for an unrelated reason. `target` is deliberately
-    // different: the producer output is shared read-only, while the mutated
+    // different: the producer output is shared only as input, while the mutated
     // driver's Quoin store belongs to this scratch tree. Symlinking `target`
     // wholesale made the probe share the real store and intermittently delete a
     // live Quoin workspace.
