@@ -165,6 +165,44 @@ Every derived collection this change touched, and what happens when it is empty.
 | TC-019 document set | six required tokens over four documents | ✓ all six present; see `FND-905` |
 | TC-030 provenance entries | `entries.len() >= 9` | ✓ unchanged |
 
+## What this cleanup got wrong, three times running
+
+Worth recording as a rule rather than as three separate findings, because it is
+about remediation work in general and not about this repository.
+
+> **Each fix was checked for what it started catching and not for what it stopped
+> catching.**
+
+Three consecutive rounds, each a regression introduced by the previous round's
+fix, and none of them caught by the gate the fix had just strengthened:
+
+1. **The extension allow-list dropped the `Makefile`.** Moving the census from a
+   three-file root list to a filtered walk closed the hole where `CLAUDE.md` was
+   invisible — and silently stopped scanning the one file where `compat-view`,
+   `COMPAT_RESULT` and the `assurance-inputs` recipe line would reappear.
+   `Path::new("Makefile").extension()` is `None`.
+2. **`git ls-files` dropped untracked files.** Rebuilding the census on Git
+   closed the hole where deleting a directory from an array removed it from the
+   walk *and* from the guard meant to notice — and stopped scanning untracked
+   files, which is exactly the state a reintroduced reader is in while someone is
+   still writing it.
+3. **The control verified Git rather than the census.** Adding a positive control
+   for that untracked half closed the hole where the property had no guard at all
+   — and asserted that a *fresh* `git ls-files --others` call could see a file it
+   had just written, which is true whether or not the census uses the result.
+   Deleting the scan loop left it green.
+
+Each fix was probed, and each probe passed, because each probe tested the
+property the fix had added. None tested the property the fix had removed. The
+question that would have caught all three is not *"does the new check fire?"* but
+**"what did the old code see that the new code does not?"**
+
+A related habit is worth naming with it. When the independent reviewer's
+`--directory` probe came back green against fix 3, the author's first reading was
+that the probe was imprecise. It was not: a control inside a *tracked* directory
+survives `--directory`, while a reader dropped into a brand-new directory gets
+collapsed and missed. Re-testing rather than explaining away is what found it.
+
 ## Findings
 
 Residual gaps, each DEFERRED to a linked issue or ACCEPTED with a rationale. The
