@@ -815,27 +815,6 @@ fn every_counterexample_is_a_replayed_witness_and_never_a_boolean() {
     );
 }
 
-/// Collect every readable source file under `directory`, recursively.
-fn collect_sources(directory: &Path, into: &mut Vec<PathBuf>) {
-    let Ok(entries) = fs::read_dir(directory) else {
-        return;
-    };
-    for entry in entries {
-        let path = entry.expect("directory entry").path();
-        if path.is_dir() {
-            collect_sources(&path, into);
-            continue;
-        }
-        let extension = path.extension().and_then(|value| value.to_str());
-        if matches!(
-            extension,
-            Some("py" | "sh" | "rs" | "txt" | "toml" | "yml" | "md" | "json")
-        ) {
-            into.push(path);
-        }
-    }
-}
-
 // Trace: TC-029, FR-006-AC-7, SUITE-001
 #[test]
 fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() {
@@ -894,65 +873,77 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // reintroduced reader one directory down would not be caught. The census
     // walks recursively and covers the build and workflow files too. A census
     // this small would be vacuous, so its size is asserted as well.
-    let mut sources = Vec::new();
-    let mut per_directory: Vec<(&str, usize)> = Vec::new();
-    for directory in [
-        "scripts",
-        "tests",
-        "examples",
-        "src",
-        "spec",
-        "docs",
+    // The population is TRACKED FILES, enumerated by Git, not a hand-written
+    // directory array. FR-006-AC-7 claims nothing remains "in the repository",
+    // and the repository is what is tracked.
+    //
+    // The array this replaced could not enforce its own completeness. An
+    // independent review probed it: deleting `"scripts",` — five files — removed
+    // the directory from the walk AND from the guard that was supposed to notice,
+    // and the census went green. Deleting `"docs",` did the same. Only a *rename*
+    // was caught, which was the one form the guard handled and the one the probe
+    // happened to use. Any check whose expected set and observed set are the same
+    // literal is decoration; this one is now observed from Git and expected from
+    // a separate constant.
+    //
+    // Reading from Git also fixes three smaller holes at once: `.agent/` is
+    // tracked and the array never listed it; untracked scratch files no longer
+    // inflate the count and restore the headroom the floor removes; and `.git`,
+    // which is a *file* in a linked worktree, is no longer counted.
+    let tracked = {
+        let output = Command::new("git")
+            .args(["ls-files", "-z"])
+            .current_dir(&root)
+            .output()
+            .expect("git ls-files failed");
+        assert!(output.status.success(), "git ls-files exited non-zero");
+        String::from_utf8_lossy(&output.stdout).into_owned()
+    };
+    let census_extension = |path: &str| {
+        matches!(
+            Path::new(path).extension().and_then(|v| v.to_str()),
+            Some("py" | "sh" | "rs" | "txt" | "toml" | "yml" | "md" | "json")
+        )
+    };
+    let mut sources: Vec<PathBuf> = Vec::new();
+    let mut observed_areas: BTreeSet<String> = BTreeSet::new();
+    for entry in tracked.split('\0').filter(|value| !value.is_empty()) {
+        if !census_extension(entry) {
+            continue;
+        }
+        observed_areas.insert(match entry.split_once('/') {
+            Some((head, _)) => head.to_owned(),
+            None => "<root>".to_owned(),
+        });
+        sources.push(root.join(entry));
+    }
+
+    // The expected areas, as a constant separate from what Git reported. A
+    // directory that stops being tracked, or a new one that appears and is never
+    // inspected, both fail here — and neither can be silenced by editing one
+    // list, because the other side comes from Git.
+    let expected_areas: BTreeSet<String> = [
+        "<root>",
+        ".agent",
         ".github",
         "assurance",
         "corpus",
-    ] {
-        let before = sources.len();
-        collect_sources(&root.join(directory), &mut sources);
-        per_directory.push((directory, sources.len() - before));
-    }
-    // Every declared directory must actually contribute. A total-only floor
-    // cannot catch a directory that silently stopped being walked: `scripts`,
-    // `src` and `corpus` are five files each and `docs` and `.github` are one,
-    // so losing any of them entirely moves the total by less than ordinary
-    // churn. This is the check that catches the defect a floor only gestures
-    // at, and it is probed below by pointing the walk at a path that does not
-    // exist.
-    for (directory, count) in &per_directory {
-        assert!(
-            *count > 0,
-            "the census walked {directory} and found nothing; a directory that \
-             contributes no file has not been inspected, and the total below is \
-             large enough to hide its absence. Per-directory counts: \
-             {per_directory:?}"
-        );
-    }
-    // Every file at the repository root, DISCOVERED rather than listed. It was
-    // three named files until issue #13, and FR-006-AC-7 now claims nothing
-    // remains "in the repository" rather than "in the execution path" — a claim
-    // a three-name list cannot support. An independent review probed it:
-    // appending the deleted identifiers to `CLAUDE.md` left this test green,
-    // because `CLAUDE.md`, `README.md`, `CONTRIBUTING.md`, `AGENTS.md`,
-    // `deny.toml` and the three toolchain configs were never inspected. The
-    // now-deleted `schemas/README.md` had also claimed this census walked every
-    // root file, which the code had never done.
-    let before_root = sources.len();
-    for entry in fs::read_dir(&root).expect("repository root") {
-        let path = entry.expect("directory entry").path();
-        // `.git` is a FILE in a linked worktree, holding a `gitdir:` pointer.
-        // Skipping it by name keeps the count the same whether this runs in the
-        // main clone or a worktree.
-        if path.file_name().and_then(|v| v.to_str()) == Some(".git") {
-            continue;
-        }
-        if path.is_file() {
-            sources.push(path);
-        }
-    }
-    let root_files = sources.len() - before_root;
-    assert!(
-        root_files > 0,
-        "the census inspected no file at the repository root"
+        "docs",
+        "examples",
+        "scripts",
+        "spec",
+        "src",
+        "tests",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
+    assert_eq!(
+        observed_areas, expected_areas,
+        "the set of tracked areas the census inspects has changed. A directory \
+         that disappeared here is one the census silently stopped scanning; a \
+         directory that appeared is one it has never scanned. Update this \
+         constant deliberately."
     );
     // The deleted machinery, by the names a reintroduction would have to use.
     // The two schema filenames are here because an evidence schema reappearing
@@ -1004,26 +995,39 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
             );
         }
     }
-    // Re-derived, not inherited. The floor was `> 60` against a population of 90
-    // before issue #13 — 30 files of slack. The population is 92 now (77 across
-    // the nine directories plus 15 tracked root files), because `schemas/` left
-    // the walk and every root file entered it, so the old floor would have
-    // carried 32 files of slack unexamined. A sibling shipped exactly that: a
-    // floor inherited unchanged while its population fell, leaving 7 files of
-    // headroom where the author believed there were 25.
+    // Re-derived, and the arithmetic is written out because the previous two
+    // attempts at this number were both wrong in ways a stated derivation would
+    // have caught.
     //
-    // 85 is derived as the population minus the largest single directory a
-    // routine change could plausibly shrink without anyone noticing — `tests`,
-    // at 9. It is deliberately NOT the population itself: adding or removing a
-    // review document must not fail this test. The per-directory guard above is
-    // what catches the small directories this number cannot, and the two are
-    // stated together because neither is sufficient alone.
+    // The floor was `> 60` against a population of **87** before issue #13 — 84
+    // files across the nine walked directories plus the three named root files —
+    // so it carried 26 files of slack, not the 30 an earlier draft of this
+    // comment claimed. That draft reached 90 by counting `schemas/`, which was
+    // never in the directory array; the claim that it was came from
+    // `schemas/README.md`, the same document FND-916 records as describing a
+    // census the code had never performed. A rationale anchored on a disproved
+    // document is not a rationale.
+    //
+    // Population now: **88** tracked files with a census extension — 78 across
+    // ten tracked directories plus 10 at the root. (15 files sit at the root; 5
+    // are `LICENSE-*`, `.gitignore` and `Cargo.lock`, which carry no census
+    // extension.)
+    //
+    // Derivation, stated so the number is reproducible: the loss this floor must
+    // catch is a whole directory going missing, and the largest one a routine
+    // change could plausibly shrink without comment is `tests` at 9.
+    // 88 − 9 = 79, so the floor must be **at least 80** to fail on that loss. 80
+    // is the derived value; it is used as-is rather than padded. `spec` at 45
+    // only ever grows as reviews land, and growth never trips a lower bound.
+    //
+    // This number is the coarse instrument. The area-set equality above is what
+    // actually catches a directory disappearing, including the small ones —
+    // `docs` and `.agent` are one file each and no floor could ever see them go.
     assert!(
-        inspected >= 85,
-        "the source census inspected {inspected} files, below the derived floor \
-         of 85 for a population of 92. Either the tree shrank substantially or a \
-         directory stopped being walked. Per-directory: {per_directory:?}, root: \
-         {root_files}"
+        inspected >= 80,
+        "the source census inspected {inspected} tracked files, below the derived \
+         floor of 80 (population 88, minus `tests` at 9, is 79). The tree shrank \
+         substantially. Areas observed: {observed_areas:?}"
     );
 
     // The Makefile is orchestration, not a trust root, and carries no gate that

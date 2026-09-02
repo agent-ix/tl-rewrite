@@ -29,7 +29,7 @@ census, and whether any check was left asserting over an empty population.
 `quire coverage --scope . --strict` reports 68 of 68 rows backed and no unbacked
 row, against 72 of 72 before.
 
-**25 findings: 5 high, 11 medium, 9 low.** Nine came from an independent
+**32 findings: 5 high, 13 medium, 14 low.** Nine came from an independent
 adversarial review commissioned after this document's first draft, including
 both of the highs below that this self-review missed; they are recorded in their
 own section, and three of them correct claims this document itself made.
@@ -136,10 +136,15 @@ deleting the only caller.
 `frozen_schemas` block, along with its `retained_schema_mismatches` report field
 and its contribution to `accepted`.
 
-## Mutation probes: 44 → 34, and why it fell
+## Mutation probes: 46 → 36, and why it fell
 
-The migration recorded 46 probe rows in `SR-008`, of which 2 were reported as bad
-probes, giving **44 real probes**. Twelve die with the material they guarded:
+`SR-008`'s table holds **41 rows covering 46 distinct probes** — 40 rows of one
+probe each, plus a single `D1..D6` row that is six. An earlier draft of this
+section said "46 rows, of which 2 were bad probes, giving 44", which was wrong
+twice: the row count is 41, not 46, and the two bad probes were *superseded
+forms* of B4 and B5 rather than extra entries, so subtracting them from a row
+count double-counted. The base is **46**. Twelve die with the material they
+guarded:
 
 | Probe | Why it goes |
 |---|---|
@@ -157,7 +162,7 @@ emptying the list, and an unprobed guard is a guard nobody has seen fire. The
 per-directory census guard (FND-923) is the second. Both are in the probe table
 below, red on the defect each names.
 
-**44 → 32 by deletion, plus 2 added = 34.** The count fell because there is less
+**46 → 34 by deletion, plus 2 added = 36.** The count fell because there is less
 to probe, not because anything was fixed. C9 (`consumed_artifacts` digests
 removed) and C10 (classification list emptied) survive and C9 now covers the live
 pin. C3 (a deleted evidence verifier reintroduced) survives and was widened to
@@ -212,9 +217,16 @@ file that gets **sealed** and travels into the verification receipt.
 | FND-920 | low | **FIXED.** The TC-029 removed-path list asserted both `tests/fixtures/legacy-compat` and `tests/fixtures/legacy-compat/expectations.json` are absent. The second cannot fail unless the first does. Decoration, removed. | FR-006-AC-7 |
 | FND-921 | low | **FIXED.** This review's own deleted-line total said **15,108**, which is the `-` column across all 611 changed files in the commit, not the deleted files. The 594 deleted files account for **14,695**; the balance is deletions inside the 17 modified files. Corrected. A figure that counts a different population than its label is the defect this campaign has spent the most effort on. | — |
 
-| FND-922 | medium | **FIXED.** The TC-029 census floor `inspected > 60` was inherited unchanged while its population moved: 90 files before, 92 after, because `schemas/` left the walk and every root file entered it. It would have carried 32 files of slack. Raised by the campaign coordinator from a sibling that shipped a floor whose headroom had silently fallen from 25 to 7. Re-derived to `>= 85` — the population minus the largest directory a routine change could shrink unnoticed — with the derivation written into the assertion, and probed (P2). | FR-006-AC-7 |
-| FND-923 | medium | **FIXED.** A total-only floor cannot catch the defect it gestures at. `scripts`, `src` and `corpus` are five files each and `docs` and `.github` are one, so a directory silently dropping out of the walk moves the total by less than ordinary churn and no floor would fire. Every declared directory must now contribute at least one file, and the root walk must contribute at least one. Probed (P1): pointing the walk at a nonexistent path is now red and names the directory. | FR-006-AC-7 |
-| FND-924 | low | **FIXED.** The consumed-artifact probe mutated `consumed_artifacts[0]` positionally. Reordering the entries would have written a digest onto the deliberately undigested `compatibility-matrix.json` and caught a file-not-found — a pass for the wrong reason. Now targeted by path, and it asserts the pin exists before mutating it. | FR-006-AC-1 |
+| FND-922 | medium | **SUPERSEDED by FND-926, and its own first fix was inadequate.** The TC-029 census floor `inspected > 60` was inherited unchanged while its population moved. The re-derivation was then wrong twice — see FND-927 — and the guard it leaned on did not work — see FND-926. Recorded rather than silently rewritten, because three attempts at one number is the finding. | FR-006-AC-7 |
+| FND-923 | medium | **SUPERSEDED by FND-926.** A per-directory guard was added on the reasoning that a total-only floor cannot catch `scripts`, `src` or `docs` dropping out of the walk. The reasoning was right and the implementation did not do it. | FR-006-AC-7 |
+| FND-926 | medium | **FIXED. The per-directory guard did not catch the defect it named.** `per_directory` was built from *the same array the walk iterated*, so deleting a directory's entry removed it from the walk **and** from the guard. The independent reviewer probed four mutations: renaming `corpus` was red, deleting `tests` was red only via the floor, and **deleting `scripts` (5 files) and `docs` (1 file) were both green** — the census silently stopped scanning them. `SR-009`'s own P1 row compounded this by labelling the probe *"a declared directory stops being walked"* while the mutation in its parenthetical was a rename, the one form the guard handled. Any check whose expected and observed sets are the same literal is decoration. The census now enumerates **tracked files via `git ls-files`** and compares the observed top-level areas against a separate constant with `assert_eq!`, so neither side can be edited to silence the other. Re-probed with the two mutations that defeated the old guard: both red, `docs` included. | FR-006-AC-7 |
+| FND-927 | medium | **FIXED. The floor was not the number its own derivation produced.** The comment derived 85 as "the population minus the largest directory a routine change could shrink" — `tests`, at 9 — but 92 − 9 = 83, not 85. The reviewer measured `inspected` with `tests` dropped and got exactly 83, so the derived value would have passed the mutation it was written to fail; 85 worked only by sitting two above what the sentence derived. Now stated as arithmetic that reproduces: population **88**, minus `tests` at 9, is 79, so the floor is **80** and is used as derived rather than padded. | FR-006-AC-7 |
+| FND-928 | medium | **FIXED. The floor's rationale was anchored on the document this change disproved.** The comment claimed a pre-deletion population of 90 with 30 files of slack. The real figure is **87** — 84 across the nine walked directories plus 3 named root files — giving 26. 90 appears only if `schemas/` is counted, and `schemas` was **never** in the directory array; the claim that it was came from `schemas/README.md`, which `FND-916` records as describing a census the code had never performed. The rationale for the new floor was resting on the same false document the fix was written to disprove. Re-measured from `git ls-tree` at `b1bb55a` and corrected. | FR-006-AC-7 |
+| FND-929 | low | **FIXED.** The root walk was not extension-filtered and counted **untracked** files, so two stray untracked files at the root would have restored the headroom the floor removes. Reading the population from `git ls-files` with the census extension filter closes this, and closes `.git`-as-a-file in a worktree with it, making FND-925 moot as a special case. | FR-006-AC-7 |
+| FND-930 | low | **FIXED.** `.agent/rules/writing_rust.md` is tracked and sat outside the census, so `FR-006-AC-7`'s claim that nothing remains "in the repository" still overstated TC-029's reach. Enumerating from Git rather than from a directory list brings `.agent/` in. Probed: a deleted identifier appended to that file is now red, and was green before. | FR-006-AC-7 |
+| FND-931 | low | **FIXED.** `AA-001` named only `decision_missing` as the reason the receipt is `incomplete`, which made the new receipt clause read as a restatement of the human-decision clause below it. It is not: `unresolved_unknown` is an independent second reason from four open unknowns, three owned by other repositories, and it can hold the claim open after a human decision is recorded. Both are now named. | FR-005-AC-3 |
+| FND-932 | low | **FIXED.** This review's probe base was untraceable. It claimed `SR-008` recorded "46 probe rows, of which 2 were bad probes, giving 44". `SR-008` holds **41 rows covering 46 probes** (its `D1..D6` row is six), and the two bad probes were superseded forms of B4 and B5 rather than extra rows, so subtracting them from a row count double-counted. Base corrected to 46; the deletion accounting is unchanged and the totals are now 46 → 34 → 36. | NFR-003-AC-3 |
+| FND-933 | low | **FIXED.** This review's severity tally said 5 high / 11 medium / 9 low while its tables parsed as 5 / 10 / 10. Recounted from the tables. | — |
 | FND-925 | low | **FIXED.** The census root walk pushed `.git`, which is a *file* in a linked worktree holding a `gitdir:` pointer, so the inspected count differed between the main clone and a worktree. Skipped by name; the derived floor is now stable in both. | FR-006-AC-7 |
 
 ## Every check this change added, probed
@@ -232,8 +244,11 @@ that way. All five were run; none is reported from reasoning.
 
 | # | Check | Defect introduced | Result |
 |---|---|---|---|
-| P1 | per-directory census guard | a declared directory stops being walked (`scripts` → a path that does not exist) | **red** — *"the census walked scriptz and found nothing"*, with per-directory counts |
-| P2 | re-derived census floor | the walked population is halved (`spec` dropped from the walk) | **red** — *"inspected 47 files, below the derived floor of 85"* |
+| P1 | ~~per-directory census guard~~ | *a rename* — which is not the defect the row claimed and not the one that mattered. Superseded; see FND-926 | withdrawn |
+| P1' | tracked-area set equality | `scripts` (5 files) deleted from the expected constant — the mutation that went **green** against the old guard | **red** — names the differing area |
+| P1'' | tracked-area set equality | `docs` (1 file) deleted from the expected constant — no floor could ever catch this | **red** |
+| P2 | re-derived census floor | the walked population is halved | **red** — reports the count against the derived floor |
+| P6 | census reach | a deleted identifier appended to `.agent/rules/writing_rust.md`, which sat outside the old census | **red** — was **green** before FND-930 |
 | P3 | consumed-artifact digest check | `artifact_digest_mismatches` hollowed to return clean | **red** — *"a changed consumed-artifact digest was not detected; the check matches nothing"* |
 | P4 | empty-population guard | the `digested == 0` branch deleted | **red** — *"a consumed-artifact list with no digest in it re-hashed nothing and reported clean"* |
 | P5 | twelve-outcome census | the chain stops demonstrating one outcome (`suspect`'s declared state nulled) | **red** — *"these verification outcomes were never demonstrated: [\"suspect\"]"* |
