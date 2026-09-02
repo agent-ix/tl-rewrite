@@ -987,10 +987,12 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // symlinked while it exists and dangle once removed. Nesting keeps the
     // untracked-directory property and takes that hazard away.
     //
-    // It is NOT the cause of the intermittent failure in
-    // `a_control_naming_a_scenario_that_does_not_exist_is_refused`. That was
-    // measured at roughly 2 in 8 with this test filtered out entirely, so it
-    // predates this control and is tracked separately as agent-ix/tl-rewrite#15.
+    // It did not cause the intermittent failure in
+    // `a_control_naming_a_scenario_that_does_not_exist_is_refused`, which also
+    // reproduced with this test filtered out. It did amplify the failure rate:
+    // the closing review measured 2/12 failures without this census and 6/10
+    // with it. Issue #15 isolated that probe's Quoin store so neither this test
+    // nor another chain run can perturb it through the real `target` tree.
     const CONTROL_DIR: &str = "scripts/.census-control";
     const CONTROL: &str = "scripts/.census-control/probe.py";
     let control = root.join(CONTROL);
@@ -1236,9 +1238,15 @@ fn a_control_naming_a_scenario_that_does_not_exist_is_refused() {
     fs::write(scratch.join("scripts/assurance_chain.py"), &mutated).unwrap();
 
     // Everything else the driver reads comes from the real tree. Every root entry
-    // except `scripts` is symlinked, rather than an enumerated list, so that a
-    // driver which starts reading a new directory does not turn this probe into
-    // one that fails for an unrelated reason.
+    // except `scripts` and `target` is symlinked, rather than an enumerated list,
+    // so that a driver which starts reading a new directory does not turn this
+    // probe into one that fails for an unrelated reason. `target` is deliberately
+    // different: the producer output is shared read-only, while the mutated
+    // driver's Quoin store belongs to this scratch tree. Symlinking `target`
+    // wholesale made the probe share the real store and intermittently delete a
+    // live Quoin workspace.
+    let scratch_target = scratch.join("target");
+    fs::create_dir_all(&scratch_target).unwrap();
     for entry in fs::read_dir(root()).expect("repository root") {
         let path = entry.expect("directory entry").path();
         let name = path
@@ -1246,11 +1254,23 @@ fn a_control_naming_a_scenario_that_does_not_exist_is_refused() {
             .and_then(|v| v.to_str())
             .unwrap_or("")
             .to_owned();
-        if name == "scripts" || name == ".git" {
+        if name == "scripts" || name == ".git" || name == "target" {
             continue;
         }
         let _ = std::os::unix::fs::symlink(&path, scratch.join(&name));
     }
+    std::os::unix::fs::symlink(
+        root().join("target/assurance"),
+        scratch_target.join("assurance"),
+    )
+    .unwrap();
+    assert!(
+        !fs::symlink_metadata(&scratch_target)
+            .unwrap()
+            .file_type()
+            .is_symlink(),
+        "the dangling-scenario probe must own target/ so its Quoin store is isolated"
+    );
 
     let revision = head_revision();
     let output = Command::new("python3")
@@ -1272,6 +1292,16 @@ fn a_control_naming_a_scenario_that_does_not_exist_is_refused() {
         stderr.contains("name a scenario that does not exist"),
         "the refusal did not name the cause: {stderr}"
     );
+    let scratch_store = fs::canonicalize(scratch_target.join("assurance-store"))
+        .expect("the mutated driver created its isolated Quoin store");
+    let real_store = fs::canonicalize(root())
+        .expect("canonical repository root")
+        .join("target/assurance-store");
+    assert_ne!(
+        scratch_store, real_store,
+        "the dangling-scenario probe resolved its Quoin store into the real tree"
+    );
+    fs::remove_dir_all(&scratch).expect("remove the isolated dangling-scenario scratch tree");
 }
 
 // Trace: TC-023, FR-006-AC-1
