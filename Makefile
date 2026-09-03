@@ -26,7 +26,8 @@
 # which invokes bash directly and the sabotage does not reach.
 #
 # That was 28 before agent-ix/tl-rewrite#13. The figure fell by exactly three
-# because the deletion removed three sabotaged recipe lines — `compat-view`'s
+# because the deletion removed three sabotaged recipe lines — the deleted
+# compatibility target's
 # two and the compatibility view's line inside `assurance-inputs` — and
 # `assurance` went from three sub-targets to two. Nothing was fixed; there is
 # simply less to neuter. The number is re-measured with the same command rather
