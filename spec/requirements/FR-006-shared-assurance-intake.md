@@ -51,7 +51,7 @@ framework.
 | FR-006-AC-3 | Static specification, obligation, and coverage facts come from a Quire export that names every requirement in the repository, and Quire executes no producer. | Test (TC-025) |
 | FR-006-AC-5 | Pass, fail, unavailable, unsupported, inconclusive, not-computed, malformed, partial, stale, suspect, vacuous, and tampered remain twelve distinguishable states, each demonstrated and each negative paired with a positive control. | Test (TC-027) |
 | FR-006-AC-6 | Every retained counterexample carries its disagreeing trace and both verdicts, is replayed against both documents outside the enumeration that found it, the witness count agrees with the counterexample corpus rather than with the producer, and the witnesses survive into the bytes Quoin retained. | Test (TC-028) |
-| FR-006-AC-7 | No repository-local generic runner, evidence envelope, manifest, identity framework, retention store, audit store, anchor verifier, retraction registry, evidence schema, retained-evidence directory, compatibility view, or aggregate verdict remains in the repository. | Test (TC-029) |
+| FR-006-AC-7 | No repository-local generic runner, evidence envelope, manifest, identity framework, retention store, audit store, anchor verifier, retraction registry, evidence schema, retained-evidence directory, compatibility view, or aggregate verdict remains in the repository. The removal census enumerates tracked and untracked-not-ignored repository paths through Git, independently constrains its exact denials, tracked areas and declaration exemptions, scans raw bytes, and fails closed with a named diagnostic when it cannot read a path. | Test (TC-029) |
 
 ## Dependencies
 
