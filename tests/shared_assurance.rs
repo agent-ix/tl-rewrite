@@ -1220,7 +1220,11 @@ fn a_control_naming_a_scenario_that_does_not_exist_is_refused() {
     // `pairs_with` — and only that one — is renamed. Renaming the scenario as
     // well would leave the pairing consistent and prove nothing.
     let scratch = root().join("target/dangling-probe");
-    let _ = fs::remove_dir_all(&scratch);
+    match fs::remove_dir_all(&scratch) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => panic!("failed to clear the previous dangling-probe scratch: {error}"),
+    }
     fs::create_dir_all(scratch.join("scripts")).unwrap();
     let driver = fs::read_to_string(root().join("scripts/assurance_chain.py")).unwrap();
 
@@ -1262,9 +1266,16 @@ fn a_control_naming_a_scenario_that_does_not_exist_is_refused() {
         std::os::unix::fs::symlink(&path, scratch.join(&name))
             .unwrap_or_else(|error| panic!("failed to link {name} into the probe: {error}"));
     }
-    // Create this only after the root-entry loop. If `target` ever drops out of
-    // the skip set, that loop creates a symlink here and the ownership assertion
-    // below fails instead of an ignored EEXIST leaving the assertion green.
+    // Check ownership before creating anything under target. If `target` ever
+    // drops out of the skip set, this is the first reactor and no link can be
+    // created through the repository target before the regression is named.
+    match fs::symlink_metadata(&scratch_target) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Ok(_) => panic!(
+            "the dangling-scenario probe must own target/ rather than inherit a root-entry link"
+        ),
+        Err(error) => panic!("could not establish scratch target ownership: {error}"),
+    }
     fs::create_dir_all(&scratch_target).unwrap();
     std::os::unix::fs::symlink(
         root().join("target/assurance"),
@@ -1301,11 +1312,12 @@ fn a_control_naming_a_scenario_that_does_not_exist_is_refused() {
     );
     let scratch_store = fs::canonicalize(scratch_target.join("assurance-store"))
         .expect("the mutated driver created its isolated Quoin store");
-    let real_store = fs::canonicalize(root().join("target/assurance-store"))
-        .expect("canonical real Quoin store");
-    assert_ne!(
-        scratch_store, real_store,
-        "the dangling-scenario probe resolved its Quoin store into the real tree"
+    let real_store = fs::canonicalize(root().join("target"))
+        .expect("canonical repository target directory")
+        .join("assurance-store");
+    assert!(
+        !scratch_store.starts_with(&real_store),
+        "the dangling-scenario probe placed its Quoin store in the real store: {scratch_store:?}"
     );
 
     // The same isolated environment must be healthy when the deliberate
