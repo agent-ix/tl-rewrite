@@ -81,6 +81,50 @@ fn deleted_names_in<'a>(path: &Path, names: &'a [&'a str]) -> Vec<&'a str> {
         .collect()
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum CensusExemption {
+    ExactDeclaration,
+    HistoricalProse,
+}
+
+fn census_exemption(relative: &str) -> Option<CensusExemption> {
+    if matches!(
+        relative,
+        "tests/shared_assurance.rs" | "assurance/pins.json" | "assurance/change-assurance.json"
+    ) {
+        return Some(CensusExemption::ExactDeclaration);
+    }
+    if relative.ends_with(".md")
+        && (relative.starts_with("spec/reviews/") || relative.starts_with("spec/plans/"))
+    {
+        return Some(CensusExemption::HistoricalProse);
+    }
+    None
+}
+
+fn census_matches<'a>(root: &Path, path: &Path, names: &'a [&'a str]) -> Vec<&'a str> {
+    let relative = path
+        .strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/");
+    if census_exemption(&relative).is_some() {
+        Vec::new()
+    } else {
+        deleted_names_in(path, names)
+    }
+}
+
+fn panic_message(payload: Box<dyn std::any::Any + Send>) -> String {
+    if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else if let Some(message) = payload.downcast_ref::<&str>() {
+        (*message).to_owned()
+    } else {
+        "non-string panic".to_owned()
+    }
+}
+
 /// The chain is expensive and several tests read it. It runs once per test
 /// binary, and every reader sees the same run rather than a different one.
 static CHAIN: OnceLock<Value> = OnceLock::new();
@@ -954,6 +998,21 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
             "Cargo.lock" | "LICENSE-APACHE" | "LICENSE-MIT" | "corpus/west-v1/LICENSE"
         )
     };
+    // The expected set below constrains the current tree. These negative cases
+    // constrain the predicate itself, so restoring the old LICENSE-prefix or
+    // lockfile-suffix rule is red even before such a path is committed.
+    for included in [
+        "LICENSE_scanner.py",
+        "scripts/LICENSE_scanner.py",
+        "Cargo.extra.lock",
+        "GNUmakefile",
+        "compat.mk",
+    ] {
+        assert!(
+            !denied(included),
+            "the exact deny predicate widened to hide {included}"
+        );
+    }
     let area_of = |path: &str| match path.split_once('/') {
         Some((head, _)) => head.to_owned(),
         None => "<root>".to_owned(),
@@ -1034,9 +1093,10 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
 
     let mut scanned: BTreeSet<String> = tracked.iter().cloned().collect();
     for entry in git_files(&["ls-files", "-z", "--others", "--exclude-standard"]) {
-        if !denied(&entry) {
-            scanned.insert(entry);
-        }
+        // A path reported by `--others` cannot also be one of the tracked paths
+        // in the exact deny set. Applying `denied` here created a second,
+        // uncontrolled exemption site that could hide a named untracked reader.
+        scanned.insert(entry);
     }
 
     // Removed before the assertion so a failure cannot leave the tree dirty.
@@ -1083,34 +1143,123 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // The two schema filenames are here because an evidence schema reappearing
     // under a different directory is the same defect as the directory coming
     // back.
-    const DELETED: [&str; 5] = [
+    const DELETED_REFERENCES: [&str; 12] = [
+        "check-failure-propagation",
+        "check-tool-identities",
+        "ci-for-evidence",
+        "verify-evidence",
+        "evidence-tool",
         "legacy_evidence_view",
         "legacy-compat",
         "PROOF-legacy-compatibility",
+        "compat-view:",
+        "COMPAT_RESULT",
         "tl-rewrite-evidence-manifest-v1.schema.json",
         "tl-rewrite-evidence-input-v1.schema.json",
     ];
+    const EXPECTED_DELETED_REFERENCES: [&str; 12] = [
+        "check-failure-propagation",
+        "check-tool-identities",
+        "ci-for-evidence",
+        "verify-evidence",
+        "evidence-tool",
+        "legacy_evidence_view",
+        "legacy-compat",
+        "PROOF-legacy-compatibility",
+        "compat-view:",
+        "COMPAT_RESULT",
+        "tl-rewrite-evidence-manifest-v1.schema.json",
+        "tl-rewrite-evidence-input-v1.schema.json",
+    ];
+    assert_eq!(
+        DELETED_REFERENCES, EXPECTED_DELETED_REFERENCES,
+        "the deleted-reference needle set changed without changing its independent control"
+    );
 
-    // The same scanner used below must find a forbidden name after a non-UTF-8
-    // byte. `read_to_string(...); continue` used to report this file clean.
+    // The same exemption-plus-scanner function used by the repository loop must
+    // find every forbidden name after a non-UTF-8 byte. The separate expected
+    // constant means deleting one needle from the production set is red.
     let non_utf8_probe = root.join("target/removal-census-non-utf8-probe.py");
-    fs::write(
-        &non_utf8_probe,
-        b"# coding: latin-1\n# legacy_evidence_view \xff\n",
-    )
-    .expect("write the non-UTF-8 census probe");
-    let probe_matches = deleted_names_in(&non_utf8_probe, &DELETED);
+    let mut probe_bytes = EXPECTED_DELETED_REFERENCES.join("\n").into_bytes();
+    probe_bytes.push(0xff);
+    fs::write(&non_utf8_probe, probe_bytes).expect("write the non-UTF-8 census probe");
+    let probe_matches = census_matches(&root, &non_utf8_probe, &DELETED_REFERENCES);
     fs::remove_file(&non_utf8_probe).expect("remove the non-UTF-8 census probe");
     assert_eq!(
-        probe_matches,
-        vec!["legacy_evidence_view"],
-        "the raw-byte census did not find a forbidden name in a non-UTF-8 source"
+        probe_matches, EXPECTED_DELETED_REFERENCES,
+        "the raw-byte census did not exercise every forbidden name"
+    );
+
+    let missing_probe = root.join("target/removal-census-missing-probe.py");
+    let unreadable = std::panic::catch_unwind(|| {
+        let _ = census_matches(&root, &missing_probe, &DELETED_REFERENCES);
+    })
+    .expect_err("an unreadable census path did not fail closed");
+    let unreadable = panic_message(unreadable);
+    assert!(
+        unreadable.contains("the census could not read")
+            && unreadable.contains("removal-census-missing-probe.py"),
+        "the unreadable-file control failed for the wrong reason: {unreadable}"
+    );
+
+    // The exact declaration exemption and the historical-prose exemption have
+    // separate, retained controls. A reader hidden under a directory merely
+    // named `tasks` or `reviews` is not historical prose.
+    assert_eq!(
+        census_exemption("tests/shared_assurance.rs"),
+        Some(CensusExemption::ExactDeclaration)
+    );
+    assert_eq!(
+        census_exemption("assurance/pins.json"),
+        Some(CensusExemption::ExactDeclaration)
+    );
+    assert_eq!(
+        census_exemption("assurance/change-assurance.json"),
+        Some(CensusExemption::ExactDeclaration)
+    );
+    assert_eq!(
+        census_exemption("spec/reviews/SR-011.md"),
+        Some(CensusExemption::HistoricalProse)
+    );
+    assert_eq!(
+        census_exemption("spec/plans/PLAN-002/tasks/Task-004.md"),
+        Some(CensusExemption::HistoricalProse)
+    );
+    for not_exempt in [
+        "spec/plans/PLAN-002/tasks/legacy_evidence_view.py",
+        "src/reviews/reader.md",
+        "spec/reviews/reader.rs",
+        "Makefile",
+    ] {
+        assert_eq!(
+            census_exemption(not_exempt),
+            None,
+            "the census exemption widened to hide {not_exempt}"
+        );
+    }
+
+    let observed_exact_exemptions: BTreeSet<String> = scanned
+        .iter()
+        .filter(|relative| census_exemption(relative) == Some(CensusExemption::ExactDeclaration))
+        .cloned()
+        .collect();
+    let expected_exact_exemptions: BTreeSet<String> = [
+        "assurance/change-assurance.json",
+        "assurance/pins.json",
+        "tests/shared_assurance.rs",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
+    assert_eq!(
+        observed_exact_exemptions, expected_exact_exemptions,
+        "the exact census exemption set widened or lost one of its declarations"
     );
 
     // Counted over TRACKED files only; the scan below covers more.
     let inspected = tracked.len();
     for path in &sources {
-        let deleted_names = deleted_names_in(path, &DELETED);
+        let deleted_names = census_matches(&root, path, &DELETED_REFERENCES);
         // Three files name the deleted machinery on purpose: this test, which
         // asserts its absence; assurance/pins.json, which records what was
         // measured before the deletion; and the change-assurance declaration,
@@ -1123,17 +1272,6 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         // reintroduced reader dropped into `spec/plans/` as a `.py` or `.rs`
         // file would otherwise be waved through by a rule meant to protect
         // prose, which is the same hole in a different place.
-        let relative = path.strip_prefix(&root).unwrap_or(path);
-        let relative = relative.to_string_lossy().replace('\\', "/");
-        let historical_prose = relative.ends_with(".md")
-            && (relative.starts_with("spec/reviews/") || relative.starts_with("spec/plans/"));
-        let permitted = matches!(
-            relative.as_str(),
-            "tests/shared_assurance.rs" | "assurance/pins.json" | "assurance/change-assurance.json"
-        ) || historical_prose;
-        if permitted {
-            continue;
-        }
         assert!(
             deleted_names.is_empty(),
             "{} references {}, which issue #13 deleted; nothing may reference \
@@ -1155,52 +1293,76 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population now: **93** tracked files — 97 tracked in total, minus the 4 the
+    // Population at this review head: **94** scanned tracked files — 98 tracked
+    // in total, minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
     // version of this comment enumerated four exclusions for a count of five and
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 12 root, 46 `spec`, 9 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // By area: 12 root, 47 `spec`, 9 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Derivation, stated so the number is reproducible: the loss this floor must
     // catch is a whole directory going missing, and the largest one a routine
     // change could plausibly shrink without comment is `tests` at 9. `spec` at
-    // 46 is larger but only ever grows as reviews land, and growth never trips a
-    // lower bound. 93 − 9 = 84, so the floor must be **at least 85** to fail on
-    // that loss. 85 is the derived value and is used as-is rather than padded.
+    // 47 is larger but only ever grows as reviews land, and growth never trips a
+    // lower bound. 94 − 9 = 85, so the floor must be **at least 86** to fail on
+    // that loss. 86 is the derived value and is used as-is rather than padded.
     //
     // This number is the coarse instrument. The area-set equality above is what
     // actually catches a directory disappearing, including the small ones —
     // `docs` and `.agent` are one file each and no floor could ever see them go.
     assert!(
-        inspected >= 85,
+        inspected >= 86,
         "the source census inspected {inspected} tracked files, below the derived \
-         floor of 85 (population 93, minus `tests` at 9, is 84). The tree shrank \
+         floor of 86 (population 94, minus `tests` at 9, is 85). The tree shrank \
          substantially. Areas observed: {observed_areas:?}"
     );
 
     // The Makefile is orchestration, not a trust root, and carries no gate that
     // polices its own execution.
     let makefile = fs::read_to_string(root.join("Makefile")).unwrap();
-    for gone in [
-        "check-failure-propagation",
-        "ci-for-evidence",
-        "verify-evidence",
-        "evidence-tool",
-        "check-tool-identities",
-    ] {
-        assert!(
-            !makefile.contains(gone),
-            "the Makefile still carries the {gone} self-attestation target"
-        );
-    }
-    // And the residue is disclosed rather than implied away.
+    // The residue is disclosed rather than implied away. Pin stable prose, not
+    // the bare `.IGNORE:` token, because the latter is also the live directive
+    // that makes every failing recipe report success.
     assert!(
-        makefile.contains(".IGNORE:"),
-        "the Makefile no longer states what removing the execution-control guard costs"
+        makefile
+            .contains("exits 2 and stops at the first prerequisite. Prepend a single `.IGNORE:`")
+            && makefile.contains("with all 13 `ci` prerequisites reporting success"),
+        "the Makefile no longer states the measured execution-control limitation"
+    );
+    for line in makefile.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with('#') || trimmed.is_empty() {
+            continue;
+        }
+        for forbidden in [
+            ".IGNORE:",
+            ".SILENT:",
+            ".ONESHELL:",
+            "SHELL",
+            ".SHELLFLAGS",
+            "MAKEFLAGS",
+        ] {
+            assert!(
+                !trimmed.starts_with(forbidden),
+                "the Makefile activates `{forbidden}` even though its disclosure says the \
+                 execution-control class is unpoliced: {trimmed}"
+            );
+        }
+    }
+    let ci_declarations = makefile
+        .lines()
+        .filter(|line| {
+            let trimmed = line.trim_start();
+            !trimmed.starts_with('#') && (trimmed.starts_with("ci:") || trimmed.starts_with("ci::"))
+        })
+        .count();
+    assert_eq!(
+        ci_declarations, 1,
+        "the Makefile must carry exactly one literal ci declaration"
     );
 
     // The declared gate set is the gate set. Deleting a prerequisite from `ci:`
