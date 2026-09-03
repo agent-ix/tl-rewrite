@@ -989,10 +989,11 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     //
     // It did not cause the intermittent failure in
     // `a_control_naming_a_scenario_that_does_not_exist_is_refused`, which also
-    // reproduced with this test filtered out. It did amplify the failure rate:
-    // the closing review measured 2/12 failures without this census and 6/10
-    // with it. Issue #15 isolated that probe's Quoin store so neither this test
-    // nor another chain run can perturb it through the real `target` tree.
+    // reproduced with this test filtered out. Separate pre-fix campaigns
+    // observed 2/12 failures without this census and 6/10 with it. That is an
+    // observation, not evidence that this test caused or amplified the flake.
+    // Issue #15 removes the known coupling: the probe no longer shares the real
+    // Quoin store through the repository's `target` tree.
     const CONTROL_DIR: &str = "scripts/.census-control";
     const CONTROL: &str = "scripts/.census-control/probe.py";
     let control = root.join(CONTROL);
@@ -1243,10 +1244,11 @@ fn a_control_naming_a_scenario_that_does_not_exist_is_refused() {
     // probe into one that fails for an unrelated reason. `target` is deliberately
     // different: the producer output is shared only as input, while the mutated
     // driver's Quoin store belongs to this scratch tree. Symlinking `target`
-    // wholesale made the probe share the real store and intermittently delete a
-    // live Quoin workspace.
+    // wholesale made the probe share the real store. That coupling was observed
+    // alongside the intermittent failure; the driver removes only the unique
+    // run directory it creates, so this test does not claim that one run deleted
+    // another run's workspace.
     let scratch_target = scratch.join("target");
-    fs::create_dir_all(&scratch_target).unwrap();
     for entry in fs::read_dir(root()).expect("repository root") {
         let path = entry.expect("directory entry").path();
         let name = path
@@ -1257,8 +1259,13 @@ fn a_control_naming_a_scenario_that_does_not_exist_is_refused() {
         if name == "scripts" || name == ".git" || name == "target" {
             continue;
         }
-        let _ = std::os::unix::fs::symlink(&path, scratch.join(&name));
+        std::os::unix::fs::symlink(&path, scratch.join(&name))
+            .unwrap_or_else(|error| panic!("failed to link {name} into the probe: {error}"));
     }
+    // Create this only after the root-entry loop. If `target` ever drops out of
+    // the skip set, that loop creates a symlink here and the ownership assertion
+    // below fails instead of an ignored EEXIST leaving the assertion green.
+    fs::create_dir_all(&scratch_target).unwrap();
     std::os::unix::fs::symlink(
         root().join("target/assurance"),
         scratch_target.join("assurance"),
@@ -1294,13 +1301,50 @@ fn a_control_naming_a_scenario_that_does_not_exist_is_refused() {
     );
     let scratch_store = fs::canonicalize(scratch_target.join("assurance-store"))
         .expect("the mutated driver created its isolated Quoin store");
-    let real_store = fs::canonicalize(root())
-        .expect("canonical repository root")
-        .join("target/assurance-store");
+    let real_store = fs::canonicalize(root().join("target/assurance-store"))
+        .expect("canonical real Quoin store");
     assert_ne!(
         scratch_store, real_store,
         "the dangling-scenario probe resolved its Quoin store into the real tree"
     );
+
+    // The same isolated environment must be healthy when the deliberate
+    // dangling reference is removed. This is the bypassed half of the negative
+    // fixture: it distinguishes the intended refusal from an earlier failure
+    // caused by constructing the scratch tree incorrectly.
+    fs::write(scratch.join("scripts/assurance_chain.py"), &driver).unwrap();
+    let bypassed = Command::new("python3")
+        .args([
+            "scripts/assurance_chain.py",
+            "--candidate-revision",
+            &revision,
+        ])
+        .current_dir(&scratch)
+        .output()
+        .expect("failed to run the unmutated chain in the isolated scratch");
+    assert_eq!(
+        bypassed.status.code(),
+        Some(0),
+        "the isolated scratch is not a valid environment for the unmutated chain:\n{}\n{}",
+        String::from_utf8_lossy(&bypassed.stdout),
+        String::from_utf8_lossy(&bypassed.stderr)
+    );
+
+    // Unlink every link explicitly before recursively removing the real scratch
+    // directories. `std::fs::remove_dir_all` does not follow directory symlinks,
+    // but making that safety boundary explicit prevents a future walk-and-delete
+    // replacement from reaching repository inputs through these links.
+    fs::remove_file(scratch_target.join("assurance")).expect("unlink shared assurance inputs");
+    for entry in fs::read_dir(&scratch).expect("read dangling-probe scratch") {
+        let path = entry.expect("scratch entry").path();
+        if fs::symlink_metadata(&path)
+            .expect("scratch entry metadata")
+            .file_type()
+            .is_symlink()
+        {
+            fs::remove_file(path).expect("unlink dangling-probe repository input");
+        }
+    }
     fs::remove_dir_all(&scratch).expect("remove the isolated dangling-scenario scratch tree");
 }
 
@@ -1382,10 +1426,11 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
             .and_then(|v| v.to_str())
             .unwrap_or("")
             .to_owned();
-        if name == "src" || name == "scripts" || name == ".git" {
+        if name == "src" || name == "scripts" || name == ".git" || name == "target" {
             continue;
         }
-        let _ = std::os::unix::fs::symlink(&path, scratch.join(&name));
+        std::os::unix::fs::symlink(&path, scratch.join(&name))
+            .unwrap_or_else(|error| panic!("failed to link {name} into the probe: {error}"));
     }
     fs::copy(
         root().join("scripts/check_provenance.py"),
