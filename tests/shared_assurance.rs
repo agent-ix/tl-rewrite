@@ -1455,21 +1455,16 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // By area: 12 root, 53 `spec`, 9 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
-    // Derivation, stated so the number is reproducible: the loss this floor must
-    // catch is a whole directory going missing, and the largest one a routine
-    // change could plausibly shrink without comment is `tests` at 9. `spec` at
-    // 53 is larger but only ever grows as reviews land, and growth never trips a
-    // lower bound. 100 − 9 = 91, so the floor must be **at least 92** to fail on
-    // that loss. 92 is the derived value and is used as-is rather than padded.
-    //
-    // This number is the coarse instrument. The area-set equality above is what
-    // actually catches a directory disappearing, including the small ones —
-    // `docs` and `.agent` are one file each and no floor could ever see them go.
-    assert!(
-        inspected >= 92,
-        "the source census inspected {inspected} tracked files, below the derived \
-         floor of 92 (population 100, minus `tests` at 9, is 91). The tree shrank \
-         substantially. Areas observed: {observed_areas:?}"
+    // Assert the reviewed population exactly. A lower bound silently consumes
+    // its margin whenever `spec/` grows and cannot be the first reactor for a
+    // whole-area loss because the area-set equality above catches that loss.
+    // Exact equality makes either growth or partial shrinkage require a deliberate
+    // census review instead of leaving a hand-derived floor to rot.
+    assert_eq!(
+        inspected, 100,
+        "the source census population changed from the reviewed 100 tracked files \
+         ({inspected} observed). Review the census scope and update this control \
+         deliberately. Areas observed: {observed_areas:?}"
     );
 
     // The Makefile is orchestration, not a trust root, and carries no gate that

@@ -30,3 +30,10 @@ description: "Implementation and verification record for issue #19."
   widening historical prose to `docs/` each failed TC-029 at its intended
   assertion. The passing isolation probe exercised an existing real
   `target/assurance-store` leaf. Hosted CI was not dispatched.
+- **2026-09-04 — Round-two review remediation verified.** Replaced the fragile
+  lower bound with exact population equality, clarified the historical census
+  record and Make-control scope, and corrected the isolation-record wording.
+  The focused census and complete local
+  `make ci CARGO_TARGET_DIR=target/cargo-review` gate passed; hosted CI was not
+  dispatched. The plan remains in progress until the changed head is
+  independently re-reviewed and merged.

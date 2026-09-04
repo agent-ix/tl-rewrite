@@ -35,11 +35,13 @@ manual-dispatch only.
 
 ## Population and residual
 
-At this review head TC-029 expects 98 tracked paths, denies exactly the root
-lockfile, two root licence texts and `corpus/west-v1/LICENSE`, and scans 94
-tracked paths plus every untracked-not-ignored path. Eleven tracked areas are
+This paragraph is the historical population at reviewed head `9560e35`, not the
+live census bound. At that review head TC-029 expected 98 tracked paths, denied
+exactly the root lockfile, two root licence texts and `corpus/west-v1/LICENSE`,
+and scanned 94 tracked paths plus every untracked-not-ignored path. Eleven tracked areas are
 required. `tests` contains nine paths; removing it leaves 85, so the separately
-derived coarse floor is 86. Area equality catches smaller one-file areas.
+derived coarse floor was 86. The live test now asserts its reviewed population
+exactly so either growth or shrinkage requires deliberate review.
 
 Issue #11 remains open. These assertions prevent the specific disclosure
 inversion found in review; they are not a substitute for the common

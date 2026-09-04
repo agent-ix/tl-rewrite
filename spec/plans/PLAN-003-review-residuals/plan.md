@@ -2,7 +2,7 @@
 id: PLAN-003
 title: "Close post-merge census and probe residuals"
 type: Plan
-status: complete
+status: in_progress
 relationships:
   - target: ix://agent-ix/tl-rewrite/FR-006
     type: references
