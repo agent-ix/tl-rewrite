@@ -17,7 +17,8 @@ and human decision boundary.
 
 ## Scope
 
-Rule metadata, wire records, copied corpus material, evidence, and release claims are in scope.
+Rule metadata, shared signal/context identities, wire records, copied corpus
+material, evidence, and release claims are in scope.
 
 ## Rationale
 
@@ -44,6 +45,7 @@ verdict to a dependency that did not produce it.
 |---|---|---|
 | NFR-002-AC-1 | No rule is enabled without complete provenance, applicability, and revision metadata. | Test (TC-001, TC-002) |
 | NFR-002-AC-2 | Every exchanged record names the exact tl-syntax, tl-mltl, WEST, and catalog identities the run used, those constants agree with what Cargo resolved, and no record claims universal proof or release. | Test (TC-016, TC-019, TC-030) |
+| NFR-002-AC-3 | Every contextual native result preserves the exact supplied shared requirement context and identifies the complete supplied signal catalog without claiming that tl-rewrite validated the truth of either provenance statement. | Test (TC-031, TC-034, TC-036) |
 
 ## Dependencies
 

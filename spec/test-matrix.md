@@ -19,6 +19,7 @@ relationships:
 | FR-004 | FR-004-AC-1 through FR-004-AC-3 | TC-013 through TC-016, TC-028 | ✅ covered |
 | FR-005 | FR-005-AC-1, FR-005-AC-3 | TC-017, TC-019 | ✅ covered |
 | FR-006 | FR-006-AC-1 through FR-006-AC-3, FR-006-AC-5 through FR-006-AC-7 | TC-023, TC-024, TC-025, TC-027, TC-028, TC-029 | ✅ covered |
+| FR-007 | FR-007-AC-1 through FR-007-AC-6 | TC-031 through TC-036 | 🚧 planned |
 
 ## Stakeholder Requirement Coverage
 
@@ -26,13 +27,14 @@ relationships:
 |---|---|---|---|
 | StR-001 | FR-001, FR-003, FR-005 | TC-001, TC-009, TC-010, TC-019 | ✅ covered |
 | StR-002 | FR-002, FR-004, FR-006 | TC-005, TC-006, TC-013, TC-016, TC-028 | ✅ covered |
+| StR-003 | FR-007 | TC-031 through TC-034 | 🚧 planned |
 
 ## Non-Functional Requirement Coverage
 
 | Non-Functional Req | Verification Method | Evidence/Test Cases | Status |
 |---|---|---|---|
-| NFR-001 | deterministic and resource-bound tests | TC-004 through TC-008, TC-015, TC-017, TC-021 | ✅ covered |
-| NFR-002 | catalog, corpus, and provenance inspection | TC-001, TC-002, TC-016, TC-019, TC-030 | ✅ covered |
+| NFR-001 | deterministic and resource-bound tests | TC-004 through TC-008, TC-015, TC-017, TC-021, TC-031, TC-035 | 🚧 extension planned |
+| NFR-002 | catalog, corpus, context, and provenance inspection | TC-001, TC-002, TC-016, TC-019, TC-030, TC-031, TC-034, TC-036 | 🚧 extension planned |
 | NFR-003 | producer-boundary, outcome-distinguishability, and mutation probes | TC-024, TC-027, TC-030 | ✅ covered |
 
 ## Test Case Summary
@@ -67,3 +69,9 @@ relationships:
 | TC-028 | Retain every counterexample as an independently replayed witness | Integration | P0 | FR-006-AC-6, FR-004-AC-1, StR-002-VC-2 | ✅ implemented |
 | TC-029 | Leave no local evidence framework or retained legacy evidence; enumerate every tracked and untracked-not-ignored repository path through Git, constrain exact denial, area and declaration-exemption sets, scan raw bytes, and retain controls for non-UTF-8 content, unreadable paths, hostile exemption paths and Make execution-control disclosures | Integration | P0 | FR-006-AC-7 | ✅ implemented |
 | TC-030 | Require published revision constants to be the resolved revisions | Integration | P0 | NFR-002-AC-2, NFR-003-AC-5 | ✅ implemented |
+| TC-031 | Preserve exact shared requirement context, signal-catalog identity, and distinct clause/node spans in contextual rewrite reports | Integration | P0 | FR-007-AC-1, StR-003-VC-1, NFR-001-AC-1, NFR-002-AC-3 | 🚧 planned |
+| TC-032 | Verify exact contextual replay and reject every independently mutated, omitted, or substituted catalog/context/request input | Integration | P0 | FR-007-AC-2, StR-003-VC-2 | 🚧 planned |
+| TC-033 | Validate input and output proposition bindings and return typed locus-specific non-success without successful output | Integration | P0 | FR-007-AC-3, StR-003-VC-2 | 🚧 planned |
+| TC-034 | Bind context into bounded-equivalence reports and distinguish original/rewritten binding refusal before enumeration | Integration | P0 | FR-007-AC-4, StR-003-VC-1, NFR-002-AC-3 | 🚧 planned |
+| TC-035 | Preserve context-free API outcomes and exact v1 bytes while strictly round-tripping contextual v2 report families | Snapshot | P0 | FR-007-AC-5, NFR-001-AC-1 | 🚧 planned |
+| TC-036 | Emit contextual native domain records through the existing producer-owned shared intake boundary without new generic machinery | Integration | P0 | FR-007-AC-6, NFR-002-AC-3 | 🚧 planned |
