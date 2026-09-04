@@ -1444,7 +1444,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **94** scanned tracked files — 98 tracked
+    // Population at this review head: **100** scanned tracked files — 104 tracked
     // in total, minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
@@ -1452,23 +1452,23 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 12 root, 47 `spec`, 9 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // By area: 12 root, 53 `spec`, 9 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Derivation, stated so the number is reproducible: the loss this floor must
     // catch is a whole directory going missing, and the largest one a routine
     // change could plausibly shrink without comment is `tests` at 9. `spec` at
-    // 47 is larger but only ever grows as reviews land, and growth never trips a
-    // lower bound. 94 − 9 = 85, so the floor must be **at least 86** to fail on
-    // that loss. 86 is the derived value and is used as-is rather than padded.
+    // 53 is larger but only ever grows as reviews land, and growth never trips a
+    // lower bound. 100 − 9 = 91, so the floor must be **at least 92** to fail on
+    // that loss. 92 is the derived value and is used as-is rather than padded.
     //
     // This number is the coarse instrument. The area-set equality above is what
     // actually catches a directory disappearing, including the small ones —
     // `docs` and `.agent` are one file each and no floor could ever see them go.
     assert!(
-        inspected >= 86,
+        inspected >= 92,
         "the source census inspected {inspected} tracked files, below the derived \
-         floor of 86 (population 94, minus `tests` at 9, is 85). The tree shrank \
+         floor of 92 (population 100, minus `tests` at 9, is 91). The tree shrank \
          substantially. Areas observed: {observed_areas:?}"
     );
 
