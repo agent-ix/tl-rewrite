@@ -31,6 +31,11 @@ without changing the existing context-free API or its v1 wire bytes.
 - Context-aware entry points use the shared tl-syntax document and borrowed
   validation APIs. They define no rewrite-local signal, domain, binding,
   requirement, clause, anchor, or source-context model.
+- A `SignalCatalogDocument` admitted by tl-syntax is already structurally valid,
+  including its Boolean-only direct bindings. tl-syntax owns malformed,
+  missing-target, and non-Boolean catalog refusal. tl-rewrite owns the later
+  typed refusal when a valid formula references a proposition absent from that
+  valid catalog; it does not duplicate unreachable catalog error states.
 - Each contextual native report records a SHA-256 identity of the complete,
   deterministically serialized signal-catalog document and embeds the exact
   optional shared requirement-context document. The request digest is
@@ -58,6 +63,20 @@ without changing the existing context-free API or its v1 wire bytes.
   spans are separate fields with separate loci. Neither is substituted for the
   other.
 
+## Native report allocation
+
+| Report family | Required contextual v2 additions |
+|---|---|
+| Rewrite | Signal-catalog SHA-256, required context field containing either the exact shared document or explicit `null`, domain-separated contextual request SHA-256, and optional typed input/output binding-failure locus and proposition identity. |
+| Replay | Signal-catalog SHA-256, the same required exact-or-`null` context field, expected and observed contextual report SHA-256 values, and verified/mismatch status. |
+| Conformance | Signal-catalog SHA-256, the same required exact-or-`null` context field, domain-separated request SHA-256 binding both formulas and the conformance options, and optional typed original/rewritten binding-failure locus and proposition identity. |
+
+The signal catalog itself is not copied into each output report. Its digest is
+the report identity, while the complete deterministic shared document is an
+input to each contextual request digest and must be supplied again for replay.
+The digest establishes byte identity under that deterministic serialization,
+not the truth or suitability of a caller's declaration.
+
 ## Versioning and compatibility
 
 - Existing `rewrite`, `replay`, and `check_equivalence` entry points retain
@@ -67,9 +86,10 @@ without changing the existing context-free API or its v1 wire bytes.
   `tl-rewrite.conformance/v1` for identical inputs.
 - Context-aware entry points emit closed v2 forms of those same native report
   families. V1 rejects contextual fields; v2 requires a signal-catalog identity
-  and represents context absence explicitly. Missing required v2 identity,
-  unknown fields, unsupported versions, or an invalid field combination is
-  rejected during decoding.
+  and always serializes its context field as either the shared document or
+  explicit `null`. Omission is not another spelling of absence. Missing required
+  v2 identity or context field, unknown fields, unsupported versions, or an
+  invalid field combination is rejected during decoding.
 - The v2 forms are tl-rewrite domain results, not a generic evidence envelope.
   Quoin may ingest their serialized producer output through the existing shared
   assurance path, but tl-rewrite imports or executes no Quoin, Quire,
