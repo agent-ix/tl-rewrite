@@ -1,7 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde::{Deserialize, Serialize};
-use tl_syntax::{FormulaDocument, Node, NodeId, NodeKind, SemanticProfile, SourceSpan};
+use serde::{de::Error as _, Deserialize, Serialize};
+use tl_syntax::{
+    Formula, FormulaBindingError, FormulaDocument, Node, NodeId, NodeKind,
+    RequirementContextDocument, SemanticProfile, SignalCatalog, SignalCatalogDocument, SourceSpan,
+};
 
 use crate::{catalog, hash::sha256_bytes, hash::sha256_json, TL_SYNTAX_REVISION};
 
@@ -87,6 +90,38 @@ pub enum RewriteStatus {
     InvalidInput,
     /// No enabled v1 rule is approved for the input profile.
     UnsupportedProfile,
+    /// A context-bound formula named a proposition absent from the supplied catalog.
+    UnresolvedBinding,
+}
+
+/// Formula location at which a context-bound catalog binding was refused.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BindingLocus {
+    /// The original request formula could not be bound before execution.
+    Input,
+    /// A successful rewritten formula could not be bound before it escaped.
+    Output,
+}
+
+/// The first unresolved proposition in a contextual rewrite attempt.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BindingFailure {
+    /// Boundary at which the formula was checked.
+    pub locus: BindingLocus,
+    /// Stable proposition identity absent from the supplied catalog.
+    pub proposition_id: u32,
+}
+
+/// Closed local interpretation of one shared-catalog binding attempt.
+///
+/// `FormulaBindingError` is non-exhaustive upstream. New refusal variants must
+/// remain non-success here instead of silently becoming an accepted binding.
+pub(crate) enum BindingCheck {
+    Bound,
+    Missing(BindingFailure),
+    Refused(String),
 }
 
 /// One output-changing application in exact execution order.
@@ -114,7 +149,7 @@ pub struct RewriteStep {
 }
 
 /// Versioned attempt report; only success statuses carry `output`.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RewriteReport {
     /// Wire schema identity.
@@ -131,6 +166,15 @@ pub struct RewriteReport {
     pub input_sha256: String,
     /// Digest binding input, identity, catalog, strategy, budgets, and source revision.
     pub request_sha256: String,
+    /// Complete supplied signal-catalog identity for contextual v2 reports.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal_catalog_sha256: Option<String>,
+    /// Exact caller context for contextual v2 reports; `Some(None)` encodes JSON null.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requirement_context: Option<Option<RequirementContextDocument>>,
+    /// Contextual formula-binding refusal, when one stopped the request.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub binding_failure: Option<BindingFailure>,
     /// Successful output digest, absent for non-success.
     pub output_sha256: Option<String>,
     /// Last complete state digest for diagnostics.
@@ -157,6 +201,136 @@ pub struct RewriteReport {
     pub output: Option<FormulaDocument>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct RewriteReportV1Wire {
+    schema_version: String,
+    formula_id: String,
+    engine_source_revision: String,
+    syntax_revision: String,
+    catalog_sha256: String,
+    input_sha256: String,
+    request_sha256: String,
+    output_sha256: Option<String>,
+    partial_sha256: Option<String>,
+    semantic_profile: String,
+    options: RewriteOptions,
+    status: RewriteStatus,
+    exhausted_budget: Option<BudgetKind>,
+    detail: Option<String>,
+    iterations: u32,
+    work_units: u64,
+    rule_applications: u64,
+    steps: Vec<RewriteStep>,
+    output: Option<FormulaDocument>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct RewriteReportV2Wire {
+    schema_version: String,
+    formula_id: String,
+    engine_source_revision: String,
+    syntax_revision: String,
+    catalog_sha256: String,
+    input_sha256: String,
+    request_sha256: String,
+    signal_catalog_sha256: String,
+    requirement_context: serde_json::Value,
+    binding_failure: Option<BindingFailure>,
+    output_sha256: Option<String>,
+    partial_sha256: Option<String>,
+    semantic_profile: String,
+    options: RewriteOptions,
+    status: RewriteStatus,
+    exhausted_budget: Option<BudgetKind>,
+    detail: Option<String>,
+    iterations: u32,
+    work_units: u64,
+    rule_applications: u64,
+    steps: Vec<RewriteStep>,
+    output: Option<FormulaDocument>,
+}
+
+impl RewriteReport {
+    fn from_v1(w: RewriteReportV1Wire) -> Self {
+        Self {
+            schema_version: w.schema_version,
+            formula_id: w.formula_id,
+            engine_source_revision: w.engine_source_revision,
+            syntax_revision: w.syntax_revision,
+            catalog_sha256: w.catalog_sha256,
+            input_sha256: w.input_sha256,
+            request_sha256: w.request_sha256,
+            signal_catalog_sha256: None,
+            requirement_context: None,
+            binding_failure: None,
+            output_sha256: w.output_sha256,
+            partial_sha256: w.partial_sha256,
+            semantic_profile: w.semantic_profile,
+            options: w.options,
+            status: w.status,
+            exhausted_budget: w.exhausted_budget,
+            detail: w.detail,
+            iterations: w.iterations,
+            work_units: w.work_units,
+            rule_applications: w.rule_applications,
+            steps: w.steps,
+            output: w.output,
+        }
+    }
+    fn from_v2(w: RewriteReportV2Wire) -> Result<Self, String> {
+        let requirement_context = if w.requirement_context.is_null() {
+            None
+        } else {
+            Some(serde_json::from_value(w.requirement_context).map_err(|error| error.to_string())?)
+        };
+        Ok(Self {
+            schema_version: w.schema_version,
+            formula_id: w.formula_id,
+            engine_source_revision: w.engine_source_revision,
+            syntax_revision: w.syntax_revision,
+            catalog_sha256: w.catalog_sha256,
+            input_sha256: w.input_sha256,
+            request_sha256: w.request_sha256,
+            signal_catalog_sha256: Some(w.signal_catalog_sha256),
+            requirement_context: Some(requirement_context),
+            binding_failure: w.binding_failure,
+            output_sha256: w.output_sha256,
+            partial_sha256: w.partial_sha256,
+            semantic_profile: w.semantic_profile,
+            options: w.options,
+            status: w.status,
+            exhausted_budget: w.exhausted_budget,
+            detail: w.detail,
+            iterations: w.iterations,
+            work_units: w.work_units,
+            rule_applications: w.rule_applications,
+            steps: w.steps,
+            output: w.output,
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for RewriteReport {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let version = value
+            .get("schemaVersion")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| D::Error::custom("rewrite report requires schemaVersion"))?;
+        match version {
+            "tl-rewrite.report/v1" => serde_json::from_value::<RewriteReportV1Wire>(value)
+                .map(Self::from_v1)
+                .map_err(D::Error::custom),
+            "tl-rewrite.report/v2" => serde_json::from_value::<RewriteReportV2Wire>(value)
+                .and_then(|wire| Self::from_v2(wire).map_err(serde_json::Error::custom))
+                .map_err(D::Error::custom),
+            _ => Err(D::Error::custom("unsupported rewrite report schemaVersion")),
+        }
+    }
+}
+
 /// Replay comparison status.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -168,7 +342,7 @@ pub enum ReplayStatus {
 }
 
 /// Versioned replay result.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReplayReport {
     /// Wire schema identity.
@@ -179,6 +353,72 @@ pub struct ReplayReport {
     pub expected_report_sha256: String,
     /// Digest of the freshly observed report.
     pub observed_report_sha256: String,
+    /// Complete supplied signal-catalog identity for contextual v2 replay.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal_catalog_sha256: Option<String>,
+    /// Exact caller context for contextual v2 replay; `Some(None)` encodes JSON null.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requirement_context: Option<Option<RequirementContextDocument>>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ReplayReportV1Wire {
+    schema_version: String,
+    status: ReplayStatus,
+    expected_report_sha256: String,
+    observed_report_sha256: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ReplayReportV2Wire {
+    schema_version: String,
+    status: ReplayStatus,
+    expected_report_sha256: String,
+    observed_report_sha256: String,
+    signal_catalog_sha256: String,
+    requirement_context: serde_json::Value,
+}
+
+impl<'de> Deserialize<'de> for ReplayReport {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let version = value
+            .get("schemaVersion")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| D::Error::custom("replay report requires schemaVersion"))?;
+        match version {
+            "tl-rewrite.replay/v1" => serde_json::from_value::<ReplayReportV1Wire>(value)
+                .map(|wire| Self {
+                    schema_version: wire.schema_version,
+                    status: wire.status,
+                    expected_report_sha256: wire.expected_report_sha256,
+                    observed_report_sha256: wire.observed_report_sha256,
+                    signal_catalog_sha256: None,
+                    requirement_context: None,
+                })
+                .map_err(D::Error::custom),
+            "tl-rewrite.replay/v2" => serde_json::from_value::<ReplayReportV2Wire>(value)
+                .and_then(|wire| {
+                    let context = if wire.requirement_context.is_null() {
+                        None
+                    } else {
+                        Some(serde_json::from_value(wire.requirement_context)?)
+                    };
+                    Ok(Self {
+                        schema_version: wire.schema_version,
+                        status: wire.status,
+                        expected_report_sha256: wire.expected_report_sha256,
+                        observed_report_sha256: wire.observed_report_sha256,
+                        signal_catalog_sha256: Some(wire.signal_catalog_sha256),
+                        requirement_context: Some(context),
+                    })
+                })
+                .map_err(D::Error::custom),
+            _ => Err(D::Error::custom("unsupported replay report schemaVersion")),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -757,6 +997,9 @@ fn report_base(
         catalog_sha256,
         input_sha256: sha256_json(input),
         request_sha256,
+        signal_catalog_sha256: None,
+        requirement_context: None,
+        binding_failure: None,
         output_sha256: None,
         partial_sha256: None,
         semantic_profile: input.semantic_profile().as_str().to_owned(),
@@ -769,6 +1012,70 @@ fn report_base(
         rule_applications: 0,
         steps: Vec::new(),
         output: None,
+    }
+}
+
+fn contextual_report_base(
+    input: &FormulaDocument,
+    formula_id: String,
+    options: RewriteOptions,
+    source_revision: String,
+    signal_catalog: &SignalCatalogDocument,
+    requirement_context: Option<RequirementContextDocument>,
+) -> RewriteReport {
+    let catalog_sha256 = catalog().catalog_sha256;
+    let signal_catalog_sha256 = sha256_json(signal_catalog);
+    let request_sha256 = sha256_json(&(
+        "tl-rewrite.contextual-request/v2",
+        input,
+        &formula_id,
+        options,
+        &source_revision,
+        &catalog_sha256,
+        signal_catalog,
+        &requirement_context,
+        TL_SYNTAX_REVISION,
+    ));
+    RewriteReport {
+        schema_version: "tl-rewrite.report/v2".to_owned(),
+        formula_id,
+        engine_source_revision: source_revision,
+        syntax_revision: TL_SYNTAX_REVISION.to_owned(),
+        catalog_sha256,
+        input_sha256: sha256_json(input),
+        request_sha256,
+        signal_catalog_sha256: Some(signal_catalog_sha256),
+        requirement_context: Some(requirement_context),
+        binding_failure: None,
+        output_sha256: None,
+        partial_sha256: None,
+        semantic_profile: input.semantic_profile().as_str().to_owned(),
+        options,
+        status: RewriteStatus::InvalidInput,
+        exhausted_budget: None,
+        detail: None,
+        iterations: 0,
+        work_units: 0,
+        rule_applications: 0,
+        steps: Vec::new(),
+        output: None,
+    }
+}
+
+pub(crate) fn binding_check(
+    signal_catalog: SignalCatalog<'_>,
+    formula: Formula<'_>,
+    locus: BindingLocus,
+) -> BindingCheck {
+    match signal_catalog.bind_formula(formula) {
+        Err(FormulaBindingError::MissingPropositionBinding { proposition }) => {
+            BindingCheck::Missing(BindingFailure {
+                locus,
+                proposition_id: proposition.0,
+            })
+        }
+        Ok(_) => BindingCheck::Bound,
+        Err(error) => BindingCheck::Refused(error.to_string()),
     }
 }
 
@@ -847,17 +1154,21 @@ where
 /// Rewrites one validated formula to a fixed point or explicit non-success.
 ///
 /// Implements: FR-002, FR-003
-pub fn rewrite(
+fn rewrite_validated_with_builder<F>(
     input: &FormulaDocument,
-    formula_id: impl Into<String>,
+    mut report: RewriteReport,
     options: RewriteOptions,
-    source_revision: impl Into<String>,
-) -> RewriteReport {
-    let mut report = report_base(input, formula_id.into(), options, source_revision.into());
-    if let Err(error) = input.validate() {
-        report.detail = Some(error.to_string());
-        return report;
-    }
+    build: F,
+) -> RewriteReport
+where
+    F: FnMut(
+        &FormulaDocument,
+        u32,
+        &mut PassState,
+        &mut Vec<RewriteStep>,
+        &mut String,
+    ) -> Result<FormulaDocument, Abort>,
+{
     if input.semantic_profile() != SemanticProfile::ClosedTraceV1 {
         report.status = RewriteStatus::UnsupportedProfile;
         report.detail = Some(
@@ -885,14 +1196,143 @@ pub fn rewrite(
         work_units: 0,
         budgets: options.budgets,
     };
-    run_passes(
-        current,
-        input_was_compacted,
-        report,
+    run_passes(current, input_was_compacted, report, options, state, build)
+}
+
+/// Rewrites one validated formula to a fixed point or explicit non-success.
+///
+/// Implements: FR-002, FR-003
+pub fn rewrite(
+    input: &FormulaDocument,
+    formula_id: impl Into<String>,
+    options: RewriteOptions,
+    source_revision: impl Into<String>,
+) -> RewriteReport {
+    let mut report = report_base(input, formula_id.into(), options, source_revision.into());
+    if let Err(error) = input.validate() {
+        report.detail = Some(error.to_string());
+        return report;
+    }
+    rewrite_validated_with_builder(input, report, options, build_pass)
+}
+
+/// Rewrites with one shared signal catalog and an exact-or-absent caller context.
+///
+/// The catalog is validated before any rewrite work. A missing formula binding is
+/// a typed v2 non-success; catalog shape validation itself remains owned by
+/// `tl-syntax`.
+///
+/// Implements: FR-007-AC-1, FR-007-AC-3
+pub fn rewrite_with_context(
+    input: &FormulaDocument,
+    formula_id: impl Into<String>,
+    options: RewriteOptions,
+    source_revision: impl Into<String>,
+    signal_catalog: &SignalCatalogDocument,
+    requirement_context: Option<RequirementContextDocument>,
+) -> RewriteReport {
+    rewrite_with_context_using_builder(
+        input,
+        formula_id,
         options,
-        state,
+        source_revision,
+        signal_catalog,
+        requirement_context,
         build_pass,
     )
+}
+
+fn rewrite_with_context_using_builder<F>(
+    input: &FormulaDocument,
+    formula_id: impl Into<String>,
+    options: RewriteOptions,
+    source_revision: impl Into<String>,
+    signal_catalog: &SignalCatalogDocument,
+    requirement_context: Option<RequirementContextDocument>,
+    build: F,
+) -> RewriteReport
+where
+    F: FnMut(
+        &FormulaDocument,
+        u32,
+        &mut PassState,
+        &mut Vec<RewriteStep>,
+        &mut String,
+    ) -> Result<FormulaDocument, Abort>,
+{
+    let formula_id = formula_id.into();
+    let source_revision = source_revision.into();
+    let mut contextual = contextual_report_base(
+        input,
+        formula_id.clone(),
+        options,
+        source_revision.clone(),
+        signal_catalog,
+        requirement_context,
+    );
+    let Ok(formula) = input.validate() else {
+        contextual.detail = Some("the input formula is invalid".to_owned());
+        return contextual;
+    };
+    let Ok(catalog) = signal_catalog.validate() else {
+        contextual.detail = Some("the supplied signal catalog is invalid".to_owned());
+        return contextual;
+    };
+    match binding_check(catalog, formula, BindingLocus::Input) {
+        BindingCheck::Bound => {}
+        BindingCheck::Missing(binding_failure) => {
+            contextual.status = RewriteStatus::UnresolvedBinding;
+            contextual.binding_failure = Some(binding_failure);
+            contextual.detail = Some(format!(
+                "formula proposition {} has no signal binding",
+                binding_failure.proposition_id
+            ));
+            return contextual;
+        }
+        BindingCheck::Refused(error) => {
+            contextual.status = RewriteStatus::UnresolvedBinding;
+            contextual.detail = Some(format!(
+                "the supplied signal catalog refused input binding: {error}"
+            ));
+            return contextual;
+        }
+    }
+
+    let mut observed = rewrite_validated_with_builder(input, contextual, options, build);
+    if let Some(output) = observed.output.as_ref() {
+        match output.validate() {
+            Ok(output_formula) => {
+                match binding_check(catalog, output_formula, BindingLocus::Output) {
+                    BindingCheck::Bound => {}
+                    BindingCheck::Missing(binding_failure) => {
+                        observed.status = RewriteStatus::UnresolvedBinding;
+                        observed.binding_failure = Some(binding_failure);
+                        observed.detail = Some(format!(
+                            "formula proposition {} has no signal binding",
+                            binding_failure.proposition_id
+                        ));
+                        observed.output = None;
+                        observed.output_sha256 = None;
+                    }
+                    BindingCheck::Refused(error) => {
+                        observed.status = RewriteStatus::UnresolvedBinding;
+                        observed.detail = Some(format!(
+                            "the supplied signal catalog refused output binding: {error}"
+                        ));
+                        observed.output = None;
+                        observed.output_sha256 = None;
+                    }
+                }
+            }
+            Err(error) => {
+                observed.status = RewriteStatus::InvalidInput;
+                observed.detail = Some(format!("a successful rewrite output was invalid: {error}"));
+                observed.output = None;
+                observed.output_sha256 = None;
+            }
+        }
+    }
+    observed
 }
 
 /// Re-executes a report's exact identity and options and compares every field.
@@ -916,14 +1356,59 @@ pub fn replay(input: &FormulaDocument, expected: &RewriteReport) -> ReplayReport
         },
         expected_report_sha256,
         observed_report_sha256,
+        signal_catalog_sha256: None,
+        requirement_context: None,
+    }
+}
+
+/// Re-executes a contextual request and compares the complete native v2 report.
+///
+/// Callers must resupply the complete catalog and exact-or-absent context; their
+/// values are inputs to the observed request digest rather than copied from the
+/// expected record.
+///
+/// Implements: FR-007-AC-2
+pub fn replay_with_context(
+    input: &FormulaDocument,
+    expected: &RewriteReport,
+    signal_catalog: &SignalCatalogDocument,
+    requirement_context: Option<RequirementContextDocument>,
+) -> ReplayReport {
+    let observed = rewrite_with_context(
+        input,
+        expected.formula_id.clone(),
+        expected.options,
+        expected.engine_source_revision.clone(),
+        signal_catalog,
+        requirement_context.clone(),
+    );
+    let expected_report_sha256 = sha256_json(expected);
+    let observed_report_sha256 = sha256_json(&observed);
+    ReplayReport {
+        schema_version: "tl-rewrite.replay/v2".to_owned(),
+        status: if observed == *expected {
+            ReplayStatus::Verified
+        } else {
+            ReplayStatus::Mismatch
+        },
+        expected_report_sha256,
+        observed_report_sha256,
+        signal_catalog_sha256: Some(sha256_json(signal_catalog)),
+        requirement_context: Some(requirement_context),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{report_base, run_passes, PassState, RewriteOptions, RewriteStatus};
+    use super::{
+        report_base, rewrite_with_context_using_builder, run_passes, BindingFailure, BindingLocus,
+        PassState, RewriteOptions, RewriteStatus,
+    };
     use std::collections::BTreeMap;
-    use tl_syntax::{FormulaDocument, Node, NodeId, NodeKind, SemanticProfile};
+    use tl_syntax::{
+        FormulaDocument, Node, NodeId, NodeKind, OwnedSignalDeclaration, PropositionBinding,
+        PropositionId, SemanticProfile, SignalCatalogDocument, SignalDomain, SignalId,
+    };
 
     // Trace: TC-020, FR-002-AC-2, NFR-001-AC-2
     #[test]
@@ -963,5 +1448,54 @@ mod tests {
         assert_eq!(observed.status, RewriteStatus::NonConvergent);
         assert_eq!(observed.iterations, 2);
         assert!(observed.output.is_none());
+    }
+
+    // Trace: TC-033, FR-007-AC-3
+    #[test]
+    fn output_binding_refusal_names_the_output_locus() {
+        let input = FormulaDocument::new(
+            SemanticProfile::ClosedTraceV1,
+            NodeId(0),
+            vec![Node::new(NodeKind::Proposition {
+                proposition: PropositionId(7),
+            })],
+        )
+        .unwrap();
+        let output = FormulaDocument::new(
+            SemanticProfile::ClosedTraceV1,
+            NodeId(0),
+            vec![Node::new(NodeKind::Proposition {
+                proposition: PropositionId(8),
+            })],
+        )
+        .unwrap();
+        let signal_catalog = SignalCatalogDocument::new(
+            vec![OwnedSignalDeclaration::new(
+                SignalId(11),
+                "request_ready".to_owned(),
+                SignalDomain::Boolean,
+            )],
+            vec![PropositionBinding::new(PropositionId(7), SignalId(11))],
+        )
+        .unwrap();
+        let observed = rewrite_with_context_using_builder(
+            &input,
+            "output-binding",
+            RewriteOptions::default(),
+            "source",
+            &signal_catalog,
+            None,
+            |_, _, _, _, _| Ok(output.clone()),
+        );
+        assert_eq!(observed.status, RewriteStatus::UnresolvedBinding);
+        assert_eq!(
+            observed.binding_failure,
+            Some(BindingFailure {
+                locus: BindingLocus::Output,
+                proposition_id: 8,
+            })
+        );
+        assert!(observed.output.is_none());
+        assert!(observed.output_sha256.is_none());
     }
 }

@@ -1,10 +1,18 @@
 use std::collections::BTreeSet;
 
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as _, Deserialize, Serialize};
 use tl_mltl::{analyze_horizon, evaluate_closed, EvaluationLimits, TruthValue};
-use tl_syntax::{Formula, FormulaDocument, NodeKind, PropositionId, SemanticProfile};
+use tl_syntax::{
+    Formula, FormulaDocument, NodeKind, PropositionId, RequirementContextDocument, SemanticProfile,
+    SignalCatalogDocument,
+};
 
-use crate::{catalog, hash::sha256_json, TL_MLTL_REVISION, TL_SYNTAX_REVISION, WEST_REVISION};
+use crate::{
+    catalog,
+    hash::sha256_json,
+    rewrite::{binding_check, BindingCheck},
+    TL_MLTL_REVISION, TL_SYNTAX_REVISION, WEST_REVISION,
+};
 
 const MAX_MATERIALIZED_INSTANTS: u64 = 100_000;
 
@@ -58,10 +66,14 @@ pub enum ConformanceReason {
     TraceDomainLimit,
     /// The pinned reference evaluator returned an error.
     EvaluatorError,
+    /// The original contextual formula names a proposition absent from the catalog.
+    OriginalBinding,
+    /// The rewritten contextual formula names a proposition absent from the catalog.
+    RewrittenBinding,
 }
 
 /// Versioned exhaustive bounded comparison report.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ConformanceReport {
     /// Wire schema identity.
@@ -84,6 +96,18 @@ pub struct ConformanceReport {
     pub catalog_version: String,
     /// Exact ordered catalog digest.
     pub catalog_sha256: String,
+    /// Complete supplied signal-catalog identity for contextual v2 reports.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal_catalog_sha256: Option<String>,
+    /// Exact caller context for contextual v2 reports; `Some(None)` encodes JSON null.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requirement_context: Option<Option<RequirementContextDocument>>,
+    /// Contextual request identity binding both formulas and the supplied documents.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_sha256: Option<String>,
+    /// Contextual binding refusal locus and proposition identity.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub binding_failure: Option<crate::BindingFailure>,
     /// Options defining the conclusive boundary.
     pub options: ConformanceOptions,
     /// Sorted proposition population.
@@ -108,6 +132,159 @@ pub struct ConformanceReport {
     pub rewritten_verdict: Option<TruthValue>,
     /// Qualification boundary.
     pub limitation: String,
+}
+
+/// Closed legacy wire shape. Keeping it separate makes contextual-field
+/// smuggling into v1 records a decoding error rather than an ignored input.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ConformanceReportV1Wire {
+    schema_version: String,
+    comparison_id: String,
+    original_sha256: String,
+    rewritten_sha256: String,
+    semantic_profile: String,
+    syntax_revision: String,
+    evaluator_revision: String,
+    west_revision: String,
+    catalog_version: String,
+    catalog_sha256: String,
+    options: ConformanceOptions,
+    proposition_ids: Vec<u32>,
+    horizon: Option<u64>,
+    trace_length: Option<u64>,
+    total_traces: Option<u64>,
+    traces_checked: u64,
+    status: ConformanceStatus,
+    reason: Option<ConformanceReason>,
+    counterexample: Option<Vec<Vec<u32>>>,
+    original_verdict: Option<TruthValue>,
+    rewritten_verdict: Option<TruthValue>,
+    limitation: String,
+}
+
+/// Closed contextual wire shape. `requirement_context` deliberately remains a
+/// raw value until after shape validation so a missing field is distinct from
+/// its required explicit-null spelling.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ConformanceReportV2Wire {
+    schema_version: String,
+    comparison_id: String,
+    original_sha256: String,
+    rewritten_sha256: String,
+    semantic_profile: String,
+    syntax_revision: String,
+    evaluator_revision: String,
+    west_revision: String,
+    catalog_version: String,
+    catalog_sha256: String,
+    signal_catalog_sha256: String,
+    requirement_context: serde_json::Value,
+    request_sha256: String,
+    binding_failure: Option<crate::BindingFailure>,
+    options: ConformanceOptions,
+    proposition_ids: Vec<u32>,
+    horizon: Option<u64>,
+    trace_length: Option<u64>,
+    total_traces: Option<u64>,
+    traces_checked: u64,
+    status: ConformanceStatus,
+    reason: Option<ConformanceReason>,
+    counterexample: Option<Vec<Vec<u32>>>,
+    original_verdict: Option<TruthValue>,
+    rewritten_verdict: Option<TruthValue>,
+    limitation: String,
+}
+
+impl ConformanceReport {
+    fn from_v1(wire: ConformanceReportV1Wire) -> Self {
+        Self {
+            schema_version: wire.schema_version,
+            comparison_id: wire.comparison_id,
+            original_sha256: wire.original_sha256,
+            rewritten_sha256: wire.rewritten_sha256,
+            semantic_profile: wire.semantic_profile,
+            syntax_revision: wire.syntax_revision,
+            evaluator_revision: wire.evaluator_revision,
+            west_revision: wire.west_revision,
+            catalog_version: wire.catalog_version,
+            catalog_sha256: wire.catalog_sha256,
+            signal_catalog_sha256: None,
+            requirement_context: None,
+            request_sha256: None,
+            binding_failure: None,
+            options: wire.options,
+            proposition_ids: wire.proposition_ids,
+            horizon: wire.horizon,
+            trace_length: wire.trace_length,
+            total_traces: wire.total_traces,
+            traces_checked: wire.traces_checked,
+            status: wire.status,
+            reason: wire.reason,
+            counterexample: wire.counterexample,
+            original_verdict: wire.original_verdict,
+            rewritten_verdict: wire.rewritten_verdict,
+            limitation: wire.limitation,
+        }
+    }
+
+    fn from_v2(wire: ConformanceReportV2Wire) -> Result<Self, serde_json::Error> {
+        let requirement_context = if wire.requirement_context.is_null() {
+            None
+        } else {
+            Some(serde_json::from_value(wire.requirement_context)?)
+        };
+        Ok(Self {
+            schema_version: wire.schema_version,
+            comparison_id: wire.comparison_id,
+            original_sha256: wire.original_sha256,
+            rewritten_sha256: wire.rewritten_sha256,
+            semantic_profile: wire.semantic_profile,
+            syntax_revision: wire.syntax_revision,
+            evaluator_revision: wire.evaluator_revision,
+            west_revision: wire.west_revision,
+            catalog_version: wire.catalog_version,
+            catalog_sha256: wire.catalog_sha256,
+            signal_catalog_sha256: Some(wire.signal_catalog_sha256),
+            requirement_context: Some(requirement_context),
+            request_sha256: Some(wire.request_sha256),
+            binding_failure: wire.binding_failure,
+            options: wire.options,
+            proposition_ids: wire.proposition_ids,
+            horizon: wire.horizon,
+            trace_length: wire.trace_length,
+            total_traces: wire.total_traces,
+            traces_checked: wire.traces_checked,
+            status: wire.status,
+            reason: wire.reason,
+            counterexample: wire.counterexample,
+            original_verdict: wire.original_verdict,
+            rewritten_verdict: wire.rewritten_verdict,
+            limitation: wire.limitation,
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for ConformanceReport {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let version = value
+            .get("schemaVersion")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| D::Error::custom("conformance report requires schemaVersion"))?;
+        match version {
+            "tl-rewrite.conformance/v1" => serde_json::from_value::<ConformanceReportV1Wire>(value)
+                .map(Self::from_v1)
+                .map_err(D::Error::custom),
+            "tl-rewrite.conformance/v2" => serde_json::from_value::<ConformanceReportV2Wire>(value)
+                .and_then(|wire| Self::from_v2(wire).map_err(serde_json::Error::custom))
+                .map_err(D::Error::custom),
+            _ => Err(D::Error::custom(
+                "unsupported conformance report schemaVersion",
+            )),
+        }
+    }
 }
 
 fn propositions(formula: Formula<'_>, destination: &mut BTreeSet<u32>) {
@@ -139,7 +316,7 @@ fn report_base(
     comparison_id: String,
     options: ConformanceOptions,
 ) -> ConformanceReport {
-    let catalog = catalog();
+    let rule_catalog = catalog();
     ConformanceReport {
         schema_version: "tl-rewrite.conformance/v1".to_owned(),
         comparison_id,
@@ -149,8 +326,12 @@ fn report_base(
         syntax_revision: TL_SYNTAX_REVISION.to_owned(),
         evaluator_revision: TL_MLTL_REVISION.to_owned(),
         west_revision: WEST_REVISION.to_owned(),
-        catalog_version: catalog.catalog_version,
-        catalog_sha256: catalog.catalog_sha256,
+        catalog_version: rule_catalog.catalog_version,
+        catalog_sha256: rule_catalog.catalog_sha256,
+        signal_catalog_sha256: None,
+        requirement_context: None,
+        request_sha256: None,
+        binding_failure: None,
         options,
         proposition_ids: Vec::new(),
         horizon: None,
@@ -276,4 +457,73 @@ pub fn check_equivalence(
     }
     report.status = ConformanceStatus::Equivalent;
     report
+}
+
+/// Exhaustively compares a context-bound pair after binding both formulas to one
+/// shared catalog. Binding refusal happens before horizon or trace enumeration.
+///
+/// Implements: FR-007-AC-4
+pub fn check_equivalence_with_context(
+    original: &FormulaDocument,
+    rewritten: &FormulaDocument,
+    comparison_id: impl Into<String>,
+    options: ConformanceOptions,
+    signal_catalog: &SignalCatalogDocument,
+    requirement_context: Option<RequirementContextDocument>,
+) -> ConformanceReport {
+    let comparison_id = comparison_id.into();
+    let mut report = report_base(original, rewritten, comparison_id.clone(), options);
+    let rule_catalog = catalog();
+    report.schema_version = "tl-rewrite.conformance/v2".to_owned();
+    report.signal_catalog_sha256 = Some(sha256_json(signal_catalog));
+    report.request_sha256 = Some(sha256_json(&(
+        "tl-rewrite.contextual-conformance-request/v2",
+        original,
+        rewritten,
+        &comparison_id,
+        options,
+        signal_catalog,
+        &requirement_context,
+        TL_SYNTAX_REVISION,
+        TL_MLTL_REVISION,
+        WEST_REVISION,
+        &rule_catalog.catalog_version,
+        &rule_catalog.catalog_sha256,
+    )));
+    report.requirement_context = Some(requirement_context);
+    let Ok(catalog) = signal_catalog.validate() else {
+        return non_conclusive(report, ConformanceReason::InvalidInput);
+    };
+    let Ok(original_formula) = original.validate() else {
+        return non_conclusive(report, ConformanceReason::InvalidInput);
+    };
+    match binding_check(catalog, original_formula, crate::BindingLocus::Input) {
+        BindingCheck::Bound => {}
+        BindingCheck::Missing(binding_failure) => {
+            report.binding_failure = Some(binding_failure);
+            return non_conclusive(report, ConformanceReason::OriginalBinding);
+        }
+        BindingCheck::Refused(_) => {
+            return non_conclusive(report, ConformanceReason::OriginalBinding);
+        }
+    }
+    let Ok(rewritten_formula) = rewritten.validate() else {
+        return non_conclusive(report, ConformanceReason::InvalidInput);
+    };
+    match binding_check(catalog, rewritten_formula, crate::BindingLocus::Output) {
+        BindingCheck::Bound => {}
+        BindingCheck::Missing(binding_failure) => {
+            report.binding_failure = Some(binding_failure);
+            return non_conclusive(report, ConformanceReason::RewrittenBinding);
+        }
+        BindingCheck::Refused(_) => {
+            return non_conclusive(report, ConformanceReason::RewrittenBinding);
+        }
+    }
+    let mut observed = check_equivalence(original, rewritten, comparison_id, options);
+    observed.schema_version = report.schema_version;
+    observed.signal_catalog_sha256 = report.signal_catalog_sha256;
+    observed.requirement_context = report.requirement_context;
+    observed.request_sha256 = report.request_sha256;
+    observed
 }

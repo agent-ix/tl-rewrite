@@ -197,10 +197,26 @@ fn chain_report() -> &'static Value {
                 "--candidate-revision",
                 &revision,
                 "--json",
+                "--keep-store",
             ],
         );
         assert_eq!(code, 0, "the assurance chain exited {code}\n{stderr}");
         serde_json::from_str(&stdout).expect("the assurance chain did not emit JSON")
+    })
+}
+
+fn retained_output_contains(directory: &Path, expected: &[u8]) -> bool {
+    let Ok(entries) = fs::read_dir(directory) else {
+        return false;
+    };
+    entries.filter_map(Result::ok).any(|entry| {
+        let path = entry.path();
+        if path.is_dir() {
+            retained_output_contains(&path, expected)
+        } else {
+            path.file_name().is_some_and(|name| name == "output.bin")
+                && fs::read(path).is_ok_and(|bytes| bytes == expected)
+        }
     })
 }
 
@@ -609,6 +625,43 @@ fn the_chain_never_executes_a_producer_and_the_probe_can_prove_it() {
     );
 }
 
+// Trace: TC-036, FR-007-AC-6
+#[test]
+fn contextual_native_result_crosses_the_existing_quoin_intake() {
+    let chain = chain_report();
+    assert_eq!(
+        chain["attested_results"]["PROOF-normalization-sweep"], "passed",
+        "the existing Quoin intake did not attest the normalization producer: {chain:#}"
+    );
+
+    let produced = fs::read(root().join("target/assurance/normalization-sweep.jsonl"))
+        .expect("read the existing normalization producer stream");
+    let contextual = produced
+        .split(|byte| *byte == b'\n')
+        .filter(|line| !line.is_empty())
+        .map(|line| serde_json::from_slice::<Value>(line).expect("normalization row is JSON"))
+        .find(|row| row["symbol"] == "contextual-native-result")
+        .expect("the existing normalization producer emitted no contextual native result");
+    assert_eq!(contextual["protocol"], "tl-rewrite.normalization-sweep/v1");
+    assert_eq!(contextual["outcome"], "pass");
+    assert_eq!(
+        contextual["properties"]["contextualReport"]["schemaVersion"],
+        "tl-rewrite.report/v2"
+    );
+    assert_eq!(
+        contextual["properties"]["contextualReplay"]["schemaVersion"],
+        "tl-rewrite.replay/v2"
+    );
+    assert_eq!(
+        contextual["properties"]["contextualReplay"]["status"],
+        "verified"
+    );
+    assert!(
+        retained_output_contains(&root().join("target/assurance-store"), &produced),
+        "Quoin retained no byte-identical copy of the producer stream containing the contextual native result"
+    );
+}
+
 /// Digest every producer output the chain consumes.
 fn assurance_input_digests() -> Vec<(String, String)> {
     let directory = root().join("target/assurance");
@@ -664,8 +717,8 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     let parsed: Value = serde_json::from_slice(&bytes).expect("the Quire export is JSON");
     let text = String::from_utf8_lossy(&bytes);
     for requirement in [
-        "FR-001", "FR-002", "FR-003", "FR-004", "FR-005", "FR-006", "NFR-001", "NFR-002",
-        "NFR-003", "StR-001", "StR-002",
+        "FR-001", "FR-002", "FR-003", "FR-004", "FR-005", "FR-006", "FR-007", "NFR-001", "NFR-002",
+        "NFR-003", "StR-001", "StR-002", "StR-003",
     ] {
         assert!(
             text.contains(requirement),
@@ -682,22 +735,22 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
-    // 68, and the arithmetic is stated so the drop is auditable rather than
-    // merely smaller. It was 72 before issue #13, which removed exactly four
+    // 83: the prior 68 plus 15 contextual-report rows. The earlier 68 was the
+    // audited post-deletion value. It was 72 before issue #13, which removed exactly four
     // rows: FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4 and TC-026. Each was a claim
     // about retained evidence that no longer exists, and each went with its test
     // rather than being left to report unbacked.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 68, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 83, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 68,
+        totals["backed"], 83,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );
     // The field that actually moves. An adversarial review measured that
     // repointing one matrix row at nonexistent test cases leaves `totals.backed`
     // at its full count while `unbacked_rows` gains an entry, so the totals alone
-    // are not a check. That was measured at 72/72 and the count is 68/68 now;
+    // are not a check. That was measured at 72/72 and the count is 83/83 now;
     // the figure is left out so it does not go stale again.
     assert!(
         parsed["unbacked_rows"].as_array().unwrap().is_empty(),
@@ -1444,7 +1497,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **100** scanned tracked files — 104 tracked
+    // Population at this review head: **112** scanned tracked files — 116 tracked
     // in total, minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
@@ -1452,7 +1505,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 12 root, 53 `spec`, 9 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // By area: 12 root, 64 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
@@ -1461,8 +1514,8 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 100,
-        "the source census population changed from the reviewed 100 tracked files \
+        inspected, 112,
+        "the source census population changed from the reviewed 112 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
@@ -1790,10 +1843,12 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
     )
     .unwrap();
     let library = fs::read_to_string(root().join("src/lib.rs")).unwrap();
-    let stale = library.replace(
-        "f7eb8bdf93f588050a40b2a4bf7b418f7c63a0e9",
-        "fe1c620d7baa743d9c6b4dda27f40d207721fcc9",
-    );
+    let current = library
+        .lines()
+        .find(|line| line.contains("TL_MLTL_REVISION"))
+        .and_then(|line| line.split('"').nth(1))
+        .expect("TL_MLTL_REVISION is a quoted source identity");
+    let stale = library.replacen(current, &"0".repeat(current.len()), 1);
     assert_ne!(stale, library, "the probe's mutation did not apply");
     fs::write(scratch.join("src/lib.rs"), stale).unwrap();
 

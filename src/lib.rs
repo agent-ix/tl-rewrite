@@ -16,18 +16,20 @@ pub use catalog::{
     RuleDisposition,
 };
 pub use equivalence::{
-    check_equivalence, ConformanceOptions, ConformanceReason, ConformanceReport, ConformanceStatus,
+    check_equivalence, check_equivalence_with_context, ConformanceOptions, ConformanceReason,
+    ConformanceReport, ConformanceStatus,
 };
 pub use rewrite::{
-    replay, rewrite, BudgetKind, ReplayReport, ReplayStatus, RewriteBudgets, RewriteOptions,
-    RewriteReport, RewriteStatus, RewriteStep, RewriteStrategy,
+    replay, replay_with_context, rewrite, rewrite_with_context, BindingFailure, BindingLocus,
+    BudgetKind, ReplayReport, ReplayStatus, RewriteBudgets, RewriteOptions, RewriteReport,
+    RewriteStatus, RewriteStep, RewriteStrategy,
 };
 
 /// Exact tl-syntax source revision consumed by this candidate.
-pub const TL_SYNTAX_REVISION: &str = "953ee825e5060335b4c79682f5f41a78c5a1bfae";
+pub const TL_SYNTAX_REVISION: &str = "6ad7499f2ccc179bb33b2590666399c6632a7e3c";
 
 /// Exact tl-mltl reference source revision consumed by this candidate.
-pub const TL_MLTL_REVISION: &str = "f7eb8bdf93f588050a40b2a4bf7b418f7c63a0e9";
+pub const TL_MLTL_REVISION: &str = "11eaa04710ffe0ea52b8abf5e70eafe150a99232";
 
 /// Exact canonical WEST source revision from which permitted fixtures were selected.
 pub const WEST_REVISION: &str = "21cd99ab2e6095a099dd179029cfdeb54268ad3f";

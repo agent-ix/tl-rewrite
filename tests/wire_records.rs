@@ -3,6 +3,7 @@ mod common;
 use std::{fs, path::PathBuf};
 
 use common::{document, proposition};
+use sha2::{Digest, Sha256};
 use tl_rewrite::{
     catalog, check_equivalence, replay, rewrite, CatalogDocument, ConformanceOptions,
     ConformanceReport, ReplayReport, RewriteOptions, RewriteReport,
@@ -58,6 +59,42 @@ fn versioned_records_round_trip_and_reject_unknown_fields() {
         conformance
     );
     assert!(serde_json::from_value::<ConformanceReport>(add_unknown(conformance_value)).is_err());
+}
+
+// Trace: TC-035, FR-007-AC-5
+#[test]
+fn context_free_report_families_keep_their_v1_wire_bytes() {
+    let input = document(SemanticProfile::ClosedTraceV1, vec![proposition(0)]);
+    let rewrite_report = rewrite(&input, "v1-snapshot", RewriteOptions::default(), "source");
+    let replay_report = replay(&input, &rewrite_report);
+    let conformance = check_equivalence(
+        &input,
+        rewrite_report.output.as_ref().unwrap(),
+        "v1-snapshot",
+        ConformanceOptions::default(),
+    );
+    let digest = |value: &[u8]| format!("{:x}", Sha256::digest(value));
+    let rewrite_bytes = serde_json::to_vec(&rewrite_report).unwrap();
+    let replay_bytes = serde_json::to_vec(&replay_report).unwrap();
+    let conformance_bytes = serde_json::to_vec(&conformance).unwrap();
+    // The v1 schemas are fixed, but their bytes bind declared dependency
+    // identities: the rewrite snapshot moved with tl-syntax, replay carries
+    // rewrite-report digests, and conformance binds both tl-syntax and tl-mltl.
+    assert_eq!(
+        digest(&rewrite_bytes),
+        "a1076329ed3a700bcc1a5e14f7bcdaab9bc1f6e313911218c43e7937349813f1"
+    );
+    assert_eq!(
+        digest(&replay_bytes),
+        "32c6d754cc0189597cece52ddf7c40ff2909ef972c70b6c3cf8f4a6e2dc183f0"
+    );
+    assert_eq!(
+        digest(&conformance_bytes),
+        "3520c38c9c91a1aeef9f08fecfc9326f3995e39ebd33c2dee044c73dfc59058e"
+    );
+    assert_eq!(rewrite_report.schema_version, "tl-rewrite.report/v1");
+    assert_eq!(replay_report.schema_version, "tl-rewrite.replay/v1");
+    assert_eq!(conformance.schema_version, "tl-rewrite.conformance/v1");
 }
 
 // Trace: TC-019, FR-005-AC-3, StR-001-VC-1

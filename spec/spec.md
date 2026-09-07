@@ -18,7 +18,9 @@ relationships:
 This specification defines deterministic, bounded, semantics-preserving MLTL
 rewriting. It owns a provenance-bearing rule catalog, controlled execution,
 replayable traces, and bounded equivalence evidence against the exact tl-mltl
-reference evaluator and permitted WEST cases.
+reference evaluator and permitted WEST cases. When supplied, it also preserves
+the exact shared tl-syntax signal catalog and caller requirement context through
+those native results.
 
 PGM-01 governs compatibility, provenance, evidence, human authority, and
 qualification boundaries. Formula/profile identities come from the exact
@@ -44,26 +46,32 @@ which is the defect `TC-030` exists to catch.
   application, and logical-work budgets.
 - Versioned success and non-conclusive reports with replayable step traces.
 - Exhaustive bounded closed-trace comparison and a pinned WEST fixture subset.
+- Context-bound native rewrite, replay, and conformance report versions using
+  the shared tl-syntax signal and requirement-context types.
 
 ### Out of Scope
 
 - Text parsing, a second formula AST, or a general-purpose optimizer.
+- Signal-schema ownership, contract-IR translation, or provenance inference.
 - Unbounded equality saturation or wall-clock performance claims.
 - Production monitoring, proof-system certification, or automatic release.
 - Treating bounded differential evidence as a universal proof for new rules.
 
 ## System Overview
 
-tl-rewrite consumes validated tl-syntax graphs. The catalog and rewrite engine
-are deterministic library modules. Trace verification replays the exact input,
-catalog, strategy, and budgets. Equivalence validation enumerates a declared
-finite trace domain and invokes tl-mltl without embedding a second evaluator.
+tl-rewrite consumes validated tl-syntax graphs and, at its contextual entry
+points, the shared validated signal-catalog and optional requirement-context
+documents. The rule catalog and rewrite engine are deterministic library
+modules. Trace verification replays the exact input, catalogs, context,
+strategy, and budgets. Equivalence validation enumerates a declared finite
+trace domain and invokes tl-mltl without embedding a second evaluator.
 
 ## Requirements Architecture
 
 FR-001 owns the rule catalog, FR-002 bounded execution, FR-003 trace/replay,
 FR-004 equivalence and WEST evidence, FR-005 the versioned interchange boundary,
-and FR-006 the shared assurance intake path. NFR-001 constrains
+FR-006 the shared assurance intake path, and FR-007 context-bound native reports.
+NFR-001 constrains
 determinism/resources, NFR-002 constrains provenance and qualification claims,
 and NFR-003 owns the qualification controls.
 
@@ -74,6 +82,7 @@ requirement owns an evidence boundary this repository no longer has.
 ## References
 
 - [tl-rewrite epic](https://github.com/agent-ix/tl-rewrite/issues/6).
+- [Context-bound rewrite child](https://github.com/agent-ix/tl-rewrite/issues/21).
 - [WEST research artifacts](https://temporallogic.org/research/WEST/).
 - [WEST canonical repository](https://github.com/zwang271/WEST).
 - [PGM-01](https://github.com/agent-ix/quire-contract-ir/blob/main/spec/program/PGM-01-governance.md).
