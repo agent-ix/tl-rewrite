@@ -77,6 +77,9 @@ fn context_free_report_families_keep_their_v1_wire_bytes() {
     let rewrite_bytes = serde_json::to_vec(&rewrite_report).unwrap();
     let replay_bytes = serde_json::to_vec(&replay_report).unwrap();
     let conformance_bytes = serde_json::to_vec(&conformance).unwrap();
+    // The v1 schemas are fixed, but their bytes bind declared dependency
+    // identities: the rewrite snapshot moved with tl-syntax, replay carries
+    // rewrite-report digests, and conformance binds both tl-syntax and tl-mltl.
     assert_eq!(
         digest(&rewrite_bytes),
         "a1076329ed3a700bcc1a5e14f7bcdaab9bc1f6e313911218c43e7937349813f1"
@@ -87,8 +90,6 @@ fn context_free_report_families_keep_their_v1_wire_bytes() {
     );
     assert_eq!(
         digest(&conformance_bytes),
-        // `evaluator_revision` is a declared v1 identity field. This snapshot
-        // moved only because tl-mltl #26 landed at its squash commit.
         "3520c38c9c91a1aeef9f08fecfc9326f3995e39ebd33c2dee044c73dfc59058e"
     );
     assert_eq!(rewrite_report.schema_version, "tl-rewrite.report/v1");

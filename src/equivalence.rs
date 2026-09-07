@@ -3,11 +3,16 @@ use std::collections::BTreeSet;
 use serde::{de::Error as _, Deserialize, Serialize};
 use tl_mltl::{analyze_horizon, evaluate_closed, EvaluationLimits, TruthValue};
 use tl_syntax::{
-    Formula, FormulaBindingError, FormulaDocument, NodeKind, PropositionId,
-    RequirementContextDocument, SemanticProfile, SignalCatalogDocument,
+    Formula, FormulaDocument, NodeKind, PropositionId, RequirementContextDocument, SemanticProfile,
+    SignalCatalogDocument,
 };
 
-use crate::{catalog, hash::sha256_json, TL_MLTL_REVISION, TL_SYNTAX_REVISION, WEST_REVISION};
+use crate::{
+    catalog,
+    hash::sha256_json,
+    rewrite::{binding_check, BindingCheck},
+    TL_MLTL_REVISION, TL_SYNTAX_REVISION, WEST_REVISION,
+};
 
 const MAX_MATERIALIZED_INSTANTS: u64 = 100_000;
 
@@ -492,26 +497,28 @@ pub fn check_equivalence_with_context(
     let Ok(original_formula) = original.validate() else {
         return non_conclusive(report, ConformanceReason::InvalidInput);
     };
-    if let Err(FormulaBindingError::MissingPropositionBinding { proposition }) =
-        catalog.bind_formula(original_formula)
-    {
-        report.binding_failure = Some(crate::BindingFailure {
-            locus: crate::BindingLocus::Input,
-            proposition_id: proposition.0,
-        });
-        return non_conclusive(report, ConformanceReason::OriginalBinding);
+    match binding_check(catalog, original_formula, crate::BindingLocus::Input) {
+        BindingCheck::Bound => {}
+        BindingCheck::Missing(binding_failure) => {
+            report.binding_failure = Some(binding_failure);
+            return non_conclusive(report, ConformanceReason::OriginalBinding);
+        }
+        BindingCheck::Refused(_) => {
+            return non_conclusive(report, ConformanceReason::OriginalBinding);
+        }
     }
     let Ok(rewritten_formula) = rewritten.validate() else {
         return non_conclusive(report, ConformanceReason::InvalidInput);
     };
-    if let Err(FormulaBindingError::MissingPropositionBinding { proposition }) =
-        catalog.bind_formula(rewritten_formula)
-    {
-        report.binding_failure = Some(crate::BindingFailure {
-            locus: crate::BindingLocus::Output,
-            proposition_id: proposition.0,
-        });
-        return non_conclusive(report, ConformanceReason::RewrittenBinding);
+    match binding_check(catalog, rewritten_formula, crate::BindingLocus::Output) {
+        BindingCheck::Bound => {}
+        BindingCheck::Missing(binding_failure) => {
+            report.binding_failure = Some(binding_failure);
+            return non_conclusive(report, ConformanceReason::RewrittenBinding);
+        }
+        BindingCheck::Refused(_) => {
+            return non_conclusive(report, ConformanceReason::RewrittenBinding);
+        }
     }
     let mut observed = check_equivalence(original, rewritten, comparison_id, options);
     observed.schema_version = report.schema_version;

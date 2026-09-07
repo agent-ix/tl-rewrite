@@ -114,6 +114,16 @@ pub struct BindingFailure {
     pub proposition_id: u32,
 }
 
+/// Closed local interpretation of one shared-catalog binding attempt.
+///
+/// `FormulaBindingError` is non-exhaustive upstream. New refusal variants must
+/// remain non-success here instead of silently becoming an accepted binding.
+pub(crate) enum BindingCheck {
+    Bound,
+    Missing(BindingFailure),
+    Refused(String),
+}
+
 /// One output-changing application in exact execution order.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -1052,19 +1062,20 @@ fn contextual_report_base(
     }
 }
 
-fn unresolved_binding(
+pub(crate) fn binding_check(
     signal_catalog: SignalCatalog<'_>,
     formula: Formula<'_>,
     locus: BindingLocus,
-) -> Option<BindingFailure> {
+) -> BindingCheck {
     match signal_catalog.bind_formula(formula) {
         Err(FormulaBindingError::MissingPropositionBinding { proposition }) => {
-            Some(BindingFailure {
+            BindingCheck::Missing(BindingFailure {
                 locus,
                 proposition_id: proposition.0,
             })
         }
-        Ok(_) | Err(_) => None,
+        Ok(_) => BindingCheck::Bound,
+        Err(error) => BindingCheck::Refused(error.to_string()),
     }
 }
 
@@ -1143,17 +1154,21 @@ where
 /// Rewrites one validated formula to a fixed point or explicit non-success.
 ///
 /// Implements: FR-002, FR-003
-pub fn rewrite(
+fn rewrite_validated_with_builder<F>(
     input: &FormulaDocument,
-    formula_id: impl Into<String>,
+    mut report: RewriteReport,
     options: RewriteOptions,
-    source_revision: impl Into<String>,
-) -> RewriteReport {
-    let mut report = report_base(input, formula_id.into(), options, source_revision.into());
-    if let Err(error) = input.validate() {
-        report.detail = Some(error.to_string());
-        return report;
-    }
+    build: F,
+) -> RewriteReport
+where
+    F: FnMut(
+        &FormulaDocument,
+        u32,
+        &mut PassState,
+        &mut Vec<RewriteStep>,
+        &mut String,
+    ) -> Result<FormulaDocument, Abort>,
+{
     if input.semantic_profile() != SemanticProfile::ClosedTraceV1 {
         report.status = RewriteStatus::UnsupportedProfile;
         report.detail = Some(
@@ -1181,14 +1196,24 @@ pub fn rewrite(
         work_units: 0,
         budgets: options.budgets,
     };
-    run_passes(
-        current,
-        input_was_compacted,
-        report,
-        options,
-        state,
-        build_pass,
-    )
+    run_passes(current, input_was_compacted, report, options, state, build)
+}
+
+/// Rewrites one validated formula to a fixed point or explicit non-success.
+///
+/// Implements: FR-002, FR-003
+pub fn rewrite(
+    input: &FormulaDocument,
+    formula_id: impl Into<String>,
+    options: RewriteOptions,
+    source_revision: impl Into<String>,
+) -> RewriteReport {
+    let mut report = report_base(input, formula_id.into(), options, source_revision.into());
+    if let Err(error) = input.validate() {
+        report.detail = Some(error.to_string());
+        return report;
+    }
+    rewrite_validated_with_builder(input, report, options, build_pass)
 }
 
 /// Rewrites with one shared signal catalog and an exact-or-absent caller context.
@@ -1206,6 +1231,35 @@ pub fn rewrite_with_context(
     signal_catalog: &SignalCatalogDocument,
     requirement_context: Option<RequirementContextDocument>,
 ) -> RewriteReport {
+    rewrite_with_context_using_builder(
+        input,
+        formula_id,
+        options,
+        source_revision,
+        signal_catalog,
+        requirement_context,
+        build_pass,
+    )
+}
+
+fn rewrite_with_context_using_builder<F>(
+    input: &FormulaDocument,
+    formula_id: impl Into<String>,
+    options: RewriteOptions,
+    source_revision: impl Into<String>,
+    signal_catalog: &SignalCatalogDocument,
+    requirement_context: Option<RequirementContextDocument>,
+    build: F,
+) -> RewriteReport
+where
+    F: FnMut(
+        &FormulaDocument,
+        u32,
+        &mut PassState,
+        &mut Vec<RewriteStep>,
+        &mut String,
+    ) -> Result<FormulaDocument, Abort>,
+{
     let formula_id = formula_id.into();
     let source_revision = source_revision.into();
     let mut contextual = contextual_report_base(
@@ -1224,36 +1278,58 @@ pub fn rewrite_with_context(
         contextual.detail = Some("the supplied signal catalog is invalid".to_owned());
         return contextual;
     };
-    if let Some(binding_failure) = unresolved_binding(catalog, formula, BindingLocus::Input) {
-        contextual.status = RewriteStatus::UnresolvedBinding;
-        contextual.binding_failure = Some(binding_failure);
-        contextual.detail = Some(format!(
-            "formula proposition {} has no signal binding",
-            binding_failure.proposition_id
-        ));
-        return contextual;
-    }
-
-    let mut observed = rewrite(input, formula_id, options, source_revision);
-    observed.schema_version = contextual.schema_version;
-    observed.request_sha256 = contextual.request_sha256;
-    observed.signal_catalog_sha256 = contextual.signal_catalog_sha256;
-    observed.requirement_context = contextual.requirement_context;
-    if let Some(output) = observed.output.as_ref() {
-        let output_formula = output
-            .validate()
-            .expect("a successful rewrite report always contains a validated formula");
-        if let Some(binding_failure) =
-            unresolved_binding(catalog, output_formula, BindingLocus::Output)
-        {
-            observed.status = RewriteStatus::UnresolvedBinding;
-            observed.binding_failure = Some(binding_failure);
-            observed.detail = Some(format!(
+    match binding_check(catalog, formula, BindingLocus::Input) {
+        BindingCheck::Bound => {}
+        BindingCheck::Missing(binding_failure) => {
+            contextual.status = RewriteStatus::UnresolvedBinding;
+            contextual.binding_failure = Some(binding_failure);
+            contextual.detail = Some(format!(
                 "formula proposition {} has no signal binding",
                 binding_failure.proposition_id
             ));
-            observed.output = None;
-            observed.output_sha256 = None;
+            return contextual;
+        }
+        BindingCheck::Refused(error) => {
+            contextual.status = RewriteStatus::UnresolvedBinding;
+            contextual.detail = Some(format!(
+                "the supplied signal catalog refused input binding: {error}"
+            ));
+            return contextual;
+        }
+    }
+
+    let mut observed = rewrite_validated_with_builder(input, contextual, options, build);
+    if let Some(output) = observed.output.as_ref() {
+        match output.validate() {
+            Ok(output_formula) => {
+                match binding_check(catalog, output_formula, BindingLocus::Output) {
+                    BindingCheck::Bound => {}
+                    BindingCheck::Missing(binding_failure) => {
+                        observed.status = RewriteStatus::UnresolvedBinding;
+                        observed.binding_failure = Some(binding_failure);
+                        observed.detail = Some(format!(
+                            "formula proposition {} has no signal binding",
+                            binding_failure.proposition_id
+                        ));
+                        observed.output = None;
+                        observed.output_sha256 = None;
+                    }
+                    BindingCheck::Refused(error) => {
+                        observed.status = RewriteStatus::UnresolvedBinding;
+                        observed.detail = Some(format!(
+                            "the supplied signal catalog refused output binding: {error}"
+                        ));
+                        observed.output = None;
+                        observed.output_sha256 = None;
+                    }
+                }
+            }
+            Err(error) => {
+                observed.status = RewriteStatus::InvalidInput;
+                observed.detail = Some(format!("a successful rewrite output was invalid: {error}"));
+                observed.output = None;
+                observed.output_sha256 = None;
+            }
         }
     }
     observed
@@ -1325,8 +1401,8 @@ pub fn replay_with_context(
 #[cfg(test)]
 mod tests {
     use super::{
-        report_base, run_passes, unresolved_binding, BindingFailure, BindingLocus, PassState,
-        RewriteOptions, RewriteStatus,
+        report_base, rewrite_with_context_using_builder, run_passes, BindingFailure, BindingLocus,
+        PassState, RewriteOptions, RewriteStatus,
     };
     use std::collections::BTreeMap;
     use tl_syntax::{
@@ -1377,6 +1453,14 @@ mod tests {
     // Trace: TC-033, FR-007-AC-3
     #[test]
     fn output_binding_refusal_names_the_output_locus() {
+        let input = FormulaDocument::new(
+            SemanticProfile::ClosedTraceV1,
+            NodeId(0),
+            vec![Node::new(NodeKind::Proposition {
+                proposition: PropositionId(7),
+            })],
+        )
+        .unwrap();
         let output = FormulaDocument::new(
             SemanticProfile::ClosedTraceV1,
             NodeId(0),
@@ -1394,17 +1478,24 @@ mod tests {
             vec![PropositionBinding::new(PropositionId(7), SignalId(11))],
         )
         .unwrap();
-        let failure = unresolved_binding(
-            signal_catalog.validate().unwrap(),
-            output.validate().unwrap(),
-            BindingLocus::Output,
+        let observed = rewrite_with_context_using_builder(
+            &input,
+            "output-binding",
+            RewriteOptions::default(),
+            "source",
+            &signal_catalog,
+            None,
+            |_, _, _, _, _| Ok(output.clone()),
         );
+        assert_eq!(observed.status, RewriteStatus::UnresolvedBinding);
         assert_eq!(
-            failure,
+            observed.binding_failure,
             Some(BindingFailure {
                 locus: BindingLocus::Output,
                 proposition_id: 8,
             })
         );
+        assert!(observed.output.is_none());
+        assert!(observed.output_sha256.is_none());
     }
 }
