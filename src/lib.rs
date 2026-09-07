@@ -29,7 +29,7 @@ pub use rewrite::{
 pub const TL_SYNTAX_REVISION: &str = "6ad7499f2ccc179bb33b2590666399c6632a7e3c";
 
 /// Exact tl-mltl reference source revision consumed by this candidate.
-pub const TL_MLTL_REVISION: &str = "df91d77e7998a5c3b6b57b05dc173431b0cb481b";
+pub const TL_MLTL_REVISION: &str = "11eaa04710ffe0ea52b8abf5e70eafe150a99232";
 
 /// Exact canonical WEST source revision from which permitted fixtures were selected.
 pub const WEST_REVISION: &str = "21cd99ab2e6095a099dd179029cfdeb54268ad3f";
