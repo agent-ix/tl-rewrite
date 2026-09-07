@@ -409,3 +409,88 @@ fn contextual_rewrite_wire_requires_v2_context_and_rejects_v1_smuggling() {
         .insert("requirementContext".to_owned(), serde_json::Value::Null);
     assert!(serde_json::from_value::<tl_rewrite::RewriteReport>(smuggled).is_err());
 }
+
+// Trace: TC-035, FR-007-AC-5
+#[test]
+fn every_contextual_native_wire_family_is_closed_and_versioned() {
+    let input = document(SemanticProfile::ClosedTraceV1, vec![proposition(7)]);
+    let supplied_catalog = catalog(7);
+    let report = rewrite_with_context(
+        &input,
+        "closed-v2-wire",
+        RewriteOptions::default(),
+        "source",
+        &supplied_catalog,
+        Some(context()),
+    );
+    let replay = replay_with_context(&input, &report, &supplied_catalog, Some(context()));
+    let conformance = check_equivalence_with_context(
+        &input,
+        report.output.as_ref().unwrap(),
+        "closed-v2-wire",
+        ConformanceOptions::default(),
+        &supplied_catalog,
+        Some(context()),
+    );
+
+    let rewrite_value = serde_json::to_value(&report).unwrap();
+    let replay_value = serde_json::to_value(&replay).unwrap();
+    let conformance_value = serde_json::to_value(&conformance).unwrap();
+    for value in [
+        rewrite_value.clone(),
+        replay_value.clone(),
+        conformance_value.clone(),
+    ] {
+        let mut missing_identity = value.clone();
+        missing_identity
+            .as_object_mut()
+            .unwrap()
+            .remove("signalCatalogSha256");
+        let mut unknown = value.clone();
+        unknown
+            .as_object_mut()
+            .unwrap()
+            .insert("unknown".to_owned(), serde_json::Value::Bool(true));
+        let mut unsupported = value;
+        unsupported.as_object_mut().unwrap().insert(
+            "schemaVersion".to_owned(),
+            serde_json::Value::String("tl-rewrite.contextual/unsupported".to_owned()),
+        );
+
+        // Each concrete assertion below keeps the test bound to the public
+        // report family rather than hiding a deserialize target in a helper.
+        if missing_identity.get("expectedReportSha256").is_some() {
+            assert!(serde_json::from_value::<tl_rewrite::ReplayReport>(missing_identity).is_err());
+            assert!(serde_json::from_value::<tl_rewrite::ReplayReport>(unknown).is_err());
+            assert!(serde_json::from_value::<tl_rewrite::ReplayReport>(unsupported).is_err());
+        } else if missing_identity.get("comparisonId").is_some() {
+            assert!(
+                serde_json::from_value::<tl_rewrite::ConformanceReport>(missing_identity).is_err()
+            );
+            assert!(serde_json::from_value::<tl_rewrite::ConformanceReport>(unknown).is_err());
+            assert!(serde_json::from_value::<tl_rewrite::ConformanceReport>(unsupported).is_err());
+        } else {
+            assert!(serde_json::from_value::<tl_rewrite::RewriteReport>(missing_identity).is_err());
+            assert!(serde_json::from_value::<tl_rewrite::RewriteReport>(unknown).is_err());
+            assert!(serde_json::from_value::<tl_rewrite::RewriteReport>(unsupported).is_err());
+        }
+    }
+
+    let mut invalid_context = rewrite_value;
+    invalid_context.as_object_mut().unwrap().insert(
+        "requirementContext".to_owned(),
+        serde_json::json!({ "not": "a requirement context" }),
+    );
+    assert!(serde_json::from_value::<tl_rewrite::RewriteReport>(invalid_context).is_err());
+
+    let v1_replay = tl_rewrite::replay(
+        &input,
+        &tl_rewrite::rewrite(&input, "v1-replay", RewriteOptions::default(), "source"),
+    );
+    let mut smuggled_replay = serde_json::to_value(v1_replay).unwrap();
+    smuggled_replay.as_object_mut().unwrap().insert(
+        "signalCatalogSha256".to_owned(),
+        serde_json::Value::String("forged".to_owned()),
+    );
+    assert!(serde_json::from_value::<tl_rewrite::ReplayReport>(smuggled_replay).is_err());
+}
