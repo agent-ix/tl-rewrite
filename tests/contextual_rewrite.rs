@@ -102,6 +102,19 @@ fn contextual_replay_binds_the_resupplied_catalog_and_context() {
         replay_with_context(&input, &expected, &supplied_catalog, Some(supplied_context));
     assert_eq!(verified.schema_version, "tl-rewrite.replay/v2");
     assert_eq!(verified.status, ReplayStatus::Verified);
+    assert_eq!(
+        serde_json::from_value::<tl_rewrite::ReplayReport>(
+            serde_json::to_value(&verified).unwrap()
+        )
+        .unwrap(),
+        verified
+    );
+    let mut missing_context = serde_json::to_value(&verified).unwrap();
+    missing_context
+        .as_object_mut()
+        .unwrap()
+        .remove("requirementContext");
+    assert!(serde_json::from_value::<tl_rewrite::ReplayReport>(missing_context).is_err());
 
     let changed_context = replay_with_context(
         &input,
