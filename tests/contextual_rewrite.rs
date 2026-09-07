@@ -494,3 +494,24 @@ fn every_contextual_native_wire_family_is_closed_and_versioned() {
     );
     assert!(serde_json::from_value::<tl_rewrite::ReplayReport>(smuggled_replay).is_err());
 }
+
+// Trace: StR-003-VC-1
+#[test]
+fn stakeholder_context_identity_trace_executes() {
+    contextual_rewrite_carries_exact_context_and_refuses_missing_input_binding();
+    contextual_equivalence_refuses_each_formula_before_enumeration();
+}
+
+// Trace: StR-003-VC-2
+#[test]
+fn stakeholder_replay_and_binding_trace_executes() {
+    contextual_replay_rejects_each_independent_request_substitution();
+    contextual_rewrite_carries_exact_context_and_refuses_missing_input_binding();
+}
+
+// Trace: NFR-002-AC-3
+#[test]
+fn contextual_provenance_boundary_trace_executes() {
+    contextual_rewrite_carries_exact_context_and_refuses_missing_input_binding();
+    contextual_equivalence_refuses_each_formula_before_enumeration();
+}
