@@ -155,6 +155,25 @@ fn contextual_equivalence_refuses_each_formula_before_enumeration() {
         .unwrap(),
         equivalent
     );
+    let mut missing_context = serde_json::to_value(&equivalent).unwrap();
+    missing_context
+        .as_object_mut()
+        .unwrap()
+        .remove("requirementContext");
+    assert!(serde_json::from_value::<tl_rewrite::ConformanceReport>(missing_context).is_err());
+
+    let v1 = tl_rewrite::check_equivalence(
+        &original,
+        &original,
+        "context-free-conformance",
+        ConformanceOptions::default(),
+    );
+    let mut smuggled = serde_json::to_value(v1).unwrap();
+    smuggled.as_object_mut().unwrap().insert(
+        "requestSha256".to_owned(),
+        serde_json::Value::String("forged".to_owned()),
+    );
+    assert!(serde_json::from_value::<tl_rewrite::ConformanceReport>(smuggled).is_err());
 
     let missing_original = check_equivalence_with_context(
         &original,
