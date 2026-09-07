@@ -717,8 +717,8 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     let parsed: Value = serde_json::from_slice(&bytes).expect("the Quire export is JSON");
     let text = String::from_utf8_lossy(&bytes);
     for requirement in [
-        "FR-001", "FR-002", "FR-003", "FR-004", "FR-005", "FR-006", "NFR-001", "NFR-002",
-        "NFR-003", "StR-001", "StR-002",
+        "FR-001", "FR-002", "FR-003", "FR-004", "FR-005", "FR-006", "FR-007", "NFR-001", "NFR-002",
+        "NFR-003", "StR-001", "StR-002", "StR-003",
     ] {
         assert!(
             text.contains(requirement),
@@ -735,22 +735,22 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
-    // 68, and the arithmetic is stated so the drop is auditable rather than
-    // merely smaller. It was 72 before issue #13, which removed exactly four
+    // 83: the prior 68 plus 15 contextual-report rows. The earlier 68 was the
+    // audited post-deletion value. It was 72 before issue #13, which removed exactly four
     // rows: FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4 and TC-026. Each was a claim
     // about retained evidence that no longer exists, and each went with its test
     // rather than being left to report unbacked.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 68, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 83, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 68,
+        totals["backed"], 83,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );
     // The field that actually moves. An adversarial review measured that
     // repointing one matrix row at nonexistent test cases leaves `totals.backed`
     // at its full count while `unbacked_rows` gains an entry, so the totals alone
-    // are not a check. That was measured at 72/72 and the count is 68/68 now;
+    // are not a check. That was measured at 72/72 and the count is 83/83 now;
     // the figure is left out so it does not go stale again.
     assert!(
         parsed["unbacked_rows"].as_array().unwrap().is_empty(),
