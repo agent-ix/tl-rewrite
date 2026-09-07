@@ -2,7 +2,7 @@
 id: Task-004
 title: Context-bound equivalence and native intake
 type: Task
-status: not_started
+status: in_progress
 track: Interoperability
 priority: P0
 relationships:
