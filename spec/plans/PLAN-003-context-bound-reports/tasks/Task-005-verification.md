@@ -2,7 +2,7 @@
 id: Task-005
 title: Verification, closing reviews, and handoff
 type: Task
-status: not_started
+status: in_progress
 track: Verification
 priority: P0
 relationships:
