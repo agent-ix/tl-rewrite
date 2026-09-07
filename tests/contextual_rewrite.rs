@@ -148,6 +148,13 @@ fn contextual_equivalence_refuses_each_formula_before_enumeration() {
     assert_eq!(equivalent.schema_version, "tl-rewrite.conformance/v2");
     assert_eq!(equivalent.status, ConformanceStatus::Equivalent);
     assert!(equivalent.request_sha256.is_some());
+    assert_eq!(
+        serde_json::from_value::<tl_rewrite::ConformanceReport>(
+            serde_json::to_value(&equivalent).unwrap()
+        )
+        .unwrap(),
+        equivalent
+    );
 
     let missing_original = check_equivalence_with_context(
         &original,
