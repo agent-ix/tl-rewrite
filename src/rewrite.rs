@@ -2,8 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{de::Error as _, Deserialize, Serialize};
 use tl_syntax::{
-    FormulaBindingError, FormulaDocument, Node, NodeId, NodeKind, RequirementContextDocument,
-    SemanticProfile, SignalCatalogDocument, SourceSpan,
+    Formula, FormulaBindingError, FormulaDocument, Node, NodeId, NodeKind,
+    RequirementContextDocument, SemanticProfile, SignalCatalog, SignalCatalogDocument, SourceSpan,
 };
 
 use crate::{catalog, hash::sha256_bytes, hash::sha256_json, TL_SYNTAX_REVISION};
@@ -1052,6 +1052,22 @@ fn contextual_report_base(
     }
 }
 
+fn unresolved_binding(
+    signal_catalog: SignalCatalog<'_>,
+    formula: Formula<'_>,
+    locus: BindingLocus,
+) -> Option<BindingFailure> {
+    match signal_catalog.bind_formula(formula) {
+        Err(FormulaBindingError::MissingPropositionBinding { proposition }) => {
+            Some(BindingFailure {
+                locus,
+                proposition_id: proposition.0,
+            })
+        }
+        Ok(_) | Err(_) => None,
+    }
+}
+
 fn run_passes<F>(
     mut current: FormulaDocument,
     input_was_compacted: bool,
@@ -1208,17 +1224,12 @@ pub fn rewrite_with_context(
         contextual.detail = Some("the supplied signal catalog is invalid".to_owned());
         return contextual;
     };
-    if let Err(FormulaBindingError::MissingPropositionBinding { proposition }) =
-        catalog.bind_formula(formula)
-    {
+    if let Some(binding_failure) = unresolved_binding(catalog, formula, BindingLocus::Input) {
         contextual.status = RewriteStatus::UnresolvedBinding;
-        contextual.binding_failure = Some(BindingFailure {
-            locus: BindingLocus::Input,
-            proposition_id: proposition.0,
-        });
+        contextual.binding_failure = Some(binding_failure);
         contextual.detail = Some(format!(
             "formula proposition {} has no signal binding",
-            proposition.0
+            binding_failure.proposition_id
         ));
         return contextual;
     }
@@ -1232,17 +1243,14 @@ pub fn rewrite_with_context(
         let output_formula = output
             .validate()
             .expect("a successful rewrite report always contains a validated formula");
-        if let Err(FormulaBindingError::MissingPropositionBinding { proposition }) =
-            catalog.bind_formula(output_formula)
+        if let Some(binding_failure) =
+            unresolved_binding(catalog, output_formula, BindingLocus::Output)
         {
             observed.status = RewriteStatus::UnresolvedBinding;
-            observed.binding_failure = Some(BindingFailure {
-                locus: BindingLocus::Output,
-                proposition_id: proposition.0,
-            });
+            observed.binding_failure = Some(binding_failure);
             observed.detail = Some(format!(
                 "formula proposition {} has no signal binding",
-                proposition.0
+                binding_failure.proposition_id
             ));
             observed.output = None;
             observed.output_sha256 = None;
@@ -1316,9 +1324,15 @@ pub fn replay_with_context(
 
 #[cfg(test)]
 mod tests {
-    use super::{report_base, run_passes, PassState, RewriteOptions, RewriteStatus};
+    use super::{
+        report_base, run_passes, unresolved_binding, BindingFailure, BindingLocus, PassState,
+        RewriteOptions, RewriteStatus,
+    };
     use std::collections::BTreeMap;
-    use tl_syntax::{FormulaDocument, Node, NodeId, NodeKind, SemanticProfile};
+    use tl_syntax::{
+        FormulaDocument, Node, NodeId, NodeKind, OwnedSignalDeclaration, PropositionBinding,
+        PropositionId, SemanticProfile, SignalCatalogDocument, SignalDomain, SignalId,
+    };
 
     // Trace: TC-020, FR-002-AC-2, NFR-001-AC-2
     #[test]
@@ -1358,5 +1372,39 @@ mod tests {
         assert_eq!(observed.status, RewriteStatus::NonConvergent);
         assert_eq!(observed.iterations, 2);
         assert!(observed.output.is_none());
+    }
+
+    // Trace: TC-033, FR-007-AC-3
+    #[test]
+    fn output_binding_refusal_names_the_output_locus() {
+        let output = FormulaDocument::new(
+            SemanticProfile::ClosedTraceV1,
+            NodeId(0),
+            vec![Node::new(NodeKind::Proposition {
+                proposition: PropositionId(8),
+            })],
+        )
+        .unwrap();
+        let signal_catalog = SignalCatalogDocument::new(
+            vec![OwnedSignalDeclaration::new(
+                SignalId(11),
+                "request_ready".to_owned(),
+                SignalDomain::Boolean,
+            )],
+            vec![PropositionBinding::new(PropositionId(7), SignalId(11))],
+        )
+        .unwrap();
+        let failure = unresolved_binding(
+            signal_catalog.validate().unwrap(),
+            output.validate().unwrap(),
+            BindingLocus::Output,
+        );
+        assert_eq!(
+            failure,
+            Some(BindingFailure {
+                locus: BindingLocus::Output,
+                proposition_id: 8,
+            })
+        );
     }
 }
