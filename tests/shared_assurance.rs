@@ -197,10 +197,26 @@ fn chain_report() -> &'static Value {
                 "--candidate-revision",
                 &revision,
                 "--json",
+                "--keep-store",
             ],
         );
         assert_eq!(code, 0, "the assurance chain exited {code}\n{stderr}");
         serde_json::from_str(&stdout).expect("the assurance chain did not emit JSON")
+    })
+}
+
+fn retained_output_contains(directory: &Path, expected: &[u8]) -> bool {
+    let Ok(entries) = fs::read_dir(directory) else {
+        return false;
+    };
+    entries.filter_map(Result::ok).any(|entry| {
+        let path = entry.path();
+        if path.is_dir() {
+            retained_output_contains(&path, expected)
+        } else {
+            path.file_name().is_some_and(|name| name == "output.bin")
+                && fs::read(path).is_ok_and(|bytes| bytes == expected)
+        }
     })
 }
 
@@ -606,6 +622,43 @@ fn the_chain_never_executes_a_producer_and_the_probe_can_prove_it() {
         "the assurance driver rewrote one of the producer outputs it is supposed to \
          only read; a driver that can produce its own inputs can produce a green run \
          out of nothing"
+    );
+}
+
+// Trace: TC-036, FR-007-AC-6
+#[test]
+fn contextual_native_result_crosses_the_existing_quoin_intake() {
+    let chain = chain_report();
+    assert_eq!(
+        chain["attested_results"]["PROOF-normalization-sweep"], "passed",
+        "the existing Quoin intake did not attest the normalization producer: {chain:#}"
+    );
+
+    let produced = fs::read(root().join("target/assurance/normalization-sweep.jsonl"))
+        .expect("read the existing normalization producer stream");
+    let contextual = produced
+        .split(|byte| *byte == b'\n')
+        .filter(|line| !line.is_empty())
+        .map(|line| serde_json::from_slice::<Value>(line).expect("normalization row is JSON"))
+        .find(|row| row["symbol"] == "contextual-native-result")
+        .expect("the existing normalization producer emitted no contextual native result");
+    assert_eq!(contextual["protocol"], "tl-rewrite.normalization-sweep/v1");
+    assert_eq!(contextual["outcome"], "pass");
+    assert_eq!(
+        contextual["properties"]["contextualReport"]["schemaVersion"],
+        "tl-rewrite.report/v2"
+    );
+    assert_eq!(
+        contextual["properties"]["contextualReplay"]["schemaVersion"],
+        "tl-rewrite.replay/v2"
+    );
+    assert_eq!(
+        contextual["properties"]["contextualReplay"]["status"],
+        "verified"
+    );
+    assert!(
+        retained_output_contains(&root().join("target/assurance-store"), &produced),
+        "Quoin retained no byte-identical copy of the producer stream containing the contextual native result"
     );
 }
 

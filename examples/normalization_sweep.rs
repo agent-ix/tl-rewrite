@@ -28,10 +28,13 @@ use std::process::ExitCode;
 
 use serde_json::json;
 use tl_rewrite::{
-    replay, rewrite, BudgetKind, ReplayStatus, RewriteBudgets, RewriteOptions, RewriteStatus,
+    replay, replay_with_context, rewrite, rewrite_with_context, BudgetKind, ReplayStatus,
+    RewriteBudgets, RewriteOptions, RewriteStatus,
 };
 use tl_syntax::{
-    FormulaDocument, Interval, Node, NodeId, NodeKind, PropositionId, SemanticProfile,
+    FormulaDocument, Interval, Node, NodeId, NodeKind, OwnedSignalDeclaration, PropositionBinding,
+    PropositionId, RequirementContextDocument, SemanticProfile, SignalCatalogDocument,
+    SignalDomain, SignalId, SourceSpan,
 };
 
 const PROTOCOL: &str = "tl-rewrite.normalization-sweep/v1";
@@ -191,6 +194,70 @@ fn check(id: &str, input: &FormulaDocument) -> Result<serde_json::Value, String>
     }))
 }
 
+/// One producer-owned contextual domain result carried in the existing stream.
+/// The assurance chain consumes this already-produced JSONL file; it does not
+/// execute this function or any other producer.
+fn contextual_native_result() -> Result<serde_json::Value, String> {
+    let input = FormulaDocument::new(
+        SemanticProfile::ClosedTraceV1,
+        NodeId(1),
+        vec![
+            Node::new(NodeKind::Proposition {
+                proposition: PropositionId(7),
+            }),
+            Node::new(NodeKind::Or {
+                left: NodeId(0),
+                right: NodeId(0),
+            }),
+        ],
+    )
+    .map_err(|error| error.to_string())?;
+    let signal_catalog = SignalCatalogDocument::new(
+        vec![OwnedSignalDeclaration::new(
+            SignalId(11),
+            "request_ready".to_owned(),
+            SignalDomain::Boolean,
+        )],
+        vec![PropositionBinding::new(PropositionId(7), SignalId(11))],
+    )
+    .map_err(|error| error.to_string())?;
+    let requirement_context = RequirementContextDocument::new(
+        "agent-ix/tl-rewrite/FR-007".to_owned(),
+        "1".to_owned(),
+        "AC-6".to_owned(),
+        "normalization-sweep.contextual-native-result".to_owned(),
+        SourceSpan::new(0, 1).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    let report = rewrite_with_context(
+        &input,
+        "normalization-sweep-contextual-native-result",
+        RewriteOptions::default(),
+        "normalization-sweep",
+        &signal_catalog,
+        Some(requirement_context.clone()),
+    );
+    if !matches!(
+        report.status,
+        RewriteStatus::Normalized | RewriteStatus::Unchanged
+    ) || report.output.is_none()
+    {
+        return Err(format!(
+            "contextual rewrite reported {:?} with output present: {}",
+            report.status,
+            report.output.is_some()
+        ));
+    }
+    let replay = replay_with_context(&input, &report, &signal_catalog, Some(requirement_context));
+    if replay.status != ReplayStatus::Verified {
+        return Err(format!("contextual replay reported {:?}", replay.status));
+    }
+    Ok(json!({
+        "contextualReport": report,
+        "contextualReplay": replay,
+    }))
+}
+
 fn main() -> ExitCode {
     let generated = family();
     if generated.is_empty() {
@@ -223,6 +290,29 @@ fn main() -> ExitCode {
         };
         println!("{row}");
     }
+    let contextual_row = match contextual_native_result() {
+        Ok(native_result) => json!({
+            "protocol": PROTOCOL,
+            "symbol": "contextual-native-result",
+            "outcome": "pass",
+            "domainOutcome": "contextual_native_report",
+            "traceIds": ["TC-036", "FR-007-AC-6"],
+            "detail": "contextual native rewrite and replay report are producer-owned values",
+            "properties": native_result,
+        }),
+        Err(detail) => {
+            failed += 1;
+            json!({
+                "protocol": PROTOCOL,
+                "symbol": "contextual-native-result",
+                "outcome": "fail",
+                "domainOutcome": "contextual_native_defect",
+                "traceIds": ["TC-036", "FR-007-AC-6"],
+                "detail": detail,
+            })
+        }
+    };
+    println!("{contextual_row}");
     if failed > 0 {
         eprintln!("{failed} generated formula(s) broke the normalization contract");
         return ExitCode::FAILURE;

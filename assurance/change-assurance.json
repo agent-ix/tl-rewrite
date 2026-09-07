@@ -278,9 +278,10 @@
         },
         {
           "proof_id": "PROOF-normalization-sweep",
-          "statement": "Over a generated formula family spanning every binary and unary operator, every leaf pair and three intervals including a lower bound above zero, every rewrite is byte-deterministic, reaches a fixed point, replays to the same report digest, preserves the semantic profile and structural validity, and refuses fail-closed under a zero work-unit budget.",
+          "statement": "Over a generated formula family spanning every binary and unary operator, every leaf pair and three intervals including a lower bound above zero, every rewrite is byte-deterministic, reaches a fixed point, replays to the same report digest, preserves the semantic profile and structural validity, and refuses fail-closed under a zero work-unit budget. The same existing producer stream also contains one native contextual rewrite/replay result, which the shared Quoin intake retains as producer output without executing a producer.",
           "obligation_ids": [
-            "FR-006-AC-2"
+            "FR-006-AC-2",
+            "FR-007-AC-6"
           ],
           "evidence_kind": "Property",
           "command": {
