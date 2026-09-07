@@ -2,7 +2,7 @@
 id: Task-002
 title: Shared dependency and contextual wire forms
 type: Task
-status: blocked
+status: in_progress
 track: Core
 priority: P0
 relationships:
@@ -31,5 +31,7 @@ schema exists.
 
 ## Blocker
 
-The exact tl-syntax#15 API is published but not landed. This task may begin only
-when its reviewed commit is reachable through the dependency's landing branch.
+tl-syntax#15 has landed as `6ad7499`. The rewrite implementation is stacked on
+the published tl-mltl#24 pin prerequisite so both crates resolve that one syntax
+type. The dependency pin must be replaced with tl-mltl's reviewed landing before
+this work is submitted; it does not block native v2 implementation locally.

@@ -1,7 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
-use tl_syntax::{FormulaDocument, Node, NodeId, NodeKind, SemanticProfile, SourceSpan};
+use tl_syntax::{
+    FormulaBindingError, FormulaDocument, Node, NodeId, NodeKind, RequirementContextDocument,
+    SemanticProfile, SignalCatalogDocument, SourceSpan,
+};
 
 use crate::{catalog, hash::sha256_bytes, hash::sha256_json, TL_SYNTAX_REVISION};
 
@@ -87,6 +90,28 @@ pub enum RewriteStatus {
     InvalidInput,
     /// No enabled v1 rule is approved for the input profile.
     UnsupportedProfile,
+    /// A context-bound formula named a proposition absent from the supplied catalog.
+    UnresolvedBinding,
+}
+
+/// Formula location at which a context-bound catalog binding was refused.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BindingLocus {
+    /// The original request formula could not be bound before execution.
+    Input,
+    /// A successful rewritten formula could not be bound before it escaped.
+    Output,
+}
+
+/// The first unresolved proposition in a contextual rewrite attempt.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BindingFailure {
+    /// Boundary at which the formula was checked.
+    pub locus: BindingLocus,
+    /// Stable proposition identity absent from the supplied catalog.
+    pub proposition_id: u32,
 }
 
 /// One output-changing application in exact execution order.
@@ -131,6 +156,15 @@ pub struct RewriteReport {
     pub input_sha256: String,
     /// Digest binding input, identity, catalog, strategy, budgets, and source revision.
     pub request_sha256: String,
+    /// Complete supplied signal-catalog identity for contextual v2 reports.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal_catalog_sha256: Option<String>,
+    /// Exact caller context for contextual v2 reports; `Some(None)` encodes JSON null.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requirement_context: Option<Option<RequirementContextDocument>>,
+    /// Contextual formula-binding refusal, when one stopped the request.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub binding_failure: Option<BindingFailure>,
     /// Successful output digest, absent for non-success.
     pub output_sha256: Option<String>,
     /// Last complete state digest for diagnostics.
@@ -179,6 +213,12 @@ pub struct ReplayReport {
     pub expected_report_sha256: String,
     /// Digest of the freshly observed report.
     pub observed_report_sha256: String,
+    /// Complete supplied signal-catalog identity for contextual v2 replay.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal_catalog_sha256: Option<String>,
+    /// Exact caller context for contextual v2 replay; `Some(None)` encodes JSON null.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requirement_context: Option<Option<RequirementContextDocument>>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -757,6 +797,56 @@ fn report_base(
         catalog_sha256,
         input_sha256: sha256_json(input),
         request_sha256,
+        signal_catalog_sha256: None,
+        requirement_context: None,
+        binding_failure: None,
+        output_sha256: None,
+        partial_sha256: None,
+        semantic_profile: input.semantic_profile().as_str().to_owned(),
+        options,
+        status: RewriteStatus::InvalidInput,
+        exhausted_budget: None,
+        detail: None,
+        iterations: 0,
+        work_units: 0,
+        rule_applications: 0,
+        steps: Vec::new(),
+        output: None,
+    }
+}
+
+fn contextual_report_base(
+    input: &FormulaDocument,
+    formula_id: String,
+    options: RewriteOptions,
+    source_revision: String,
+    signal_catalog: &SignalCatalogDocument,
+    requirement_context: Option<RequirementContextDocument>,
+) -> RewriteReport {
+    let catalog_sha256 = catalog().catalog_sha256;
+    let signal_catalog_sha256 = sha256_json(signal_catalog);
+    let request_sha256 = sha256_json(&(
+        "tl-rewrite.contextual-request/v2",
+        input,
+        &formula_id,
+        options,
+        &source_revision,
+        &catalog_sha256,
+        signal_catalog,
+        &requirement_context,
+        TL_SYNTAX_REVISION,
+    ));
+    RewriteReport {
+        schema_version: "tl-rewrite.report/v2".to_owned(),
+        formula_id,
+        engine_source_revision: source_revision,
+        syntax_revision: TL_SYNTAX_REVISION.to_owned(),
+        catalog_sha256,
+        input_sha256: sha256_json(input),
+        request_sha256,
+        signal_catalog_sha256: Some(signal_catalog_sha256),
+        requirement_context: Some(requirement_context),
+        binding_failure: None,
         output_sha256: None,
         partial_sha256: None,
         semantic_profile: input.semantic_profile().as_str().to_owned(),
@@ -895,6 +985,82 @@ pub fn rewrite(
     )
 }
 
+/// Rewrites with one shared signal catalog and an exact-or-absent caller context.
+///
+/// The catalog is validated before any rewrite work. A missing formula binding is
+/// a typed v2 non-success; catalog shape validation itself remains owned by
+/// `tl-syntax`.
+///
+/// Implements: FR-007-AC-1, FR-007-AC-3
+pub fn rewrite_with_context(
+    input: &FormulaDocument,
+    formula_id: impl Into<String>,
+    options: RewriteOptions,
+    source_revision: impl Into<String>,
+    signal_catalog: &SignalCatalogDocument,
+    requirement_context: Option<RequirementContextDocument>,
+) -> RewriteReport {
+    let formula_id = formula_id.into();
+    let source_revision = source_revision.into();
+    let mut contextual = contextual_report_base(
+        input,
+        formula_id.clone(),
+        options,
+        source_revision.clone(),
+        signal_catalog,
+        requirement_context,
+    );
+    let Ok(formula) = input.validate() else {
+        contextual.detail = Some("the input formula is invalid".to_owned());
+        return contextual;
+    };
+    let Ok(catalog) = signal_catalog.validate() else {
+        contextual.detail = Some("the supplied signal catalog is invalid".to_owned());
+        return contextual;
+    };
+    if let Err(FormulaBindingError::MissingPropositionBinding { proposition }) =
+        catalog.bind_formula(formula)
+    {
+        contextual.status = RewriteStatus::UnresolvedBinding;
+        contextual.binding_failure = Some(BindingFailure {
+            locus: BindingLocus::Input,
+            proposition_id: proposition.0,
+        });
+        contextual.detail = Some(format!(
+            "formula proposition {} has no signal binding",
+            proposition.0
+        ));
+        return contextual;
+    }
+
+    let mut observed = rewrite(input, formula_id, options, source_revision);
+    observed.schema_version = contextual.schema_version;
+    observed.request_sha256 = contextual.request_sha256;
+    observed.signal_catalog_sha256 = contextual.signal_catalog_sha256;
+    observed.requirement_context = contextual.requirement_context;
+    if let Some(output) = observed.output.as_ref() {
+        let output_formula = output
+            .validate()
+            .expect("a successful rewrite report always contains a validated formula");
+        if let Err(FormulaBindingError::MissingPropositionBinding { proposition }) =
+            catalog.bind_formula(output_formula)
+        {
+            observed.status = RewriteStatus::UnresolvedBinding;
+            observed.binding_failure = Some(BindingFailure {
+                locus: BindingLocus::Output,
+                proposition_id: proposition.0,
+            });
+            observed.detail = Some(format!(
+                "formula proposition {} has no signal binding",
+                proposition.0
+            ));
+            observed.output = None;
+            observed.output_sha256 = None;
+        }
+    }
+    observed
+}
+
 /// Re-executes a report's exact identity and options and compares every field.
 ///
 /// Implements: FR-003
@@ -916,6 +1082,45 @@ pub fn replay(input: &FormulaDocument, expected: &RewriteReport) -> ReplayReport
         },
         expected_report_sha256,
         observed_report_sha256,
+        signal_catalog_sha256: None,
+        requirement_context: None,
+    }
+}
+
+/// Re-executes a contextual request and compares the complete native v2 report.
+///
+/// Callers must resupply the complete catalog and exact-or-absent context; their
+/// values are inputs to the observed request digest rather than copied from the
+/// expected record.
+///
+/// Implements: FR-007-AC-2
+pub fn replay_with_context(
+    input: &FormulaDocument,
+    expected: &RewriteReport,
+    signal_catalog: &SignalCatalogDocument,
+    requirement_context: Option<RequirementContextDocument>,
+) -> ReplayReport {
+    let observed = rewrite_with_context(
+        input,
+        expected.formula_id.clone(),
+        expected.options,
+        expected.engine_source_revision.clone(),
+        signal_catalog,
+        requirement_context.clone(),
+    );
+    let expected_report_sha256 = sha256_json(expected);
+    let observed_report_sha256 = sha256_json(&observed);
+    ReplayReport {
+        schema_version: "tl-rewrite.replay/v2".to_owned(),
+        status: if observed == *expected {
+            ReplayStatus::Verified
+        } else {
+            ReplayStatus::Mismatch
+        },
+        expected_report_sha256,
+        observed_report_sha256,
+        signal_catalog_sha256: Some(sha256_json(signal_catalog)),
+        requirement_context: Some(requirement_context),
     }
 }
 

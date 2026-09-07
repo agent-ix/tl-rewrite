@@ -2,7 +2,10 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 use tl_mltl::{analyze_horizon, evaluate_closed, EvaluationLimits, TruthValue};
-use tl_syntax::{Formula, FormulaDocument, NodeKind, PropositionId, SemanticProfile};
+use tl_syntax::{
+    Formula, FormulaBindingError, FormulaDocument, NodeKind, PropositionId,
+    RequirementContextDocument, SemanticProfile, SignalCatalogDocument,
+};
 
 use crate::{catalog, hash::sha256_json, TL_MLTL_REVISION, TL_SYNTAX_REVISION, WEST_REVISION};
 
@@ -58,6 +61,10 @@ pub enum ConformanceReason {
     TraceDomainLimit,
     /// The pinned reference evaluator returned an error.
     EvaluatorError,
+    /// The original contextual formula names a proposition absent from the catalog.
+    OriginalBinding,
+    /// The rewritten contextual formula names a proposition absent from the catalog.
+    RewrittenBinding,
 }
 
 /// Versioned exhaustive bounded comparison report.
@@ -84,6 +91,18 @@ pub struct ConformanceReport {
     pub catalog_version: String,
     /// Exact ordered catalog digest.
     pub catalog_sha256: String,
+    /// Complete supplied signal-catalog identity for contextual v2 reports.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signal_catalog_sha256: Option<String>,
+    /// Exact caller context for contextual v2 reports; `Some(None)` encodes JSON null.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requirement_context: Option<Option<RequirementContextDocument>>,
+    /// Contextual request identity binding both formulas and the supplied documents.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_sha256: Option<String>,
+    /// Contextual binding refusal locus and proposition identity.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub binding_failure: Option<crate::BindingFailure>,
     /// Options defining the conclusive boundary.
     pub options: ConformanceOptions,
     /// Sorted proposition population.
@@ -151,6 +170,10 @@ fn report_base(
         west_revision: WEST_REVISION.to_owned(),
         catalog_version: catalog.catalog_version,
         catalog_sha256: catalog.catalog_sha256,
+        signal_catalog_sha256: None,
+        requirement_context: None,
+        request_sha256: None,
+        binding_failure: None,
         options,
         proposition_ids: Vec::new(),
         horizon: None,
@@ -276,4 +299,67 @@ pub fn check_equivalence(
     }
     report.status = ConformanceStatus::Equivalent;
     report
+}
+
+/// Exhaustively compares a context-bound pair after binding both formulas to one
+/// shared catalog. Binding refusal happens before horizon or trace enumeration.
+///
+/// Implements: FR-007-AC-4
+pub fn check_equivalence_with_context(
+    original: &FormulaDocument,
+    rewritten: &FormulaDocument,
+    comparison_id: impl Into<String>,
+    options: ConformanceOptions,
+    signal_catalog: &SignalCatalogDocument,
+    requirement_context: Option<RequirementContextDocument>,
+) -> ConformanceReport {
+    let comparison_id = comparison_id.into();
+    let mut report = report_base(original, rewritten, comparison_id.clone(), options);
+    report.schema_version = "tl-rewrite.conformance/v2".to_owned();
+    report.signal_catalog_sha256 = Some(sha256_json(signal_catalog));
+    report.request_sha256 = Some(sha256_json(&(
+        "tl-rewrite.contextual-conformance-request/v2",
+        original,
+        rewritten,
+        &comparison_id,
+        options,
+        signal_catalog,
+        &requirement_context,
+        TL_SYNTAX_REVISION,
+        TL_MLTL_REVISION,
+    )));
+    report.requirement_context = Some(requirement_context);
+    let Ok(catalog) = signal_catalog.validate() else {
+        return non_conclusive(report, ConformanceReason::InvalidInput);
+    };
+    let Ok(original_formula) = original.validate() else {
+        return non_conclusive(report, ConformanceReason::InvalidInput);
+    };
+    if let Err(FormulaBindingError::MissingPropositionBinding { proposition }) =
+        catalog.bind_formula(original_formula)
+    {
+        report.binding_failure = Some(crate::BindingFailure {
+            locus: crate::BindingLocus::Input,
+            proposition_id: proposition.0,
+        });
+        return non_conclusive(report, ConformanceReason::OriginalBinding);
+    }
+    let Ok(rewritten_formula) = rewritten.validate() else {
+        return non_conclusive(report, ConformanceReason::InvalidInput);
+    };
+    if let Err(FormulaBindingError::MissingPropositionBinding { proposition }) =
+        catalog.bind_formula(rewritten_formula)
+    {
+        report.binding_failure = Some(crate::BindingFailure {
+            locus: crate::BindingLocus::Output,
+            proposition_id: proposition.0,
+        });
+        return non_conclusive(report, ConformanceReason::RewrittenBinding);
+    }
+    let mut observed = check_equivalence(original, rewritten, comparison_id, options);
+    observed.schema_version = report.schema_version;
+    observed.signal_catalog_sha256 = report.signal_catalog_sha256;
+    observed.requirement_context = report.requirement_context;
+    observed.request_sha256 = report.request_sha256;
+    observed
 }
