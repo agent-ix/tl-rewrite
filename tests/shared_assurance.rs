@@ -1497,7 +1497,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **100** scanned tracked files — 104 tracked
+    // Population at this review head: **112** scanned tracked files — 116 tracked
     // in total, minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
@@ -1505,7 +1505,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 12 root, 53 `spec`, 9 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // By area: 12 root, 64 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
@@ -1514,8 +1514,8 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 100,
-        "the source census population changed from the reviewed 100 tracked files \
+        inspected, 112,
+        "the source census population changed from the reviewed 112 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
@@ -1843,10 +1843,12 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
     )
     .unwrap();
     let library = fs::read_to_string(root().join("src/lib.rs")).unwrap();
-    let stale = library.replace(
-        "f7eb8bdf93f588050a40b2a4bf7b418f7c63a0e9",
-        "fe1c620d7baa743d9c6b4dda27f40d207721fcc9",
-    );
+    let current = library
+        .lines()
+        .find(|line| line.contains("TL_MLTL_REVISION"))
+        .and_then(|line| line.split('"').nth(1))
+        .expect("TL_MLTL_REVISION is a quoted source identity");
+    let stale = library.replacen(current, &"0".repeat(current.len()), 1);
     assert_ne!(stale, library, "the probe's mutation did not apply");
     fs::write(scratch.join("src/lib.rs"), stale).unwrap();
 
