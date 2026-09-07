@@ -87,7 +87,9 @@ fn context_free_report_families_keep_their_v1_wire_bytes() {
     );
     assert_eq!(
         digest(&conformance_bytes),
-        "c31817f222261a8f71271c9abbce5cf7c81a302c68c0e327ca34a8d3f07fcabb"
+        // `evaluator_revision` is a declared v1 identity field. This snapshot
+        // moved only because tl-mltl #26 landed at its squash commit.
+        "3520c38c9c91a1aeef9f08fecfc9326f3995e39ebd33c2dee044c73dfc59058e"
     );
     assert_eq!(rewrite_report.schema_version, "tl-rewrite.report/v1");
     assert_eq!(replay_report.schema_version, "tl-rewrite.replay/v1");
