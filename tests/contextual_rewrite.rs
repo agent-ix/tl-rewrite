@@ -165,3 +165,36 @@ fn contextual_equivalence_refuses_each_formula_before_enumeration() {
     );
     assert_eq!(missing_rewritten.traces_checked, 0);
 }
+
+// Trace: TC-035, FR-007-AC-5
+#[test]
+fn contextual_rewrite_wire_requires_v2_context_and_rejects_v1_smuggling() {
+    let input = document(SemanticProfile::ClosedTraceV1, vec![proposition(7)]);
+    let report = rewrite_with_context(
+        &input,
+        "contextual-wire",
+        RewriteOptions::default(),
+        "source",
+        &catalog(7),
+        None,
+    );
+    let value = serde_json::to_value(&report).unwrap();
+    assert_eq!(
+        serde_json::from_value::<tl_rewrite::RewriteReport>(value.clone()).unwrap(),
+        report
+    );
+    let mut missing_context = value.clone();
+    missing_context
+        .as_object_mut()
+        .unwrap()
+        .remove("requirementContext");
+    assert!(serde_json::from_value::<tl_rewrite::RewriteReport>(missing_context).is_err());
+
+    let v1 = tl_rewrite::rewrite(&input, "v1", RewriteOptions::default(), "source");
+    let mut smuggled = serde_json::to_value(v1).unwrap();
+    smuggled
+        .as_object_mut()
+        .unwrap()
+        .insert("requirementContext".to_owned(), serde_json::Value::Null);
+    assert!(serde_json::from_value::<tl_rewrite::RewriteReport>(smuggled).is_err());
+}

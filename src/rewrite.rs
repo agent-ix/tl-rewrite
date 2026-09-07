@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as _, Deserialize, Serialize};
 use tl_syntax::{
     FormulaBindingError, FormulaDocument, Node, NodeId, NodeKind, RequirementContextDocument,
     SemanticProfile, SignalCatalogDocument, SourceSpan,
@@ -139,7 +139,7 @@ pub struct RewriteStep {
 }
 
 /// Versioned attempt report; only success statuses carry `output`.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RewriteReport {
     /// Wire schema identity.
@@ -189,6 +189,136 @@ pub struct RewriteReport {
     pub steps: Vec<RewriteStep>,
     /// Successful fixed-point document only.
     pub output: Option<FormulaDocument>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct RewriteReportV1Wire {
+    schema_version: String,
+    formula_id: String,
+    engine_source_revision: String,
+    syntax_revision: String,
+    catalog_sha256: String,
+    input_sha256: String,
+    request_sha256: String,
+    output_sha256: Option<String>,
+    partial_sha256: Option<String>,
+    semantic_profile: String,
+    options: RewriteOptions,
+    status: RewriteStatus,
+    exhausted_budget: Option<BudgetKind>,
+    detail: Option<String>,
+    iterations: u32,
+    work_units: u64,
+    rule_applications: u64,
+    steps: Vec<RewriteStep>,
+    output: Option<FormulaDocument>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct RewriteReportV2Wire {
+    schema_version: String,
+    formula_id: String,
+    engine_source_revision: String,
+    syntax_revision: String,
+    catalog_sha256: String,
+    input_sha256: String,
+    request_sha256: String,
+    signal_catalog_sha256: String,
+    requirement_context: serde_json::Value,
+    binding_failure: Option<BindingFailure>,
+    output_sha256: Option<String>,
+    partial_sha256: Option<String>,
+    semantic_profile: String,
+    options: RewriteOptions,
+    status: RewriteStatus,
+    exhausted_budget: Option<BudgetKind>,
+    detail: Option<String>,
+    iterations: u32,
+    work_units: u64,
+    rule_applications: u64,
+    steps: Vec<RewriteStep>,
+    output: Option<FormulaDocument>,
+}
+
+impl RewriteReport {
+    fn from_v1(w: RewriteReportV1Wire) -> Self {
+        Self {
+            schema_version: w.schema_version,
+            formula_id: w.formula_id,
+            engine_source_revision: w.engine_source_revision,
+            syntax_revision: w.syntax_revision,
+            catalog_sha256: w.catalog_sha256,
+            input_sha256: w.input_sha256,
+            request_sha256: w.request_sha256,
+            signal_catalog_sha256: None,
+            requirement_context: None,
+            binding_failure: None,
+            output_sha256: w.output_sha256,
+            partial_sha256: w.partial_sha256,
+            semantic_profile: w.semantic_profile,
+            options: w.options,
+            status: w.status,
+            exhausted_budget: w.exhausted_budget,
+            detail: w.detail,
+            iterations: w.iterations,
+            work_units: w.work_units,
+            rule_applications: w.rule_applications,
+            steps: w.steps,
+            output: w.output,
+        }
+    }
+    fn from_v2(w: RewriteReportV2Wire) -> Result<Self, String> {
+        let requirement_context = if w.requirement_context.is_null() {
+            None
+        } else {
+            Some(serde_json::from_value(w.requirement_context).map_err(|error| error.to_string())?)
+        };
+        Ok(Self {
+            schema_version: w.schema_version,
+            formula_id: w.formula_id,
+            engine_source_revision: w.engine_source_revision,
+            syntax_revision: w.syntax_revision,
+            catalog_sha256: w.catalog_sha256,
+            input_sha256: w.input_sha256,
+            request_sha256: w.request_sha256,
+            signal_catalog_sha256: Some(w.signal_catalog_sha256),
+            requirement_context: Some(requirement_context),
+            binding_failure: w.binding_failure,
+            output_sha256: w.output_sha256,
+            partial_sha256: w.partial_sha256,
+            semantic_profile: w.semantic_profile,
+            options: w.options,
+            status: w.status,
+            exhausted_budget: w.exhausted_budget,
+            detail: w.detail,
+            iterations: w.iterations,
+            work_units: w.work_units,
+            rule_applications: w.rule_applications,
+            steps: w.steps,
+            output: w.output,
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for RewriteReport {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let version = value
+            .get("schemaVersion")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| D::Error::custom("rewrite report requires schemaVersion"))?;
+        match version {
+            "tl-rewrite.report/v1" => serde_json::from_value::<RewriteReportV1Wire>(value)
+                .map(Self::from_v1)
+                .map_err(D::Error::custom),
+            "tl-rewrite.report/v2" => serde_json::from_value::<RewriteReportV2Wire>(value)
+                .and_then(|wire| Self::from_v2(wire).map_err(serde_json::Error::custom))
+                .map_err(D::Error::custom),
+            _ => Err(D::Error::custom("unsupported rewrite report schemaVersion")),
+        }
+    }
 }
 
 /// Replay comparison status.
