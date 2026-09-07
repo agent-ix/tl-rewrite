@@ -332,7 +332,7 @@ pub enum ReplayStatus {
 }
 
 /// Versioned replay result.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ReplayReport {
     /// Wire schema identity.
@@ -349,6 +349,66 @@ pub struct ReplayReport {
     /// Exact caller context for contextual v2 replay; `Some(None)` encodes JSON null.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requirement_context: Option<Option<RequirementContextDocument>>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ReplayReportV1Wire {
+    schema_version: String,
+    status: ReplayStatus,
+    expected_report_sha256: String,
+    observed_report_sha256: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ReplayReportV2Wire {
+    schema_version: String,
+    status: ReplayStatus,
+    expected_report_sha256: String,
+    observed_report_sha256: String,
+    signal_catalog_sha256: String,
+    requirement_context: serde_json::Value,
+}
+
+impl<'de> Deserialize<'de> for ReplayReport {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let version = value
+            .get("schemaVersion")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| D::Error::custom("replay report requires schemaVersion"))?;
+        match version {
+            "tl-rewrite.replay/v1" => serde_json::from_value::<ReplayReportV1Wire>(value)
+                .map(|wire| Self {
+                    schema_version: wire.schema_version,
+                    status: wire.status,
+                    expected_report_sha256: wire.expected_report_sha256,
+                    observed_report_sha256: wire.observed_report_sha256,
+                    signal_catalog_sha256: None,
+                    requirement_context: None,
+                })
+                .map_err(D::Error::custom),
+            "tl-rewrite.replay/v2" => serde_json::from_value::<ReplayReportV2Wire>(value)
+                .and_then(|wire| {
+                    let context = if wire.requirement_context.is_null() {
+                        None
+                    } else {
+                        Some(serde_json::from_value(wire.requirement_context)?)
+                    };
+                    Ok(Self {
+                        schema_version: wire.schema_version,
+                        status: wire.status,
+                        expected_report_sha256: wire.expected_report_sha256,
+                        observed_report_sha256: wire.observed_report_sha256,
+                        signal_catalog_sha256: Some(wire.signal_catalog_sha256),
+                        requirement_context: Some(context),
+                    })
+                })
+                .map_err(D::Error::custom),
+            _ => Err(D::Error::custom("unsupported replay report schemaVersion")),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
