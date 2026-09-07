@@ -7,8 +7,9 @@ use tl_rewrite::{
     RewriteStatus,
 };
 use tl_syntax::{
-    OwnedSignalDeclaration, PropositionBinding, PropositionId, RequirementContextDocument,
-    SemanticProfile, SignalCatalogDocument, SignalDomain, SignalId, SourceSpan,
+    IntegerSignalDomain, Node, NodeId, NodeKind, OwnedSignalDeclaration, PropositionBinding,
+    PropositionId, RequirementContextDocument, SemanticProfile, SignalCatalogDocument,
+    SignalDomain, SignalId, SourceSpan,
 };
 
 fn catalog_with_name(binding: u32, name: &str) -> SignalCatalogDocument {
@@ -30,15 +31,48 @@ fn catalog(binding: u32) -> SignalCatalogDocument {
     catalog_with_name(binding, "request_ready")
 }
 
-fn context_with(anchor: &str) -> RequirementContextDocument {
-    RequirementContextDocument::new(
-        "agent-ix/demo/FR-007".to_owned(),
-        "1".to_owned(),
-        "AC-1".to_owned(),
-        anchor.to_owned(),
-        SourceSpan::new(10, 24).unwrap(),
+fn catalog_with_unused(
+    binding: u32,
+    unused_name: &str,
+    unused_domain: SignalDomain,
+) -> SignalCatalogDocument {
+    SignalCatalogDocument::new(
+        vec![
+            OwnedSignalDeclaration::new(
+                SignalId(11),
+                "request_ready".to_owned(),
+                SignalDomain::Boolean,
+            ),
+            OwnedSignalDeclaration::new(SignalId(12), unused_name.to_owned(), unused_domain),
+        ],
+        vec![PropositionBinding::new(
+            PropositionId(binding),
+            SignalId(11),
+        )],
     )
     .unwrap()
+}
+
+fn context_fields(
+    requirement_id: &str,
+    revision: &str,
+    clause_id: &str,
+    anchor: &str,
+    start: u32,
+    end: u32,
+) -> RequirementContextDocument {
+    RequirementContextDocument::new(
+        requirement_id.to_owned(),
+        revision.to_owned(),
+        clause_id.to_owned(),
+        anchor.to_owned(),
+        SourceSpan::new(start, end).unwrap(),
+    )
+    .unwrap()
+}
+
+fn context_with(anchor: &str) -> RequirementContextDocument {
+    context_fields("agent-ix/demo/FR-007", "1", "AC-1", anchor, 10, 24)
 }
 
 fn context() -> RequirementContextDocument {
@@ -131,6 +165,144 @@ fn contextual_replay_binds_the_resupplied_catalog_and_context() {
         Some(context()),
     );
     assert_eq!(changed_catalog.status, ReplayStatus::Mismatch);
+}
+
+// Trace: TC-032, FR-007-AC-2
+#[test]
+fn contextual_replay_rejects_each_independent_request_substitution() {
+    let input = document(
+        SemanticProfile::ClosedTraceV1,
+        vec![
+            proposition(7),
+            Node::new(NodeKind::Or {
+                left: NodeId(0),
+                right: NodeId(0),
+            }),
+        ],
+    );
+    let supplied_catalog = catalog_with_unused(7, "unused", SignalDomain::Boolean);
+    let supplied_context = context();
+    let expected = rewrite_with_context(
+        &input,
+        "contextual-mutation-table",
+        RewriteOptions::default(),
+        "source",
+        &supplied_catalog,
+        Some(supplied_context.clone()),
+    );
+    assert!(!expected.steps.is_empty());
+    assert_eq!(
+        replay_with_context(
+            &input,
+            &expected,
+            &supplied_catalog,
+            Some(supplied_context.clone()),
+        )
+        .status,
+        ReplayStatus::Verified
+    );
+
+    // Independent catalog declaration, domain, name, and binding changes.
+    assert_eq!(
+        replay_with_context(
+            &input,
+            &expected,
+            &catalog(7),
+            Some(supplied_context.clone()),
+        )
+        .status,
+        ReplayStatus::Mismatch
+    );
+    assert_eq!(
+        replay_with_context(
+            &input,
+            &expected,
+            &catalog_with_unused(
+                7,
+                "unused",
+                SignalDomain::Integer(IntegerSignalDomain::new(-1, 1).unwrap()),
+            ),
+            Some(supplied_context.clone()),
+        )
+        .status,
+        ReplayStatus::Mismatch
+    );
+    assert_eq!(
+        replay_with_context(
+            &input,
+            &expected,
+            &catalog_with_unused(7, "unused_renamed", SignalDomain::Boolean),
+            Some(supplied_context.clone()),
+        )
+        .status,
+        ReplayStatus::Mismatch
+    );
+    assert_eq!(
+        replay_with_context(
+            &input,
+            &expected,
+            &catalog_with_unused(8, "unused", SignalDomain::Boolean),
+            Some(supplied_context.clone()),
+        )
+        .status,
+        ReplayStatus::Mismatch
+    );
+
+    // Each context value and the explicit presence marker participates.
+    for changed_context in [
+        context_fields(
+            "agent-ix/demo/FR-007-changed",
+            "1",
+            "AC-1",
+            "demo.context",
+            10,
+            24,
+        ),
+        context_fields("agent-ix/demo/FR-007", "2", "AC-1", "demo.context", 10, 24),
+        context_fields("agent-ix/demo/FR-007", "1", "AC-2", "demo.context", 10, 24),
+        context_fields("agent-ix/demo/FR-007", "1", "AC-1", "demo.changed", 10, 24),
+        context_fields("agent-ix/demo/FR-007", "1", "AC-1", "demo.context", 11, 24),
+    ] {
+        assert_eq!(
+            replay_with_context(&input, &expected, &supplied_catalog, Some(changed_context)).status,
+            ReplayStatus::Mismatch
+        );
+    }
+    assert_eq!(
+        replay_with_context(&input, &expected, &supplied_catalog, None).status,
+        ReplayStatus::Mismatch
+    );
+
+    let changed_input = document(SemanticProfile::ClosedTraceV1, vec![proposition(7)]);
+    assert_eq!(
+        replay_with_context(
+            &changed_input,
+            &expected,
+            &supplied_catalog,
+            Some(supplied_context),
+        )
+        .status,
+        ReplayStatus::Mismatch
+    );
+
+    let mut changed = expected.clone();
+    changed.options.budgets.max_work_units += 1;
+    assert_eq!(
+        replay_with_context(&input, &changed, &supplied_catalog, Some(context())).status,
+        ReplayStatus::Mismatch
+    );
+    changed = expected.clone();
+    changed.catalog_sha256 = "0".repeat(64);
+    assert_eq!(
+        replay_with_context(&input, &changed, &supplied_catalog, Some(context())).status,
+        ReplayStatus::Mismatch
+    );
+    changed = expected;
+    changed.steps[0].intermediate_sha256 = "f".repeat(64);
+    assert_eq!(
+        replay_with_context(&input, &changed, &supplied_catalog, Some(context())).status,
+        ReplayStatus::Mismatch
+    );
 }
 
 // Trace: TC-034, FR-007-AC-4

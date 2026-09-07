@@ -311,7 +311,7 @@ fn report_base(
     comparison_id: String,
     options: ConformanceOptions,
 ) -> ConformanceReport {
-    let catalog = catalog();
+    let rule_catalog = catalog();
     ConformanceReport {
         schema_version: "tl-rewrite.conformance/v1".to_owned(),
         comparison_id,
@@ -321,8 +321,8 @@ fn report_base(
         syntax_revision: TL_SYNTAX_REVISION.to_owned(),
         evaluator_revision: TL_MLTL_REVISION.to_owned(),
         west_revision: WEST_REVISION.to_owned(),
-        catalog_version: catalog.catalog_version,
-        catalog_sha256: catalog.catalog_sha256,
+        catalog_version: rule_catalog.catalog_version,
+        catalog_sha256: rule_catalog.catalog_sha256,
         signal_catalog_sha256: None,
         requirement_context: None,
         request_sha256: None,
@@ -468,6 +468,7 @@ pub fn check_equivalence_with_context(
 ) -> ConformanceReport {
     let comparison_id = comparison_id.into();
     let mut report = report_base(original, rewritten, comparison_id.clone(), options);
+    let rule_catalog = catalog();
     report.schema_version = "tl-rewrite.conformance/v2".to_owned();
     report.signal_catalog_sha256 = Some(sha256_json(signal_catalog));
     report.request_sha256 = Some(sha256_json(&(
@@ -480,6 +481,9 @@ pub fn check_equivalence_with_context(
         &requirement_context,
         TL_SYNTAX_REVISION,
         TL_MLTL_REVISION,
+        WEST_REVISION,
+        &rule_catalog.catalog_version,
+        &rule_catalog.catalog_sha256,
     )));
     report.requirement_context = Some(requirement_context);
     let Ok(catalog) = signal_catalog.validate() else {
