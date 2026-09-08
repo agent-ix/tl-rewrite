@@ -65,7 +65,11 @@ fn head_revision() -> String {
     String::from_utf8_lossy(&output.stdout).trim().to_owned()
 }
 
-fn deleted_names_in<'a>(path: &Path, names: &'a [&'a str]) -> Vec<&'a str> {
+fn deleted_names_in<'a>(
+    _inputs: &AssuranceInputsGuard,
+    path: &Path,
+    names: &'a [&'a str],
+) -> Vec<&'a str> {
     // A file that cannot be read has not been scanned. Read bytes so a source
     // with a valid non-UTF-8 encoding cannot disappear from the census merely
     // because Rust strings require UTF-8.
@@ -244,7 +248,12 @@ fn census_exemption(relative: &str) -> Option<CensusExemption> {
     None
 }
 
-fn census_matches<'a>(root: &Path, path: &Path, names: &'a [&'a str]) -> Vec<&'a str> {
+fn census_matches<'a>(
+    inputs: &AssuranceInputsGuard,
+    root: &Path,
+    path: &Path,
+    names: &'a [&'a str],
+) -> Vec<&'a str> {
     let relative = path
         .strip_prefix(root)
         .unwrap_or(path)
@@ -253,7 +262,7 @@ fn census_matches<'a>(root: &Path, path: &Path, names: &'a [&'a str]) -> Vec<&'a
     if census_exemption(&relative).is_some() {
         Vec::new()
     } else {
-        deleted_names_in(path, names)
+        deleted_names_in(inputs, path, names)
     }
 }
 
@@ -288,7 +297,44 @@ fn assert_probe_store_isolated(scratch_target: &Path, probe: &str) {
 /// binary, and every reader sees the same run rather than a different one.
 static CHAIN: OnceLock<Value> = OnceLock::new();
 
-fn chain_report() -> &'static Value {
+mod shared_inputs {
+    use std::sync::{Mutex, MutexGuard};
+
+    static LOCK: Mutex<()> = Mutex::new(());
+
+    pub(super) struct Guard {
+        _lock: MutexGuard<'static, ()>,
+    }
+
+    pub(super) fn lock() -> Guard {
+        let lock = LOCK.lock().unwrap_or_else(|poisoned| {
+            panic!(
+                "shared assurance inputs may have been left mutated by a panicking test; \
+                 re-run `make assurance-inputs`: {poisoned}"
+            )
+        });
+        Guard { _lock: lock }
+    }
+}
+
+type AssuranceInputsGuard = shared_inputs::Guard;
+
+fn assurance_inputs_guard() -> AssuranceInputsGuard {
+    shared_inputs::lock()
+}
+
+fn clear_scratch_directory(directory: &Path, purpose: &str) {
+    match fs::remove_dir_all(directory) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => panic!(
+            "failed to clear {purpose} at {}: {error}",
+            directory.display()
+        ),
+    }
+}
+
+fn chain_report(_inputs: &AssuranceInputsGuard) -> &'static Value {
     CHAIN.get_or_init(|| {
         // The chain runs under the system interpreter: it only shells out to
         // quoin and never imports engineering-assurance.
@@ -326,6 +372,7 @@ fn retained_output_contains(directory: &Path, expected: &[u8]) -> bool {
 // Trace: TC-023, FR-006-AC-1
 #[test]
 fn every_shared_pin_is_classified_by_the_packaged_matrix() {
+    let _inputs = assurance_inputs_guard();
     let python = assurance_python();
     let report = json_gate(&python, &["scripts/check_shared_pins.py", "--json"]);
 
@@ -459,7 +506,8 @@ fn digest_pinned_artifacts() -> BTreeSet<String> {
 // Trace: TC-024, FR-006-AC-2, NFR-003-AC-1, SUITE-004, SUITE-005, SUITE-006, SUITE-007
 #[test]
 fn the_chain_reaches_quoin_without_quoin_or_quire_executing_a_producer() {
-    let report = chain_report();
+    let inputs = assurance_inputs_guard();
+    let report = chain_report(&inputs);
     assert_eq!(report["matched"], true, "{report:#}");
 
     for group in ["scenarios", "controls", "adapter_probes"] {
@@ -555,12 +603,10 @@ fn the_chain_reaches_quoin_without_quoin_or_quire_executing_a_producer() {
 /// shims at all — because an empty work log and an absent shim are the same
 /// observation until something proves the shim answered.
 fn producer_shims(directory: &Path, names: &[&str]) -> (PathBuf, PathBuf) {
-    let _ = fs::remove_dir_all(directory);
-    fs::create_dir_all(directory).unwrap();
+    clear_scratch_directory(directory, "producer shims");
+    fs::create_dir_all(directory).expect("create producer shims directory");
     let log = directory.join("invocations.log");
     let versions = directory.join("versions.log");
-    let _ = fs::remove_file(&log);
-    let _ = fs::remove_file(&versions);
     for name in names {
         let path = directory.join(name);
         fs::write(
@@ -607,6 +653,7 @@ fn run_chain_with_path(shims: &Path) -> std::process::Output {
 // Trace: TC-024, FR-006-AC-2, NFR-003-AC-2
 #[test]
 fn the_chain_never_executes_a_producer_and_the_probe_can_prove_it() {
+    let inputs = assurance_inputs_guard();
     // Two runs, because one proves nothing.
     //
     // Run A replaces every producer — cargo, rustup, rustc — with a stub that
@@ -678,7 +725,7 @@ fn the_chain_never_executes_a_producer_and_the_probe_can_prove_it() {
     // either, because a discarded output moves no byte. The driver therefore
     // records every command it executes and refuses anything outside quoin and
     // the declared version observations.
-    let report = chain_report();
+    let report = chain_report(&inputs);
     assert!(
         report["command_audit_violations"]
             .as_array()
@@ -726,12 +773,15 @@ fn the_chain_never_executes_a_producer_and_the_probe_can_prove_it() {
          only read; a driver that can produce its own inputs can produce a green run \
          out of nothing"
     );
+    fs::remove_dir_all(&producers).expect("remove producer shim scratch directory");
+    fs::remove_dir_all(&tools).expect("remove tool shim scratch directory");
 }
 
 // Trace: TC-036, FR-007-AC-6
 #[test]
 fn contextual_native_result_crosses_the_existing_quoin_intake() {
-    let chain = chain_report();
+    let inputs = assurance_inputs_guard();
+    let chain = chain_report(&inputs);
     assert_eq!(
         chain["attested_results"]["PROOF-normalization-sweep"], "passed",
         "the existing Quoin intake did not attest the normalization producer: {chain:#}"
@@ -794,7 +844,8 @@ fn assurance_input_digests() -> Vec<(String, String)> {
 // Trace: TC-025, FR-006-AC-3, SUITE-002, SUITE-003
 #[test]
 fn the_sealed_records_impact_snapshot_is_the_quire_export() {
-    let report = chain_report();
+    let inputs = assurance_inputs_guard();
+    let report = chain_report(&inputs);
     let export = root().join(report["quire_export"].as_str().expect("quire_export"));
     let bytes =
         fs::read(&export).unwrap_or_else(|error| panic!("{} is absent: {error}", export.display()));
@@ -881,6 +932,7 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
 // Trace: TC-027, FR-006-AC-5, NFR-003-AC-3
 #[test]
 fn all_twelve_verification_outcomes_are_demonstrated_and_paired_with_controls() {
+    let inputs = assurance_inputs_guard();
     // The twelve states this migration must keep distinguishable, and the gate
     // that owns each. A state nobody demonstrates is a state nobody would notice
     // the loss of.
@@ -903,7 +955,7 @@ fn all_twelve_verification_outcomes_are_demonstrated_and_paired_with_controls() 
         ("tampered", "chain"),
     ];
 
-    let report = chain_report();
+    let report = chain_report(&inputs);
 
     // Only MEASURED outcomes count: the chain's `states_demonstrated` is built
     // from cases that ran and matched, never from a label.
@@ -975,7 +1027,8 @@ fn all_twelve_verification_outcomes_are_demonstrated_and_paired_with_controls() 
 // Trace: TC-028, FR-006-AC-6, FR-004-AC-1, StR-002-VC-2
 #[test]
 fn every_counterexample_is_a_replayed_witness_and_never_a_boolean() {
-    let report = chain_report();
+    let inputs = assurance_inputs_guard();
+    let report = chain_report(&inputs);
 
     // The count comes from the counterexample corpus, so a producer that stopped
     // finding counterexamples cannot also move the number it is checked against.
@@ -1090,6 +1143,7 @@ fn every_counterexample_is_a_replayed_witness_and_never_a_boolean() {
 // Trace: TC-029, FR-006-AC-7, SUITE-001
 #[test]
 fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() {
+    let inputs = assurance_inputs_guard();
     let root = root();
     let declaration: Value = serde_json::from_slice(
         &fs::read(root.join("assurance/change-assurance.json"))
@@ -1260,14 +1314,14 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     const CONTROL_DIR: &str = "scripts/.census-control";
     const CONTROL: &str = "scripts/.census-control/probe.py";
     let control = root.join(CONTROL);
-    let _ = fs::remove_dir_all(root.join(CONTROL_DIR));
+    clear_scratch_directory(&root.join(CONTROL_DIR), "census control directory");
     fs::create_dir_all(root.join(CONTROL_DIR)).expect("create control directory");
     fs::write(&control, "# census untracked positive control\n").expect("write control");
 
     let (tracked_all, tracked, mut scanned) = census_paths(&root, denied);
 
     // Removed before the assertion so a failure cannot leave the tree dirty.
-    let _ = fs::remove_dir_all(root.join(CONTROL_DIR));
+    fs::remove_dir_all(root.join(CONTROL_DIR)).expect("remove census control directory");
     assert!(
         scanned.contains(CONTROL),
         "the census did not pick up an untracked file that existed while it \
@@ -1435,11 +1489,11 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         "could not isolate the census fixture from global Git excludes"
     );
     let (_, _, fixture_scanned) = census_paths(&fixture, |_| false);
-    let make_matches = census_matches(&fixture, &make_probe, &DELETED_REFERENCES);
+    let make_matches = census_matches(&inputs, &fixture, &make_probe, &DELETED_REFERENCES);
 
     let non_repository =
         std::env::temp_dir().join(format!("tl-rewrite-census-nonrepo-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&non_repository);
+    clear_scratch_directory(&non_repository, "non-repository census control");
     fs::create_dir_all(&non_repository).expect("create non-repository control");
     let unenumerable = std::panic::catch_unwind(|| {
         let _ = git_files(&non_repository, &["ls-files", "-z"]);
@@ -1473,7 +1527,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     let mut probe_bytes = expected_deleted_references.join("\n").into_bytes();
     probe_bytes.push(0xff);
     fs::write(&non_utf8_probe, probe_bytes).expect("write the non-UTF-8 census probe");
-    let probe_matches = census_matches(&root, &non_utf8_probe, &DELETED_REFERENCES);
+    let probe_matches = census_matches(&inputs, &root, &non_utf8_probe, &DELETED_REFERENCES);
     fs::remove_file(&non_utf8_probe).expect("remove the non-UTF-8 census probe");
     assert_eq!(
         probe_matches, expected_deleted_references,
@@ -1482,7 +1536,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
 
     let missing_probe = root.join("target/removal-census-missing-probe.py");
     let unreadable = std::panic::catch_unwind(|| {
-        let _ = census_matches(&root, &missing_probe, &DELETED_REFERENCES);
+        let _ = census_matches(&inputs, &root, &missing_probe, &DELETED_REFERENCES);
     })
     .expect_err("an unreadable census path did not fail closed");
     let unreadable = panic_message(unreadable);
@@ -1566,7 +1620,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // Counted over TRACKED files only; the scan below covers more.
     let inspected = tracked.len();
     for path in &sources {
-        let deleted_names = census_matches(&root, path, &DELETED_REFERENCES);
+        let deleted_names = census_matches(&inputs, &root, path, &DELETED_REFERENCES);
         // Three files name the deleted machinery on purpose: this test, which
         // asserts its absence; assurance/pins.json, which records what was
         // measured before the deletion; and the change-assurance declaration,
@@ -1724,6 +1778,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
 // Trace: TC-027, FR-006-AC-5, NFR-003-AC-3
 #[test]
 fn a_control_naming_a_scenario_that_does_not_exist_is_refused() {
+    let _inputs = assurance_inputs_guard();
     // NFR-003-AC-3 claims this guard is checked. The driver is copied and one
     // `pairs_with` — and only that one — is renamed. Renaming the scenario as
     // well would leave the pairing consistent and prove nothing.
@@ -1859,25 +1914,30 @@ fn a_control_naming_a_scenario_that_does_not_exist_is_refused() {
 // Trace: TC-023, FR-006-AC-1
 #[test]
 fn the_mirror_scan_refuses_a_registry_reference_in_a_real_file() {
+    let _inputs = assurance_inputs_guard();
     // The structural branch of `mirror_references` (pins.json) already has a
     // control. The file-scan branch needs its own: without one it is
     // indistinguishable from a loop over files that never match.
     let python = assurance_python();
+    let requirements = root().join("requirements-assurance.txt");
+    let original = fs::read(&requirements).expect("read requirements-assurance input");
+    fs::write(
+        &requirements,
+        [original.as_slice(), b"\n--registry=https://npm.ix/\n"].concat(),
+    )
+    .expect("write mirror-reference probe input");
     let (code, stdout, stderr) = run(
         &python,
         &[
             "-c",
             "import json,sys,pathlib;sys.path.insert(0,'scripts');\
              import check_shared_pins as m;\
-             original=pathlib.Path('requirements-assurance.txt').read_text();\
-             pathlib.Path('requirements-assurance.txt').write_text(\
-             original+'\\n--registry=https://npm.ix/\\n');\
              pins=json.load(open('assurance/pins.json'));\
              found=m.mirror_references(pins);\
-             pathlib.Path('requirements-assurance.txt').write_text(original);\
              print(json.dumps(found))",
         ],
     );
+    fs::write(&requirements, &original).expect("restore requirements-assurance input");
     assert_eq!(code, 0, "the mirror file-scan probe failed: {stderr}");
     let offenders: Vec<String> = serde_json::from_str(stdout.trim()).unwrap();
     assert!(
@@ -1888,17 +1948,17 @@ fn the_mirror_scan_refuses_a_registry_reference_in_a_real_file() {
          file-scan branch matches nothing. Detected: {offenders:?}"
     );
 
-    // And the file must be restored, or this test has dirtied the tree.
-    let restored = fs::read_to_string(root().join("requirements-assurance.txt")).unwrap();
-    assert!(
-        !restored.contains("npm.ix/"),
-        "the probe left a mirror reference in requirements-assurance.txt"
+    assert_eq!(
+        fs::read(&requirements).expect("re-read restored requirements-assurance input"),
+        original,
+        "the mirror-reference probe left requirements-assurance.txt changed"
     );
 }
 
 // Trace: TC-030, NFR-002-AC-2, NFR-003-AC-5
 #[test]
 fn the_published_revision_constants_are_the_resolved_revisions() {
+    let _inputs = assurance_inputs_guard();
     let report = json_gate(
         Path::new("python3"),
         &["scripts/check_provenance.py", "--json"],
@@ -1924,7 +1984,7 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
     // could see it. This restores the stale value in a scratch copy and requires
     // the census to report a failing row.
     let scratch = root().join("target/provenance-probe");
-    let _ = fs::remove_dir_all(&scratch);
+    clear_scratch_directory(&scratch, "provenance probe scratch");
     fs::create_dir_all(scratch.join("src")).unwrap();
     fs::create_dir_all(scratch.join("scripts")).unwrap();
     for entry in fs::read_dir(root()).expect("repository root") {
