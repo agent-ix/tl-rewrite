@@ -37,3 +37,8 @@ description: "Implementation and verification record for issue #19."
   `make ci CARGO_TARGET_DIR=target/cargo-review` gate passed; hosted CI was not
   dispatched. The plan remains in progress until the changed head is
   independently re-reviewed and merged.
+- **2026-09-08 — Issue #22 task decomposition.** The post-merge independent
+  review identified bounded follow-up work outside the original issue #19
+  scope. Three typed tasks now allocate that work without treating authorial
+  verification records as independent clearance. Implementation and a new
+  independent review remain outstanding.
