@@ -42,3 +42,8 @@ description: "Implementation and verification record for issue #19."
   scope. Three typed tasks now allocate that work without treating authorial
   verification records as independent clearance. Implementation and a new
   independent review remain outstanding.
+- **2026-09-08 — Artifact-truth task completed.** SR-012, SR-013, and SR-014
+  now state their authorial status, identify `d4670c25` as the historical
+  candidate for their execution observations, and grant neither independent
+  clearance nor merge authority. This record update does not substitute for the
+  independent review still required for the current branch.
