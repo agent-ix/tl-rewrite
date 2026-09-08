@@ -26,6 +26,15 @@ make assurance        # pins + assurance-chain
 make ci               # every gate locally; hosted CI is manual-dispatch only
 ```
 
+## Specification workflow
+
+All new or changed work must be specified before implementation: use `quoin
+write` to obtain the current artifact contracts, then update the relevant
+requirements, plans, tasks, matrix rows, and evidence links. Before requesting
+review, run `quoin review` over the affected scope and validate with Quire.
+Record selected analyses and findings; final Quoin acceptance remains a human
+decision and must not be advanced automatically.
+
 ## Shared assurance
 
 Since issue #9 this repository has no local evidence framework. Retention,
