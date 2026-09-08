@@ -56,3 +56,8 @@ description: "Implementation and verification record for issue #19."
   imitated as a local record field. FR-006-AC-7 and TC-029 now own the controls;
   the focused raw-byte census and local specification gate passed at the
   resulting candidate. Hosted CI was not dispatched.
+- **2026-09-08 — Shared-input isolation task completed.** A private guard token
+  now serializes all shared-input readers and mutators, and token-taking helpers
+  make omission from established stateful paths fail at compile time. Scratch
+  and shim cleanup reports failure rather than silently continuing. No runner,
+  collector, envelope, or retention layer was introduced.
