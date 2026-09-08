@@ -1439,7 +1439,9 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
-    // 94: the prior 89 plus the five atomic NFR-003 criteria split from the
+    // 96: the prior 94 plus FR-002-AC-4 and TC-040, which bind semantic
+    // identity independently of diagnostic source spans. The prior 94 was the
+    // prior 89 plus the five atomic NFR-003 criteria split from the
     // original bundled AC-7 by issue #33. TC-039 backs AC-7 through AC-12. The
     // prior 89 was 85 plus FR-006-AC-8, the original NFR-003-AC-7, TC-038, and
     // TC-039. The
@@ -1449,9 +1451,9 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // removing exactly FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4, and TC-026 with
     // the retained-evidence claims they owned.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 94, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 96, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 94,
+        totals["backed"], 96,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );

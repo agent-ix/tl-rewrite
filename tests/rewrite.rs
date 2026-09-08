@@ -4,7 +4,7 @@ use common::{document, proposition};
 use tl_rewrite::{
     rewrite, BudgetKind, RewriteBudgets, RewriteOptions, RewriteStatus, RewriteStrategy,
 };
-use tl_syntax::{Node, NodeId, NodeKind, SemanticProfile};
+use tl_syntax::{Node, NodeId, NodeKind, SemanticProfile, SourceSpan};
 
 fn reducible() -> tl_syntax::FormulaDocument {
     document(
@@ -18,6 +18,10 @@ fn reducible() -> tl_syntax::FormulaDocument {
             }),
         ],
     )
+}
+
+fn span(start: u32, end: u32) -> SourceSpan {
+    SourceSpan::new(start, end).expect("ordered test span")
 }
 
 // Trace: TC-003, FR-001-AC-2
@@ -67,6 +71,81 @@ fn identical_requests_are_byte_identical() {
         serde_json::to_vec(&first).unwrap(),
         serde_json::to_vec(&run()).unwrap()
     );
+}
+
+// Trace: TC-040, FR-002-AC-4
+#[test]
+fn span_distinct_parser_shaped_inputs_intern_and_identify_semantically() {
+    let formula = |right_span, implication| {
+        let root_kind = if implication {
+            NodeKind::Implies {
+                left: NodeId(0),
+                right: NodeId(1),
+            }
+        } else {
+            NodeKind::Or {
+                left: NodeId(0),
+                right: NodeId(1),
+            }
+        };
+        document(
+            SemanticProfile::ClosedTraceV1,
+            vec![
+                Node::with_span(proposition(1).kind, span(0, 2)),
+                Node::with_span(proposition(1).kind, right_span),
+                Node::with_span(root_kind, span(0, right_span.end())),
+            ],
+        )
+    };
+    for (implication, expected_rule) in [
+        (false, "bool.or.idempotent"),
+        (true, "bool.implies.reflexive"),
+    ] {
+        let compact = formula(span(3, 5), implication);
+        let spaced = formula(span(5, 7), implication);
+        let first = rewrite(
+            &compact,
+            "span-insensitive",
+            RewriteOptions::default(),
+            "source",
+        );
+        let second = rewrite(
+            &spaced,
+            "span-insensitive",
+            RewriteOptions::default(),
+            "source",
+        );
+
+        assert_eq!(first.input_sha256, second.input_sha256);
+        assert_eq!(first.request_sha256, second.request_sha256);
+        assert_eq!(first.output_sha256, second.output_sha256);
+        assert_ne!(first.steps[0].source_span, second.steps[0].source_span);
+        assert_eq!(
+            first
+                .steps
+                .iter()
+                .map(|step| (
+                    &step.rule_id,
+                    &step.before_sha256,
+                    &step.after_sha256,
+                    &step.intermediate_sha256
+                ))
+                .collect::<Vec<_>>(),
+            second
+                .steps
+                .iter()
+                .map(|step| (
+                    &step.rule_id,
+                    &step.before_sha256,
+                    &step.after_sha256,
+                    &step.intermediate_sha256
+                ))
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(first.status, RewriteStatus::Normalized);
+        assert_eq!(second.status, RewriteStatus::Normalized);
+        assert!(first.steps.iter().any(|step| step.rule_id == expected_rule));
+    }
 }
 
 // Trace: TC-006, FR-002-AC-2, NFR-001-AC-2

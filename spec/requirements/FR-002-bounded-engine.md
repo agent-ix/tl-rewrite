@@ -17,9 +17,11 @@ order under explicit iteration, node, rule-application, and logical-work budgets
 ## Behavior
 
 - Each pass traverses the validated topological graph in stable node order.
-- Each pass structurally interns identical kind/span nodes through a deterministic
-  logarithmic-time index, discards nodes that are unreachable from the candidate
-  root, and enforces the node budget on the reachable compacted graph.
+- Each pass structurally interns identical semantic node kinds through a
+  deterministic logarithmic-time index. Source spans remain diagnostic
+  provenance and do not split semantic interning, formula identities, or cycle
+  fingerprints. Each pass discards nodes that are unreachable from the
+  candidate root and enforces the node budget on the reachable compacted graph.
 - Retained trace provenance is selected by one budgeted reachability walk over
   per-source operand edges; it never materializes transitive contributor sets.
 - Cycle fingerprints cover complete compacted states and repeated states return
@@ -35,6 +37,7 @@ order under explicit iteration, node, rule-application, and logical-work budgets
 | FR-002-AC-1 | Identical inputs and budgets produce byte-identical output, steps, status, counts, and digests. | Test (TC-005) |
 | FR-002-AC-2 | Every configured budget, nondegenerate reachable-graph boundary, retained-source traversal boundary, and repeated complete state fails explicitly without a successful normalization claim. | Test (TC-006, TC-007, TC-020, TC-021) |
 | FR-002-AC-3 | Output preserves the exact semantic profile, forms a valid topological graph, and reaches a fixed point under the same catalog. | Test (TC-008) |
+| FR-002-AC-4 | Inputs that differ only in diagnostic source spans intern and rewrite identically, and their formula-level replay identities are equal. When equivalent nodes merge, their output diagnostic span is the first encountered source span; per-step source spans retain the input location of the applied rule. | Test (TC-040) |
 
 ## Dependencies
 
