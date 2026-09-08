@@ -20,10 +20,11 @@ Make or recreating a repository-local assurance framework.
 1. Make Git enumeration reusable by the live census and a real fixture
    repository; prove enumeration failure, hostile template exclusions, local
    excludes isolation, preferred `GNUmakefile`, and `.yaml` workflow coverage.
-2. Cross-check executable denial and deleted-name sets against an explicitly
-   unsealed declaration block, widen `compat-view` to the plain target name, and
-   constrain the complete historical-prose exemption population.
-3. Reconcile FR-006-AC-7 across the requirement, matrix, and declaration.
+2. Keep executable census controls in TC-029 under FR-006-AC-7 rather than in
+   an unsealed declaration block, widen `compat-view` to the plain target name,
+   and constrain the complete historical-prose exemption population.
+3. Reconcile FR-006-AC-7 across the requirement, matrix, and sealed
+   change-assurance statement without adding a local record field.
 4. Remove the dead post-creation symlink assertion, resolve an existing real
    Quoin store leaf before containment comparison, and improve probe diagnostics.
 5. Record the reviewed-head transfer basis for the earlier anti-flake campaign,

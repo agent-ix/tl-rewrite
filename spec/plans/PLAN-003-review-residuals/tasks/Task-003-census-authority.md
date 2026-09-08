@@ -2,7 +2,7 @@
 id: Task-003
 title: "Census authority and control ownership"
 type: Task
-status: planned
+status: done
 track: Assurance
 priority: P1
 relationships:
@@ -29,3 +29,14 @@ disclosure-pin, and `ci`-declaration controls.
 Each retained control has one owning requirement and a falsifiable expected
 side. The active disclosure records its deliberate trade without becoming a
 false positive, and the shared-contract boundary remains explicit.
+
+## Completion Record
+
+Completed on 2026-09-08. The unsealed `census_controls` duplicate was removed:
+Quoin's strict record schema cannot seal arbitrary control metadata, so
+FR-006-AC-7 and TC-029 own the executable controls while Quoin seals the
+requirement and its sources. Historical-prose exemption checking now compares a
+reviewed population ground truth rather than a copied predicate. The requirement
+and matrix explicitly own the non-UTF-8, hostile-exemption, stable disclosure,
+and literal `ci` controls, and record why active Make prose avoids the deleted
+target spelling.

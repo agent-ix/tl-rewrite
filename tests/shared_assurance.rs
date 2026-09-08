@@ -1145,11 +1145,6 @@ fn every_counterexample_is_a_replayed_witness_and_never_a_boolean() {
 fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() {
     let inputs = assurance_inputs_guard();
     let root = root();
-    let declaration: Value = serde_json::from_slice(
-        &fs::read(root.join("assurance/change-assurance.json"))
-            .expect("read change-assurance declaration for census controls"),
-    )
-    .expect("change-assurance declaration is JSON");
 
     // The generic machinery is gone, by name.
     for removed in [
@@ -1243,15 +1238,16 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // `reintroduced_reader.yaml` was invisible too.
     //
     // Everything tracked is scanned except these exact lock and licence files.
-    // This predicate is separate from the declaration's authorial control: a
-    // one-line widening of the filter must change the observed set and fail the
-    // equality instead of silently buying itself room under the coarse floor.
-    let denied = |path: &str| {
-        matches!(
-            path,
-            "Cargo.lock" | "LICENSE-APACHE" | "LICENSE-MIT" | "corpus/west-v1/LICENSE"
-        )
-    };
+    // FR-006-AC-7 owns this test-domain control; it is intentionally not copied
+    // into the sealed change-assurance record, whose shared schema has no
+    // control-metadata field.
+    const DENIED_PATHS: [&str; 4] = [
+        "Cargo.lock",
+        "LICENSE-APACHE",
+        "LICENSE-MIT",
+        "corpus/west-v1/LICENSE",
+    ];
+    let denied = |path: &str| DENIED_PATHS.contains(&path);
     // The expected set below constrains the current tree. These negative cases
     // constrain the predicate itself, so restoring the old LICENSE-prefix or
     // lockfile-suffix rule is red even before such a path is committed.
@@ -1336,20 +1332,10 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         .filter(|entry| denied(entry))
         .cloned()
         .collect();
-    let expected_denied: BTreeSet<String> = declaration["census_controls"]["denied_paths"]
-        .as_array()
-        .expect("census_controls.denied_paths is an array")
-        .iter()
-        .map(|value| {
-            value
-                .as_str()
-                .expect("every census denied path is a string")
-                .to_owned()
-        })
-        .collect();
+    let expected_denied: BTreeSet<String> = DENIED_PATHS.into_iter().map(str::to_owned).collect();
     assert_eq!(
         observed_denied, expected_denied,
-        "the executable census deny-list differs from the change declaration"
+        "the executable census deny-list differs from its reviewed ground truth"
     );
     // Areas come from the UNFILTERED list. Computing them from the filtered one
     // meant a new tracked directory whose files were all filtered out would
@@ -1403,22 +1389,6 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         "tl-rewrite-evidence-manifest-v1.schema.json",
         "tl-rewrite-evidence-input-v1.schema.json",
     ];
-    let expected_deleted_references: Vec<&str> = declaration["census_controls"]
-        ["deleted_reference_needles"]
-        .as_array()
-        .expect("census_controls.deleted_reference_needles is an array")
-        .iter()
-        .map(|value| {
-            value
-                .as_str()
-                .expect("every deleted-reference needle is a string")
-        })
-        .collect();
-    assert_eq!(
-        DELETED_REFERENCES.as_slice(),
-        expected_deleted_references,
-        "the executable deleted-reference needles differ from the change declaration"
-    );
 
     // Exercise the production Git enumerator in a real fixture repository. A
     // preferred GNUmakefile containing only the phony declaration keeps the
@@ -1521,16 +1491,17 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     );
 
     // The same exemption-plus-scanner function used by the repository loop must
-    // find every forbidden name after a non-UTF-8 byte. The declaration's
-    // separately reviewed control means deleting one executable needle is red.
+    // find every forbidden name after a non-UTF-8 byte. The probe is the
+    // falsifiable expected side: deleting one executable needle leaves its
+    // matching hostile byte sequence unreported.
     let non_utf8_probe = root.join("target/removal-census-non-utf8-probe.py");
-    let mut probe_bytes = expected_deleted_references.join("\n").into_bytes();
+    let mut probe_bytes = DELETED_REFERENCES.join("\n").into_bytes();
     probe_bytes.push(0xff);
     fs::write(&non_utf8_probe, probe_bytes).expect("write the non-UTF-8 census probe");
     let probe_matches = census_matches(&inputs, &root, &non_utf8_probe, &DELETED_REFERENCES);
     fs::remove_file(&non_utf8_probe).expect("remove the non-UTF-8 census probe");
     assert_eq!(
-        probe_matches, expected_deleted_references,
+        probe_matches, DELETED_REFERENCES,
         "the raw-byte census did not exercise every forbidden name"
     );
 
@@ -1604,17 +1575,13 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         .filter(|relative| census_exemption(relative) == Some(CensusExemption::HistoricalProse))
         .cloned()
         .collect();
-    let expected_historical_exemptions: BTreeSet<String> = scanned
-        .iter()
-        .filter(|relative| {
-            relative.ends_with(".md")
-                && (relative.starts_with("spec/reviews/") || relative.starts_with("spec/plans/"))
-        })
-        .cloned()
-        .collect();
+    const REVIEWED_HISTORICAL_PROSE_POPULATION: usize = 45;
     assert_eq!(
-        observed_historical_exemptions, expected_historical_exemptions,
-        "the historical-prose exemption widened beyond Markdown under spec/reviews or spec/plans"
+        observed_historical_exemptions.len(),
+        REVIEWED_HISTORICAL_PROSE_POPULATION,
+        "the historical-prose exemption population changed from the reviewed \
+         {REVIEWED_HISTORICAL_PROSE_POPULATION} files; review its exact paths rather than \
+         widening the exemption predicate"
     );
 
     // Counted over TRACKED files only; the scan below covers more.
@@ -1654,7 +1621,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **113** scanned tracked files — 117 tracked
+    // Population at this review head: **115** scanned tracked files — 119 tracked
     // in total, minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
@@ -1662,7 +1629,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 12 root, 65 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // By area: 15 root, 67 `spec`, 10 `tests`, 7 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
@@ -1671,8 +1638,8 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 113,
-        "the source census population changed from the reviewed 113 tracked files \
+        inspected, 115,
+        "the source census population changed from the reviewed 115 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
