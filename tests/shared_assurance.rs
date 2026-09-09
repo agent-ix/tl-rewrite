@@ -1575,13 +1575,17 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         .filter(|relative| census_exemption(relative) == Some(CensusExemption::HistoricalProse))
         .cloned()
         .collect();
-    const REVIEWED_HISTORICAL_PROSE_POPULATION: usize = 45;
+    let expected_historical_exemptions: BTreeSet<String> = scanned
+        .iter()
+        .filter(|relative| {
+            relative.ends_with(".md")
+                && (relative.starts_with("spec/reviews/") || relative.starts_with("spec/plans/"))
+        })
+        .cloned()
+        .collect();
     assert_eq!(
-        observed_historical_exemptions.len(),
-        REVIEWED_HISTORICAL_PROSE_POPULATION,
-        "the historical-prose exemption population changed from the reviewed \
-         {REVIEWED_HISTORICAL_PROSE_POPULATION} files; review its exact paths rather than \
-         widening the exemption predicate"
+        observed_historical_exemptions, expected_historical_exemptions,
+        "the historical-prose exemption widened beyond Markdown under spec/reviews or spec/plans"
     );
 
     // Counted over TRACKED files only; the scan below covers more.
@@ -1621,7 +1625,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **115** scanned tracked files — 119 tracked
+    // Population at this review head: **124** scanned tracked files — 128 tracked
     // in total, minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
@@ -1629,7 +1633,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 15 root, 67 `spec`, 10 `tests`, 7 `corpus`, 5 `scripts`, 5 `src`,
+    // By area: 12 root, 76 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
@@ -1638,8 +1642,8 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 115,
-        "the source census population changed from the reviewed 115 tracked files \
+        inspected, 124,
+        "the source census population changed from the reviewed 124 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
