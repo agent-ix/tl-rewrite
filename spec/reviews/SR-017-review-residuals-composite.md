@@ -1,5 +1,5 @@
 ---
-id: SR-012
+id: SR-017
 title: Composite review of post-merge residual requirements
 type: SpecReview
 analysis: base
@@ -7,7 +7,7 @@ scope: issue #19, FR-006-AC-7, TC-027, TC-029, NFR-003-AC-3
 review_set: all
 ---
 
-# Composite review of post-merge residual requirements
+# SR-017: Composite review of post-merge residual requirements
 
 ## Summary
 
@@ -19,7 +19,7 @@ compare resolved locations when those locations exist.
 ## Findings
 
 | ID | Severity | Summary | Refs |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | FND-1201 | medium | The production Git enumeration needs a real repository fixture so preferred makefiles, workflows, excludes, and enumeration failure exercise the same helper as the live census. | FR-006-AC-7, TC-029 |
 | FND-1202 | medium | The deleted-reference implementation and its adjacent expected copy are not independent. A labelled, unsealed authorial cross-check makes the two lists separately reviewable without overstating authority. | FR-006-AC-7, TC-029 |
 | FND-1203 | low | The complete `HistoricalProse` exemption population must equal the intended `.md` population under exactly two trees. | FR-006-AC-7, TC-029 |

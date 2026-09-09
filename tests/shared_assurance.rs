@@ -100,6 +100,27 @@ fn git_files(root: &Path, arguments: &[&str]) -> Vec<String> {
         .collect()
 }
 
+#[test]
+fn every_spec_review_id_is_unique() {
+    let mut ids = BTreeSet::new();
+    for relative in git_files(&root(), &["ls-files", "-z", "spec/reviews"]) {
+        if !relative.ends_with(".md") {
+            continue;
+        }
+        let path = root().join(&relative);
+        let source = fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("could not read {relative}: {error}"));
+        let id = source
+            .lines()
+            .find_map(|line| line.strip_prefix("id: "))
+            .unwrap_or_else(|| panic!("{relative} has no review id"));
+        assert!(
+            ids.insert(id.to_owned()),
+            "duplicate SpecReview id {id} in {relative}"
+        );
+    }
+}
+
 fn census_paths<F>(root: &Path, denied: F) -> (Vec<String>, Vec<String>, BTreeSet<String>)
 where
     F: Fn(&str) -> bool,
