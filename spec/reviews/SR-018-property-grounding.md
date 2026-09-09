@@ -1,5 +1,5 @@
 ---
-id: SR-015
+id: SR-018
 title: "Property-grounding review — rewrite equivalence baseline"
 type: SpecReview
 analysis: base
@@ -25,6 +25,6 @@ tooling finding, not a local adapter or replacement opportunity.
 
 | ID | Severity | Summary | Refs |
 | --- | --- | --- | --- |
-| FND-1501 | low | TC-037 grounds the reusable finite rewrite-family property. The other extractable criteria are already enforced by their named deterministic matrix controls; no duplicate generator is warranted. | FR-001-AC-2, FR-004-AC-1, TM-001 |
-| FND-1502 | medium | DEFERRED: Quoin `advise` cannot read the installed Quire 0.31.0 JSON contract because its version detection fails. No local substitute is introduced. | quoin advise, quire-cli |
-| FND-1503 | low | Fuzz-target decision remains deferred until the property baseline is measured; mutation testing is explicitly out of scope for this baseline. | tl-rewrite#27 |
+| FND-1801 | low | TC-037 grounds the reusable finite rewrite-family property. The other extractable criteria are already enforced by their named deterministic matrix controls; no duplicate generator is warranted. | FR-001-AC-2, FR-004-AC-1, TM-001 |
+| FND-1802 | medium | DEFERRED: Quoin `advise` cannot read the installed Quire 0.31.0 JSON contract because its version detection fails. No local substitute is introduced. | quoin advise, quire-cli |
+| FND-1803 | low | Fuzz-target decision remains deferred until the property baseline is measured; mutation testing is explicitly out of scope for this baseline. | tl-rewrite#27 |
