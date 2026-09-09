@@ -417,7 +417,18 @@ dependencies = [
 [[package]]
 name = "tl-mltl"
 version = "0.1.0"
-source = "git+https://github.com/agent-ix/tl-mltl.git?rev=11eaa04710ffe0ea52b8abf5e70eafe150a99232#11eaa04710ffe0ea52b8abf5e70eafe150a99232"
+source = "git+https://github.com/agent-ix/tl-mltl.git?rev=7c0dba3f06987710a01a6143333c80251b85b196#7c0dba3f06987710a01a6143333c80251b85b196"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "tl-syntax",
+]
+
+[[package]]
+name = "tl-parse"
+version = "0.1.0"
+source = "git+https://github.com/agent-ix/tl-parse.git?rev=b8fcef718c8ceb9e13d56a8516f16b01d8f5df37#b8fcef718c8ceb9e13d56a8516f16b01d8f5df37"
 dependencies = [
  "serde",
  "serde_json",
@@ -436,13 +447,14 @@ dependencies = [
  "sha2",
  "tempfile",
  "tl-mltl",
+ "tl-parse",
  "tl-syntax",
 ]
 
 [[package]]
 name = "tl-syntax"
 version = "0.1.0"
-source = "git+https://github.com/agent-ix/tl-syntax.git?rev=6ad7499f2ccc179bb33b2590666399c6632a7e3c#6ad7499f2ccc179bb33b2590666399c6632a7e3c"
+source = "git+https://github.com/agent-ix/tl-syntax.git?rev=2e6bd6a297a75bb4eed9ea96d5083611283a4214#2e6bd6a297a75bb4eed9ea96d5083611283a4214"
 dependencies = [
  "serde",
 ]

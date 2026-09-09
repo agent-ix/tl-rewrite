@@ -1409,22 +1409,26 @@ mod tests {
     use std::collections::BTreeMap;
     use tl_syntax::{
         FormulaDocument, Node, NodeId, NodeKind, OwnedSignalDeclaration, PropositionBinding,
-        PropositionId, SemanticProfile, SignalCatalogDocument, SignalDomain, SignalId,
+        PropositionId, SemanticProfile, SignalCatalogDocument, SignalDomain, SignalId, SourceSpan,
     };
 
     // Trace: TC-020, FR-002-AC-2, NFR-001-AC-2
     #[test]
     fn repeated_complete_state_through_engine_is_non_convergent() {
-        let document = |kind| {
+        let document = |kind, start| {
             FormulaDocument::new(
                 SemanticProfile::ClosedTraceV1,
                 NodeId(0),
-                vec![Node::new(kind)],
+                vec![Node::with_span(
+                    kind,
+                    SourceSpan::new(start, start + 1).unwrap(),
+                )],
             )
             .unwrap()
         };
-        let first = document(NodeKind::True);
-        let second = document(NodeKind::False);
+        let first = document(NodeKind::True, 0);
+        let second = document(NodeKind::False, 2);
+        let repeated_first = document(NodeKind::True, 4);
         let options = RewriteOptions::default();
         let report = report_base(&first, "cycle".to_owned(), options, "source".to_owned());
         let state = PassState {
@@ -1443,7 +1447,7 @@ mod tests {
                 Ok(if pass % 2 == 0 {
                     second.clone()
                 } else {
-                    first.clone()
+                    repeated_first.clone()
                 })
             },
         );

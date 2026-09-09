@@ -1,6 +1,7 @@
 mod common;
 
 use common::{document, proposition};
+use tl_parse::{parse, ParseLimits};
 use tl_rewrite::{
     rewrite, BudgetKind, RewriteBudgets, RewriteOptions, RewriteStatus, RewriteStrategy,
 };
@@ -146,6 +147,66 @@ fn span_distinct_parser_shaped_inputs_intern_and_identify_semantically() {
         assert_eq!(second.status, RewriteStatus::Normalized);
         assert!(first.steps.iter().any(|step| step.rule_id == expected_rule));
     }
+}
+
+// Trace: TC-040, FR-002-AC-4
+#[test]
+fn span_distinct_inputs_keep_budget_partial_identity_semantic() {
+    let formula = |right_span| {
+        document(
+            SemanticProfile::ClosedTraceV1,
+            vec![
+                Node::with_span(proposition(1).kind, span(0, 2)),
+                Node::with_span(proposition(1).kind, right_span),
+                Node::with_span(
+                    NodeKind::Or {
+                        left: NodeId(0),
+                        right: NodeId(1),
+                    },
+                    span(0, right_span.end()),
+                ),
+            ],
+        )
+    };
+    let options = RewriteOptions {
+        budgets: RewriteBudgets {
+            max_rule_applications: 0,
+            ..RewriteBudgets::default()
+        },
+        ..RewriteOptions::default()
+    };
+    let compact = rewrite(&formula(span(3, 5)), "partial", options, "source");
+    let spaced = rewrite(&formula(span(5, 7)), "partial", options, "source");
+
+    assert_eq!(compact.status, RewriteStatus::BudgetExhausted);
+    assert_eq!(spaced.status, RewriteStatus::BudgetExhausted);
+    assert_eq!(compact.partial_sha256, spaced.partial_sha256);
+}
+
+// Trace: TC-040, FR-002-AC-4
+#[test]
+fn parser_to_rewriter_seam_preserves_semantic_identity() {
+    let parsed = |source| {
+        parse(
+            source,
+            SemanticProfile::ClosedTraceV1,
+            ParseLimits::default(),
+        )
+        .document
+        .expect("parser accepts fixture")
+    };
+    let compact = parsed("p1|p1");
+    let spaced = parsed("( p1 ) | p1");
+    let first = rewrite(&compact, "parser-seam", RewriteOptions::default(), "source");
+    let second = rewrite(&spaced, "parser-seam", RewriteOptions::default(), "source");
+
+    assert_eq!(first.input_sha256, second.input_sha256);
+    assert_eq!(first.request_sha256, second.request_sha256);
+    assert_eq!(first.output_sha256, second.output_sha256);
+    assert!(first
+        .steps
+        .iter()
+        .any(|step| step.rule_id == "bool.or.idempotent"));
 }
 
 // Trace: TC-006, FR-002-AC-2, NFR-001-AC-2
