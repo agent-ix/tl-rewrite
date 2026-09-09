@@ -1,5 +1,5 @@
 ---
-id: SR-017
+id: SR-015
 title: Composite review of post-merge residual requirements
 type: SpecReview
 analysis: base
@@ -7,7 +7,7 @@ scope: issue #19, FR-006-AC-7, TC-027, TC-029, NFR-003-AC-3
 review_set: all
 ---
 
-# SR-017: Composite review of post-merge residual requirements
+# SR-015: Composite review of post-merge residual requirements
 
 ## Summary
 

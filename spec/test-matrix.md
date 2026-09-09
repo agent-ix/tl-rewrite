@@ -35,7 +35,7 @@ relationships:
 |---|---|---|---|
 | NFR-001 | deterministic and resource-bound tests | TC-004 through TC-008, TC-015, TC-017, TC-021, TC-031, TC-035 | ✅ covered |
 | NFR-002 | catalog, corpus, context, and provenance inspection | TC-001, TC-002, TC-016, TC-019, TC-030, TC-031, TC-034, TC-036 | ✅ covered |
-| NFR-003 | producer-boundary, outcome-distinguishability, and mutation probes | TC-024, TC-027, TC-030 | ✅ covered |
+| NFR-003 | producer-boundary, outcome-distinguishability, and mutation probes | TC-024, TC-027, TC-030, TC-037 | 🚧 planned |
 
 ## Test Case Summary
 
@@ -75,3 +75,4 @@ relationships:
 | TC-034 | Bind context into bounded-equivalence reports and distinguish original/rewritten binding refusal before enumeration | Integration | P0 | FR-007-AC-4, StR-003-VC-1, NFR-002-AC-3 | ✅ implemented |
 | TC-035 | Preserve context-free API outcomes and exact v1 bytes while strictly round-tripping contextual v2 report families | Snapshot | P0 | FR-007-AC-5, NFR-001-AC-1 | ✅ implemented |
 | TC-036 | Emit contextual native domain records through the existing producer-owned shared intake boundary without new generic machinery | Integration | P0 | FR-007-AC-6, NFR-002-AC-3 | ✅ implemented |
+| TC-037 | Refuse duplicate or vacuously empty tracked SpecReview identity populations, including equal plain and quoted YAML spellings | Integration | P0 | NFR-003-AC-6 | 🚧 planned |
