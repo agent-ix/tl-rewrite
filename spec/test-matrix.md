@@ -13,10 +13,10 @@ relationships:
 
 | Functional Req | Acceptance Criteria | Test Cases | Coverage Status |
 |---|---|---|---|
-| FR-001 | FR-001-AC-1 through FR-001-AC-3 | TC-001 through TC-004 | ✅ covered |
+| FR-001 | FR-001-AC-1 through FR-001-AC-3 | TC-001 through TC-004, TC-037 | ✅ covered |
 | FR-002 | FR-002-AC-1 through FR-002-AC-3 | TC-005 through TC-008, TC-020, TC-021 | ✅ covered |
 | FR-003 | FR-003-AC-1 through FR-003-AC-3 | TC-009 through TC-012 | ✅ covered |
-| FR-004 | FR-004-AC-1 through FR-004-AC-3 | TC-013 through TC-016, TC-028 | ✅ covered |
+| FR-004 | FR-004-AC-1 through FR-004-AC-3 | TC-013 through TC-016, TC-028, TC-037 | ✅ covered |
 | FR-005 | FR-005-AC-1, FR-005-AC-3 | TC-017, TC-019 | ✅ covered |
 | FR-006 | FR-006-AC-1 through FR-006-AC-3, FR-006-AC-5 through FR-006-AC-7 | TC-023, TC-024, TC-025, TC-027, TC-028, TC-029 | ✅ covered |
 | FR-007 | FR-007-AC-1 through FR-007-AC-6 | TC-031 through TC-036 | ✅ covered |
@@ -75,3 +75,4 @@ relationships:
 | TC-034 | Bind context into bounded-equivalence reports and distinguish original/rewritten binding refusal before enumeration | Integration | P0 | FR-007-AC-4, StR-003-VC-1, NFR-002-AC-3 | ✅ implemented |
 | TC-035 | Preserve context-free API outcomes and exact v1 bytes while strictly round-tripping contextual v2 report families | Snapshot | P0 | FR-007-AC-5, NFR-001-AC-1 | ✅ implemented |
 | TC-036 | Emit contextual native domain records through the existing producer-owned shared intake boundary without new generic machinery | Integration | P0 | FR-007-AC-6, NFR-002-AC-3 | ✅ implemented |
+| TC-037 | Ground bounded temporal and reflexive Boolean rewrite families as finite-domain properties against the exact evaluator | Property | P0 | FR-001-AC-2, FR-004-AC-1, NFR-001-AC-1 | ✅ implemented |

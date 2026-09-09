@@ -80,6 +80,40 @@ fn bounded_interval() -> impl Strategy<Value = Interval> {
     })
 }
 
+fn reflexive_boolean_fixture(kind: u8) -> (&'static str, tl_syntax::FormulaDocument) {
+    let root = match kind {
+        0 => NodeKind::And {
+            left: NodeId(0),
+            right: NodeId(1),
+        },
+        1 => NodeKind::Or {
+            left: NodeId(0),
+            right: NodeId(1),
+        },
+        2 => NodeKind::Implies {
+            left: NodeId(0),
+            right: NodeId(1),
+        },
+        _ => NodeKind::Equivalent {
+            left: NodeId(0),
+            right: NodeId(1),
+        },
+    };
+    let rule = match kind {
+        0 => "bool.and.idempotent",
+        1 => "bool.or.idempotent",
+        2 => "bool.implies.reflexive",
+        _ => "bool.equivalent.reflexive",
+    };
+    (
+        rule,
+        document(
+            SemanticProfile::ClosedTraceV1,
+            vec![proposition(0), proposition(0), Node::new(root)],
+        ),
+    )
+}
+
 proptest! {
     #![proptest_config(ProptestConfig {
         cases: 32,
@@ -101,6 +135,22 @@ proptest! {
         let conformance = check_equivalence(
             &input,
             output,
+            rule_id,
+            ConformanceOptions::default(),
+        );
+        prop_assert_eq!(conformance.status, ConformanceStatus::Equivalent);
+    }
+
+    // Trace: TC-037, FR-001-AC-2, FR-004-AC-1, NFR-001-AC-1
+    #[test]
+    fn reflexive_boolean_rule_family_normalizes_and_matches_the_oracle(kind in 0_u8..4) {
+        let (rule_id, input) = reflexive_boolean_fixture(kind);
+        let rewritten = rewrite(&input, rule_id, RewriteOptions::default(), "source");
+        prop_assert_eq!(rewritten.status, RewriteStatus::Normalized);
+        prop_assert!(rewritten.steps.iter().any(|step| step.rule_id == rule_id));
+        let conformance = check_equivalence(
+            &input,
+            rewritten.output.as_ref().unwrap(),
             rule_id,
             ConformanceOptions::default(),
         );
