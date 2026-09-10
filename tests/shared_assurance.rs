@@ -11,9 +11,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use serde_json::Value;
 
@@ -47,6 +48,113 @@ fn run(program: &Path, arguments: &[&str]) -> (i32, String, String) {
         String::from_utf8_lossy(&output.stdout).into_owned(),
         String::from_utf8_lossy(&output.stderr).into_owned(),
     )
+}
+
+fn yaml_without_comments(source: &str) -> String {
+    let mut uncommented = String::with_capacity(source.len());
+    for line in source.lines() {
+        let mut single_quoted = false;
+        let mut double_quoted = false;
+        let mut escaped = false;
+        for character in line.chars() {
+            if escaped {
+                uncommented.push(character);
+                escaped = false;
+                continue;
+            }
+            match character {
+                '\\' if double_quoted => {
+                    uncommented.push(character);
+                    escaped = true;
+                }
+                '\'' if !double_quoted => {
+                    single_quoted = !single_quoted;
+                    uncommented.push(character);
+                }
+                '"' if !single_quoted => {
+                    double_quoted = !double_quoted;
+                    uncommented.push(character);
+                }
+                '#' if !single_quoted && !double_quoted => break,
+                _ => uncommented.push(character),
+            }
+        }
+        uncommented.push('\n');
+    }
+    uncommented
+}
+
+fn workflow_ix_flow_packages(source: &str) -> Vec<String> {
+    yaml_without_comments(source)
+        .split_ascii_whitespace()
+        .filter_map(|token| {
+            let token = token.trim_matches(|character: char| {
+                matches!(
+                    character,
+                    '\'' | '"' | '\\' | '|' | ';' | ',' | '(' | ')' | '[' | ']'
+                )
+            });
+            let is_package_identity = token == "ix-flow"
+                || token.starts_with("ix-flow@")
+                || token == "@agent-ix/ix-flow"
+                || token.starts_with("@agent-ix/ix-flow@")
+                || token.contains("@npm:ix-flow")
+                || token.contains("@npm:@agent-ix/ix-flow");
+            is_package_identity.then(|| token.to_owned())
+        })
+        .collect()
+}
+
+fn workflow_trigger_names(source: &str) -> Vec<String> {
+    let uncommented = yaml_without_comments(source);
+    let mut lines = uncommented.lines();
+    let Some(on_line) = lines.find(|line| line.trim() == "on:") else {
+        return Vec::new();
+    };
+    let on_indent = on_line.len() - on_line.trim_start().len();
+    let mut triggers = Vec::new();
+    for line in lines {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let indent = line.len() - line.trim_start().len();
+        if indent <= on_indent {
+            break;
+        }
+        if indent == on_indent + 2 {
+            if let Some((name, _value)) = trimmed.split_once(':') {
+                triggers.push(
+                    name.trim_matches(|character| character == '\'' || character == '"')
+                        .to_owned(),
+                );
+            }
+        }
+    }
+    triggers
+}
+
+fn hosted_workflow_control_errors(source: &str) -> Vec<String> {
+    // These are authored expected literals, not values extracted from the
+    // workflow. Independent review of `.github/workflows/ci.yml` is the second
+    // control against a coordinated edit of this census and its expected side.
+    const EXPECTED_PACKAGE: &str = "@agent-ix/ix-flow@0.0.4";
+    const EXPECTED_TRIGGER: &str = "workflow_dispatch";
+
+    let mut errors = Vec::new();
+    let packages = workflow_ix_flow_packages(source);
+    if packages != [EXPECTED_PACKAGE] {
+        errors.push(format!(
+            "executable ix-flow packages must be exactly [{EXPECTED_PACKAGE:?}], observed {packages:?}"
+        ));
+    }
+    let triggers = workflow_trigger_names(source);
+    if triggers != [EXPECTED_TRIGGER] {
+        errors.push(format!(
+            "hosted triggers must be exactly [{EXPECTED_TRIGGER:?}], observed {triggers:?}"
+        ));
+    }
+    errors
 }
 
 fn json_gate(program: &Path, arguments: &[&str]) -> Value {
@@ -321,6 +429,83 @@ type AssuranceInputsGuard = shared_inputs::Guard;
 
 fn assurance_inputs_guard() -> AssuranceInputsGuard {
     shared_inputs::lock()
+}
+
+struct TrackedFileRestore {
+    path: PathBuf,
+    original: Vec<u8>,
+    restored: bool,
+    failure_reports: Option<Arc<Mutex<Vec<String>>>>,
+}
+
+impl TrackedFileRestore {
+    fn new(path: PathBuf) -> Self {
+        Self::with_failure_reports(path, None)
+    }
+
+    fn observed(path: PathBuf, failure_reports: Arc<Mutex<Vec<String>>>) -> Self {
+        Self::with_failure_reports(path, Some(failure_reports))
+    }
+
+    fn with_failure_reports(
+        path: PathBuf,
+        failure_reports: Option<Arc<Mutex<Vec<String>>>>,
+    ) -> Self {
+        let original = fs::read(&path)
+            .unwrap_or_else(|error| panic!("read tracked input {}: {error}", path.display()));
+        Self {
+            path,
+            original,
+            restored: false,
+            failure_reports,
+        }
+    }
+
+    fn original(&self) -> &[u8] {
+        &self.original
+    }
+
+    fn restore(&mut self) {
+        fs::write(&self.path, &self.original).unwrap_or_else(|error| {
+            panic!(
+                "restore tracked input {} after mutation: {error}",
+                self.path.display()
+            )
+        });
+        self.restored = true;
+    }
+
+    fn report_unwind_failure(&self, error: &std::io::Error) {
+        let message = format!(
+            "failed to restore tracked input {} while unwinding: {error}",
+            self.path.display()
+        );
+        if let Some(reports) = &self.failure_reports {
+            reports
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .push(message.clone());
+        }
+        let _ = writeln!(std::io::stderr().lock(), "{message}");
+    }
+}
+
+impl Drop for TrackedFileRestore {
+    fn drop(&mut self) {
+        if self.restored {
+            return;
+        }
+        if let Err(error) = fs::write(&self.path, &self.original) {
+            if std::thread::panicking() {
+                self.report_unwind_failure(&error);
+            } else {
+                panic!(
+                    "restore tracked input {} after mutation: {error}",
+                    self.path.display()
+                );
+            }
+        }
+    }
 }
 
 // Trace: TC-024, NFR-003-AC-2
@@ -906,23 +1091,24 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
-    // 83: the prior 68 plus 15 contextual-report rows. The earlier 68 was the
-    // audited post-deletion value. It was 72 before issue #13, which removed exactly four
-    // rows: FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4 and TC-026. Each was a claim
-    // about retained evidence that no longer exists, and each went with its test
-    // rather than being left to report unbacked.
+    // 89: the prior 85 plus FR-006-AC-8, NFR-003-AC-7, TC-038, and TC-039. The
+    // earlier 85 was the 83 contextual-report rows plus NFR-003-AC-6 and TC-037's
+    // review-identity control. The contextual 83 was the audited post-deletion
+    // 68 plus 15 context-bound report rows. Issue #13 had reduced 72 to 68 by
+    // removing exactly FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4, and TC-026 with
+    // the retained-evidence claims they owned.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 85, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 89, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 85,
+        totals["backed"], 89,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );
     // The field that actually moves. An adversarial review measured that
     // repointing one matrix row at nonexistent test cases leaves `totals.backed`
     // at its full count while `unbacked_rows` gains an entry, so the totals alone
-    // are not a check. That was measured at 72/72 and the count is 83/83 now;
-    // the figure is left out so it does not go stale again.
+    // are not a check. That was measured at 72/72; the figure is left out so it
+    // does not become a second stale copy of the exact population above.
     assert!(
         parsed["unbacked_rows"].as_array().unwrap().is_empty(),
         "the Quire export names a matrix row backed by nothing: {}",
@@ -1666,7 +1852,7 @@ tl-rewrite-evidence-input-v1.schema.json";
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **125** scanned tracked files — 129 tracked
+    // Population at this review head: **141** scanned tracked files — 145 tracked
     // in total, minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
@@ -1674,7 +1860,7 @@ tl-rewrite-evidence-input-v1.schema.json";
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 12 root, 77 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // By area: 12 root, 93 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
@@ -1683,8 +1869,8 @@ tl-rewrite-evidence-input-v1.schema.json";
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 125,
-        "the source census population changed from the reviewed 125 tracked files \
+        inspected, 141,
+        "the source census population changed from the reviewed 141 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
@@ -1923,23 +2109,23 @@ fn a_control_naming_a_scenario_that_does_not_exist_is_refused() {
     fs::remove_dir_all(&scratch).expect("remove the isolated dangling-scenario scratch tree");
 }
 
-// Trace: TC-023, FR-006-AC-1
-#[test]
-fn the_mirror_scan_refuses_a_registry_reference_in_a_real_file() {
-    let _inputs = assurance_inputs_guard();
+fn run_mirror_file_scan(
+    _inputs: &AssuranceInputsGuard,
+    python: &Path,
+) -> (i32, String, String, Vec<u8>) {
     // The structural branch of `mirror_references` (pins.json) already has a
     // control. The file-scan branch needs its own: without one it is
     // indistinguishable from a loop over files that never match.
-    let python = assurance_python();
     let requirements = root().join("requirements-assurance.txt");
-    let original = fs::read(&requirements).expect("read requirements-assurance input");
+    let mut restoration = TrackedFileRestore::new(requirements.clone());
+    let original = restoration.original().to_vec();
     fs::write(
         &requirements,
         [original.as_slice(), b"\n--registry=https://npm.ix/\n"].concat(),
     )
     .expect("write mirror-reference probe input");
     let (code, stdout, stderr) = run(
-        &python,
+        python,
         &[
             "-c",
             "import json,sys,pathlib;sys.path.insert(0,'scripts');\
@@ -1949,7 +2135,17 @@ fn the_mirror_scan_refuses_a_registry_reference_in_a_real_file() {
              print(json.dumps(found))",
         ],
     );
-    fs::write(&requirements, &original).expect("restore requirements-assurance input");
+    restoration.restore();
+    (code, stdout, stderr, original)
+}
+
+// Trace: TC-023, TC-038, FR-006-AC-1, FR-006-AC-8
+#[test]
+fn the_mirror_scan_refuses_a_registry_reference_in_a_real_file() {
+    let inputs = assurance_inputs_guard();
+    let python = assurance_python();
+    let requirements = root().join("requirements-assurance.txt");
+    let (code, stdout, stderr, original) = run_mirror_file_scan(&inputs, &python);
     assert_eq!(code, 0, "the mirror file-scan probe failed: {stderr}");
     let offenders: Vec<String> = serde_json::from_str(stdout.trim()).unwrap();
     assert!(
@@ -1964,6 +2160,134 @@ fn the_mirror_scan_refuses_a_registry_reference_in_a_real_file() {
         fs::read(&requirements).expect("re-read restored requirements-assurance input"),
         original,
         "the mirror-reference probe left requirements-assurance.txt changed"
+    );
+}
+
+// Trace: TC-038, FR-006-AC-8
+#[test]
+fn a_spawn_failure_restores_the_exact_tracked_input_while_unwinding() {
+    let inputs = assurance_inputs_guard();
+    let requirements = root().join("requirements-assurance.txt");
+    let original = fs::read(&requirements).expect("read requirements-assurance input");
+    let unwind = std::panic::catch_unwind(|| {
+        let _ = run_mirror_file_scan(
+            &inputs,
+            Path::new("/definitely/missing/tl-rewrite-tc038-python"),
+        );
+    })
+    .expect_err("the forced spawn failure did not unwind");
+    let message = panic_message(unwind);
+    assert!(
+        message.contains("failed to run /definitely/missing/tl-rewrite-tc038-python"),
+        "the forced spawn failed for the wrong reason: {message}"
+    );
+    assert_eq!(
+        fs::read(&requirements).expect("re-read tracked input after forced unwind"),
+        original,
+        "the unwind path left requirements-assurance.txt changed"
+    );
+}
+
+// Trace: TC-038, FR-006-AC-8
+#[test]
+fn restoration_failure_is_reported_without_replacing_the_original_panic() {
+    let _inputs = assurance_inputs_guard();
+    let scratch = root().join("target/tracked-restore-failure-probe");
+    clear_scratch_directory(&scratch, "tracked restoration-failure probe");
+    fs::create_dir_all(&scratch).expect("create tracked restoration-failure probe");
+    let tracked = scratch.join("tracked-input.txt");
+    fs::write(&tracked, b"original bytes\n").expect("write scratch tracked input");
+    let reports = Arc::new(Mutex::new(Vec::new()));
+    let observed_reports = Arc::clone(&reports);
+    let unwind = std::panic::catch_unwind(move || {
+        let _restoration = TrackedFileRestore::observed(tracked.clone(), observed_reports);
+        fs::write(&tracked, b"mutated bytes\n").expect("mutate scratch tracked input");
+        fs::remove_dir_all(&scratch).expect("force tracked restoration failure");
+        panic!("original TC-038 unwind");
+    })
+    .expect_err("the restoration-failure control did not unwind");
+    assert_eq!(
+        panic_message(unwind),
+        "original TC-038 unwind",
+        "restoration failure replaced the original panic"
+    );
+    let reports = reports
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    assert_eq!(reports.len(), 1, "restoration failure reports: {reports:?}");
+    assert!(
+        reports[0].contains("failed to restore tracked input")
+            && reports[0].contains("while unwinding"),
+        "the restoration failure was not reported: {reports:?}"
+    );
+}
+
+// Trace: TC-039, NFR-003-AC-7
+#[test]
+fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
+    let workflow = fs::read_to_string(root().join(".github/workflows/ci.yml"))
+        .expect("read hosted CI workflow");
+    let errors = hosted_workflow_control_errors(&workflow);
+    assert!(
+        errors.is_empty(),
+        "hosted workflow control errors: {errors:?}"
+    );
+
+    let comment_only =
+        format!("{workflow}\n# npm install --global ix-flow@99.99.99 is explanatory only\n");
+    assert!(
+        hosted_workflow_control_errors(&comment_only).is_empty(),
+        "a comment-only package spelling became executable"
+    );
+
+    let unscoped = workflow.replacen("@agent-ix/ix-flow@0.0.4", "ix-flow@0.0.4", 1);
+    assert!(
+        !hosted_workflow_control_errors(&unscoped).is_empty(),
+        "an unscoped package replacement was accepted"
+    );
+    let alias_duplicate = workflow.replacen(
+        "'@agent-ix/ix-flow@0.0.4'",
+        "'@agent-ix/ix-flow@0.0.4' 'ix-flow@npm:@agent-ix/ix-flow@0.0.4'",
+        1,
+    );
+    assert!(
+        !hosted_workflow_control_errors(&alias_duplicate).is_empty(),
+        "an executable alias-form duplicate was accepted"
+    );
+    let unversioned_duplicate = workflow.replacen(
+        "'@agent-ix/ix-flow@0.0.4'",
+        "'@agent-ix/ix-flow@0.0.4' '@agent-ix/ix-flow'",
+        1,
+    );
+    assert!(
+        !hosted_workflow_control_errors(&unversioned_duplicate).is_empty(),
+        "an executable unversioned duplicate was accepted"
+    );
+    let automatic = workflow.replacen(
+        "  workflow_dispatch:\n",
+        "  workflow_dispatch:\n  push:\n",
+        1,
+    );
+    assert!(
+        !hosted_workflow_control_errors(&automatic).is_empty(),
+        "an automatic hosted trigger was accepted"
+    );
+    let inline_automatic = workflow.replacen(
+        "  workflow_dispatch:\n",
+        "  workflow_dispatch:\n  pull_request: {}\n",
+        1,
+    );
+    assert!(
+        !hosted_workflow_control_errors(&inline_automatic).is_empty(),
+        "an inline-map automatic hosted trigger was accepted"
+    );
+
+    let (code, stdout, stderr) = run(Path::new("ix-flow"), &["--version"]);
+    assert_eq!(code, 0, "ix-flow --version failed: {stderr}");
+    assert_eq!(
+        stdout.trim(),
+        "0.0.4",
+        "the released local ix-flow executable is not the pinned version"
     );
 }
 

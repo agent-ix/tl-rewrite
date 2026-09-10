@@ -41,6 +41,14 @@ framework.
 - Twelve verification outcomes remain distinguishable across the intake path,
   each demonstrated by a case that produced it, and each negative paired with a
   positive control observed to be accepted.
+- When a test temporarily changes a version-control-tracked shared-assurance
+  input, the Rust shared-assurance test harness shall capture its exact bytes
+  before mutation and hold the shared-input serialization guard until those
+  bytes are restored.
+- The Rust shared-assurance test harness shall restore the captured bytes on
+  both the normal and unwinding paths.
+- While the test thread is unwinding, the Rust shared-assurance test harness shall
+  report a restoration failure without panicking again.
 
 ## Acceptance Criteria
 
@@ -52,6 +60,7 @@ framework.
 | FR-006-AC-5 | Pass, fail, unavailable, unsupported, inconclusive, not-computed, malformed, partial, stale, suspect, vacuous, and tampered remain twelve distinguishable states, each demonstrated and each negative paired with a positive control. | Test (TC-027) |
 | FR-006-AC-6 | Every retained counterexample carries its disagreeing trace and both verdicts, is replayed against both documents outside the enumeration that found it, the witness count agrees with the counterexample corpus rather than with the producer, and the witnesses survive into the bytes Quoin retained. | Test (TC-028) |
 | FR-006-AC-7 | No repository-local generic runner, evidence envelope, manifest, identity framework, retention store, audit store, anchor verifier, retraction registry, evidence schema, retained-evidence directory, compatibility view, or aggregate verdict remains in the repository. TC-029 owns the executable removal census: it enumerates tracked and untracked-not-ignored paths through Git; constrains exact denial, area, exact-declaration, historical-prose, raw-byte, unreadable-path, hostile-exemption, stable Make-disclosure, and literal `ci`-declaration controls; and fails closed when it cannot enumerate or read a path. The control values are test-domain inputs, not a second change-assurance record: Quoin's sealed record carries this requirement and its source, while the test proves the control. The active Makefile uses the prose “compatibility view” instead of the deleted target spelling because the raw-byte census reserves that spelling as a reintroduction signal. | Test (TC-029) |
+| FR-006-AC-8 | Every test mutation of a tracked shared-assurance input captures the exact original bytes before mutation, retains the shared-input serialization guard, and restores those bytes on both normal return and panic unwind. The repository input is byte-identical after a forced spawn-failure probe, and a forced scratch-path restoration failure reports the problem while preserving the original panic instead of aborting through a double panic. | Test (TC-038) |
 
 ## Dependencies
 
