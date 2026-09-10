@@ -2,7 +2,7 @@
 id: PLAN-005
 title: "Close the executable ix-flow package-specification domain"
 type: Plan
-status: active
+status: done
 relationships:
   - target: ix://agent-ix/tl-rewrite/NFR-003
     type: references
@@ -58,24 +58,24 @@ unchanged; the hosted workflow stays `workflow_dispatch`-only.
 
 ### Integration Tests
 
-- [ ] **TC-039 executable population:** Read only YAML `run:` scripts and accept
+- [x] **TC-039 executable population:** Read only YAML `run:` scripts and accept
   exactly one literal `@agent-ix/ix-flow@0.0.4` package argument across `npm
   install` and `npm i` spellings.
-- [ ] **TC-039 alternate families:** Reject unscoped, unversioned, npm-alias,
+- [x] **TC-039 alternate families:** Reject unscoped, unversioned, npm-alias,
   git, GitHub shorthand, URL, tarball/file, workspace/link, and duplicate
   ix-flow specifications while naming all observations.
-- [ ] **TC-039 inert controls:** Show that comment-only and metadata-only
+- [x] **TC-039 inert controls:** Show that comment-only and metadata-only
   ix-flow spellings leave the executable population unchanged.
-- [ ] **TC-039 non-literal controls:** Reject shell expansion, command
+- [x] **TC-039 non-literal controls:** Reject shell expansion, command
   substitution, workflow interpolation, and unsupported package-token shapes.
-- [ ] **TC-039 retained controls:** Reject automatic triggers and observe exact
+- [x] **TC-039 retained controls:** Reject automatic triggers and observe exact
   local `ix-flow --version` output.
 
 ### Verification
 
-- [ ] Run focused TC-039 tests and in-memory mutation probes before the full
+- [x] Run focused TC-039 tests and in-memory mutation probes before the full
   gate.
-- [ ] Run strict Quire validation and coverage, the complete isolated `make ci`
+- [x] Run strict Quire validation and coverage, the complete isolated `make ci`
   gate with Quire 0.31.0, Quoin 0.23.1, and `@agent-ix/ix-flow@0.0.4`, then
   author closing code and gap reviews.
 
@@ -105,7 +105,7 @@ safe or useful.
 | Task | Track | Owns (references) | Verified by (verifies) | Status |
 |---|---|---|---|---|
 | Task-001 | A | NFR-003 | TC-039 | done |
-| Task-002 | A | NFR-003 | TC-039 | in_progress |
+| Task-002 | A | NFR-003 | TC-039 | done |
 
 ## Coordination Rules
 

@@ -20,3 +20,10 @@ description: "Implementation and verification record for issue #33."
   metadata/comments, short npm syntax, triggers, and the released runtime.
   Quire reports 94/94 backed rows. Task-002 is now in progress; hosted CI was
   not dispatched.
+- **2026-09-09 — Task-002 and plan completed.** Detached mutations falsified
+  executable-scope isolation, GitHub-family recognition, and non-literal
+  refusal. Closing review added npm-global-option, process-substitution,
+  mixed-case GitHub, and folded-block fail-closed controls. The complete local
+  gate passed at `6f13a58` with 94/94 backed rows and 106/106 strict documents.
+  SR-044/SR-045 record the authorial code and gap reviews. Independent exact-head
+  clearance remains a post-plan merge gate; hosted CI was not dispatched.
