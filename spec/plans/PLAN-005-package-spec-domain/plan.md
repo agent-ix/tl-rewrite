@@ -12,7 +12,7 @@ relationships:
 ## Objective
 
 Close issue #33 by making TC-039 inspect only executable package arguments in
-hosted-workflow `run:` scripts, while rejecting every alternate or non-literal
+hosted-workflow `run` scripts, while rejecting every alternate or non-literal
 ix-flow package specification. Keep hosted CI manual-only and undispatched.
 
 This is an internal assurance control. It does not define or expose another
@@ -58,14 +58,15 @@ unchanged; the hosted workflow stays `workflow_dispatch`-only.
 
 ### Integration Tests
 
-- [x] **TC-039 executable population:** Read only YAML `run:` scripts and accept
-  exactly one literal `@agent-ix/ix-flow@0.0.4` package argument across `npm
-  install` and `npm i` spellings.
+- [x] **TC-039 executable population:** Read only YAML `run` scripts and accept
+  exactly one literal `@agent-ix/ix-flow@0.0.4` package argument across npm
+  `install`, `i`, and `add` spellings.
 - [x] **TC-039 alternate families:** Reject unscoped, unversioned, npm-alias,
   git, GitHub shorthand, URL, tarball/file, workspace/link, and duplicate
   ix-flow specifications while naming all observations.
-- [x] **TC-039 inert controls:** Show that comment-only and metadata-only
-  ix-flow spellings leave the executable population unchanged.
+- [x] **TC-039 inert controls:** Show that YAML comments, word-boundary shell
+  comments, and metadata-only ix-flow spellings leave the executable population
+  unchanged while a word-internal shell hash remains executable content.
 - [x] **TC-039 non-literal controls:** Reject shell expansion, command
   substitution, workflow interpolation, and unsupported package-token shapes.
 - [x] **TC-039 retained controls:** Reject automatic triggers and observe exact

@@ -19,6 +19,7 @@ is reimplemented or treated as a release authority.
 | ID | Severity | Summary | Refs |
 | --- | --- | --- | --- |
 | FND-4201 | low | No boundary gap remains: the change is internal TL assurance infrastructure and does not define a Quire grammar, authored temporal profile, TL source language, evaluator semantics, or export mapping. | NFR-003, TC-039, quire-spec-design-handoff |
+| FND-4202 | high | **FIXED after exact-head review:** the earlier boundary conflated YAML document comments with comments interpreted by the shell inside YAML run scalars. The allocation now gives YAML selection to the workflow parser and executable comment/argument classification to the shell scanner. | NFR-003-AC-7, NFR-003-AC-9, TC-039 |
 
 ## Responsibility Allocation
 

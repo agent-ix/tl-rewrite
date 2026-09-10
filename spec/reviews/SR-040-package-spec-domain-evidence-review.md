@@ -19,6 +19,7 @@ are the least-cost conclusive evidence for this static Rust control.
 | ID | Severity | Summary | Refs |
 | --- | --- | --- | --- |
 | FND-4001 | low | No authored-method mismatch or inconclusive recommendation was found. TC-039 must still demonstrate each alternate family, non-literal refusal, inert metadata/comment control, trigger refusal, and exact runtime observation before its matrix status returns to implemented. | NFR-003-AC-7, NFR-003-AC-8, NFR-003-AC-9, NFR-003-AC-10, NFR-003-AC-11, NFR-003-AC-12, TC-039 |
+| FND-4002 | high | **FIXED after exact-head review:** prior tests did not discriminate YAML comments from shell comments or exercise quoted run keys and npm `add`. TC-039 now retains the reviewer mutations and their inert controls, so each boundary can be falsified independently. | NFR-003-AC-7, NFR-003-AC-9, TC-039, tl-rewrite#34 review |
 
 ## Advisor Result
 

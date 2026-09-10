@@ -19,6 +19,7 @@ exact-head clearance; M1 rewrite drafts remain downstream of M0 closure.
 | ID | Severity | Summary | Refs |
 | --- | --- | --- | --- |
 | FND-3901 | low | No dependency cycle or missing prerequisite remains; #32 supplies the admitted package and safe shared-input baseline, while #33 only closes the scanner's package-specification domain. | NFR-003, TC-039, tl-rewrite#32, tl-rewrite#33 |
+| FND-3902 | low | The exact-head #34 findings add an in-place correction and re-review before merge; they do not change the parent dependency on merged #32 or unblock downstream M1 work early. | NFR-003, TC-039, tl-rewrite#34 review |
 
 ## Dependency Order
 

@@ -19,6 +19,7 @@ event trigger with a persistent state.
 | ID | Severity | Summary | Refs |
 | --- | --- | --- | --- |
 | FND-4301 | low | No EARS or semantic phrasing defect remains after the bundled first draft was split into AC-7 through AC-12. | NFR-003-AC-7, NFR-003-AC-8, NFR-003-AC-9, NFR-003-AC-10, NFR-003-AC-11, NFR-003-AC-12 |
+| FND-4302 | high | **FIXED after exact-head review:** AC-7/9/12 used broad “YAML comments” and install-command wording that could not distinguish literal-block shell semantics or npm `add`. The revised criteria name scalar run scripts, shell word boundaries, and all accepted npm aliases. | NFR-003-AC-7, NFR-003-AC-9, NFR-003-AC-12 |
 
 ## Engine and Semantic Check
 

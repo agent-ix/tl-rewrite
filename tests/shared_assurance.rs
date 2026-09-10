@@ -56,6 +56,7 @@ fn yaml_without_comments(source: &str) -> String {
         let mut single_quoted = false;
         let mut double_quoted = false;
         let mut escaped = false;
+        let mut separated = true;
         for character in line.chars() {
             if escaped {
                 uncommented.push(character);
@@ -75,18 +76,31 @@ fn yaml_without_comments(source: &str) -> String {
                     double_quoted = !double_quoted;
                     uncommented.push(character);
                 }
-                '#' if !single_quoted && !double_quoted => break,
+                '#' if !single_quoted && !double_quoted && separated => break,
                 _ => uncommented.push(character),
             }
+            separated = character.is_ascii_whitespace();
         }
         uncommented.push('\n');
     }
     uncommented
 }
 
+fn yaml_run_value(line: &str) -> Option<&str> {
+    let trimmed = line.trim_start();
+    let entry = trimmed.strip_prefix("- ").unwrap_or(trimmed).trim_start();
+    ["run:", "'run':", "\"run\":"]
+        .into_iter()
+        .find_map(|prefix| {
+            entry.strip_prefix(prefix).filter(|_| {
+                entry.len() == prefix.len()
+                    || entry[prefix.len()..].starts_with(char::is_whitespace)
+            })
+        })
+}
+
 fn workflow_run_scripts(source: &str) -> Result<Vec<String>, Vec<String>> {
-    let uncommented = yaml_without_comments(source);
-    let lines: Vec<&str> = uncommented.lines().collect();
+    let lines: Vec<&str> = source.lines().collect();
     let mut scripts = Vec::new();
     let mut errors = Vec::new();
     let mut index = 0;
@@ -94,15 +108,12 @@ fn workflow_run_scripts(source: &str) -> Result<Vec<String>, Vec<String>> {
     while index < lines.len() {
         let line = lines[index];
         let indentation = line.len() - line.trim_start().len();
-        let trimmed = line.trim_start();
-        let run_value = trimmed
-            .strip_prefix("run:")
-            .or_else(|| trimmed.strip_prefix("- run:"));
-        let Some(run_value) = run_value else {
+        let Some(run_value) = yaml_run_value(line) else {
             index += 1;
             continue;
         };
-        let run_value = run_value.trim();
+        let run_value_storage = yaml_without_comments(run_value);
+        let run_value = run_value_storage.trim();
 
         if matches!(run_value, "|" | "|-" | "|+") {
             let start = index + 1;
@@ -268,6 +279,16 @@ fn shell_tokens(script: &str) -> Result<Vec<ShellToken>, String> {
             ' ' | '\t' | '\r' if !workflow_expression => {
                 flush_word(&mut tokens, &mut word, &mut literal);
             }
+            '#' if word.is_empty() && !workflow_expression => {
+                for comment_character in characters.by_ref() {
+                    if comment_character == '\n' {
+                        if !matches!(tokens.last(), Some(ShellToken::Boundary)) {
+                            tokens.push(ShellToken::Boundary);
+                        }
+                        break;
+                    }
+                }
+            }
             '\n' | ';' | '|' | '&' if !workflow_expression => {
                 flush_word(&mut tokens, &mut word, &mut literal);
                 if !matches!(tokens.last(), Some(ShellToken::Boundary)) {
@@ -320,7 +341,7 @@ fn workflow_ix_flow_packages(source: &str) -> (Vec<String>, Vec<String>) {
                 let Some((install_index, _)) = words[npm_index + 1..]
                     .iter()
                     .enumerate()
-                    .find(|(_, word)| matches!(word.text.as_str(), "install" | "i"))
+                    .find(|(_, word)| matches!(word.text.as_str(), "install" | "i" | "add"))
                 else {
                     continue;
                 };
@@ -2491,6 +2512,35 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
     assert!(
         hosted_workflow_control_errors(&metadata_only).is_empty(),
         "a metadata-only package spelling became executable"
+    );
+
+    let quoted_run_key = workflow.replacen("        run: |", "        \"run\": |", 1);
+    assert!(
+        hosted_workflow_control_errors(&quoted_run_key).is_empty(),
+        "a quoted YAML run key hid its executable script"
+    );
+
+    let word_internal_hash = workflow.replacen(
+        "npm install --global",
+        "echo marker#not-a-comment; npm add --global github:agent-ix/ix-flow#v9.9.9; npm install --global",
+        1,
+    );
+    let hash_errors = hosted_workflow_control_errors(&word_internal_hash);
+    assert!(
+        hash_errors
+            .iter()
+            .any(|error| error.contains("github:agent-ix/ix-flow#v9.9.9")),
+        "a word-internal shell hash hid an executable npm-add package: {hash_errors:?}"
+    );
+
+    let shell_comment = workflow.replacen(
+        "npm install --global",
+        "# npm add --global github:agent-ix/ix-flow#comment-only\n          npm install --global",
+        1,
+    );
+    assert!(
+        hosted_workflow_control_errors(&shell_comment).is_empty(),
+        "a shell comment inside a literal run block became executable"
     );
 
     let short_install = workflow.replacen("npm install --global", "npm i -g", 1);
