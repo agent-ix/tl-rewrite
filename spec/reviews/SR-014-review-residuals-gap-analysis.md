@@ -1,26 +1,35 @@
 ---
 id: SR-014
-title: Gap analysis of post-merge residual fixes
+title: Authorial residual-gap record for post-merge fixes
 type: SpecReview
 analysis: gap-analysis
 scope: PLAN-003, issue #19, FR-006-AC-7, TC-027, TC-029
 review_set: all
 ---
 
-# Gap analysis of post-merge residual fixes
+# SR-014: Authorial residual-gap record for post-merge fixes
 
 ## Summary
 
-Every repository-scoped residual in issue #19 is covered by implementation or a
-retained control. The sole remaining gap is the deliberately deferred common
+The implementation author recorded every repository-scoped residual in issue
+#19 as covered by implementation or a retained control. The sole remaining gap
+is the deliberately deferred common
 Make execution-control qualification tracked outside this change.
+
+## Authorship and authority
+
+This is an authorial gap record for candidate
+`d4670c25f3300a4859688e0af94f4fd995ba65af`, later landed on `main`. Its
+coverage statements are implementation status, not independent review
+clearance, approval, or merge authority. A separately authored review must
+make any such determination.
 
 ## Findings
 
 | ID | Severity | Summary | Refs | Escape Cause |
 |---|---|---|---|---|
 | FND-1401 | medium | DEFERRED. Full expanded Make execution-graph and command qualification remains open in `tl-rewrite#11` and `engineering-assurance#11`; this change does not add a local parser or claim closure. | NFR-003 | correct-requirement-no-evidence |
-| FND-1402 | low | FIXED. All other issue #19 entries map to code, specification text, or retained review evidence in the closure matrix below. | PLAN-003, TC-027, TC-029 | correct-requirement-no-evidence |
+| FND-1402 | low | IMPLEMENTED (authorial record; independent clearance pending). All other issue #19 entries map to code, specification text, or retained review evidence in the closure matrix below. | PLAN-003, TC-027, TC-029 | correct-requirement-no-evidence |
 
 ## Closure matrix
 
@@ -42,6 +51,6 @@ The Make execution-control class is real and remains open. This change improves
 the removal census's own retained controls; it does not claim Make execution is
 qualified, and it does not replace the common solution with local tooling.
 
-Local verification is complete: the full gate passes, the three new census
+The implementation author recorded local verification at candidate `d4670c25`: the full gate passed, the three census
 mutations fail at the intended controls, and the isolation probe passes with an
-existing real-store leaf. Hosted CI remains manual-only and was not dispatched.
+existing real-store leaf. These observations are not independent clearance. Hosted CI remains manual-only and was not dispatched.

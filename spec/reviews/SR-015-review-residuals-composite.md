@@ -1,13 +1,13 @@
 ---
 id: SR-015
-title: Composite review of post-merge residual requirements
+title: Authorial requirements record for post-merge residuals
 type: SpecReview
 analysis: base
 scope: issue #19, FR-006-AC-7, TC-027, TC-029, NFR-003-AC-3
 review_set: all
 ---
 
-# SR-015: Composite review of post-merge residual requirements
+# SR-015: Authorial requirements record for post-merge residuals
 
 ## Summary
 
@@ -15,6 +15,14 @@ The residuals are narrow strengthening work, not a new assurance subsystem.
 They require the live removal census to expose its enumeration and exemptions to
 retained negative controls, and require the scratch probe's containment check to
 compare resolved locations when those locations exist.
+
+## Authorship and authority
+
+This is an implementation-author record created for the candidate later
+landed as `d4670c25f3300a4859688e0af94f4fd995ba65af`. It records the author's
+design disposition only: it grants no independent review clearance, approval,
+or merge authority. The references to a finding identify work to perform, not
+an assertion that an independent reviewer accepted the result.
 
 ## Findings
 
