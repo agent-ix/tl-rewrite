@@ -26,3 +26,10 @@ description: "Implementation and verification record for issue #31."
   The review added unversioned-package and inline-map-trigger mutations before
   recording no remaining code defect. The artifact is authorial and grants no
   independent exact-head clearance. Hosted CI was not dispatched.
+- **2026-09-09 — Task-003 and implementation plan completed.** The exact
+  review-bearing head `6266818` passed the complete isolated local gate: 18/18
+  shared-assurance tests, 89/89 backed rows, 92/92 strict documents, MSRV,
+  Clippy, rustdoc, Cargo Deny, provenance, pins, and the assurance chain. SR-035
+  records zero plan, matrix-backing, reverse-trace, or stub gaps and carries the
+  known upstream status-column contradiction as a low limitation. Independent
+  exact-head review and merge remain post-plan gates. Hosted CI was not dispatched.

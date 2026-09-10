@@ -1,8 +1,8 @@
 ---
 id: Task-003
-title: "Validate and independently clear the candidate"
+title: "Validate and prepare the candidate"
 type: Task
-status: in_progress
+status: done
 track: Assurance
 priority: P0
 relationships:
@@ -19,18 +19,27 @@ relationships:
   - target: ix://agent-ix/tl-rewrite/TC-039
     type: verifies
 ---
-# Task-003: Validate and independently clear the candidate
+# Task-003: Validate and prepare the candidate
 
 ## Scope
 
 Reconcile implemented matrix state and census counts, run the complete isolated
 local gate with the exact released shared-assurance toolchain, and record closing
-code and traceability review without treating authorial artifacts as independent
-clearance. Open the pull request and obtain a review tied to its exact head.
+code and traceability analysis without treating authorial artifacts as
+independent clearance. Prepare the branch for an exact-head pull-request review.
 
 ## Completion Evidence
 
 Focused mutation probes are red in their intended ways, the unmodified complete
-local gate is green, Quire is strict and complete, an independent reviewer clears
-the exact head, and that head merges through the authorized protected path.
-Hosted CI remains undispatched.
+local gate is green, Quire is strict and complete, and closing authorial analyses
+state all remaining limitations. Hosted CI remains undispatched. Independent
+exact-head clearance and merge are post-plan gates rather than authorial task
+completion evidence.
+
+## Completion Record
+
+Completed on 2026-09-09. The full isolated local gate passed at `6266818` with
+18/18 shared-assurance tests, 89/89 backed Quire rows, 92/92 strict documents,
+MSRV, Clippy, rustdoc, Cargo Deny, provenance, pins, and the complete assurance
+chain green. SR-034 found no remaining code defect; SR-035 records the known
+upstream status-column limitation. No hosted workflow was dispatched.

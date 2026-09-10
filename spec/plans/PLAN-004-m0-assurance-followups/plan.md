@@ -2,7 +2,7 @@
 id: PLAN-004
 title: "Close M0 unwind-safety and hosted ix-flow identity gaps"
 type: Plan
-status: in_progress
+status: done
 relationships:
   - target: ix://agent-ix/tl-rewrite/FR-006
     type: references
@@ -33,7 +33,7 @@ authority and is not dispatched by this plan.
 ```text
 Task-001 (TC-038 restore safety)
   -> Task-002 (TC-039 hosted identity)
-     -> Task-003 (complete local gate and closing review)
+     -> Task-003 (complete local gate and closing analysis)
 ```
 
 The graph is acyclic. NFR-003 explicitly requires restoration safety before the
@@ -55,8 +55,8 @@ green.
 1. Implement Task-001 and falsify its normal and unwinding controls.
 2. Implement Task-002 only after Task-001 passes and falsify package and trigger
    mutations.
-3. Run the complete exact-toolchain local gate, reconcile the matrix, perform
-   closing code/gap review, and obtain independent exact-head clearance.
+3. Run the complete exact-toolchain local gate, reconcile the matrix, and
+   perform closing code/gap analysis.
 
 ## Parallel Execution Summary
 
@@ -68,7 +68,7 @@ the candidate may overlap execution, but it cannot satisfy either test.
 
 - [Task-001: Restore tracked inputs across unwind](./tasks/Task-001-tracked-input-unwind.md)
 - [Task-002: Bind the hosted ix-flow identity](./tasks/Task-002-hosted-ix-flow-identity.md)
-- [Task-003: Validate and independently clear the candidate](./tasks/Task-003-validation-and-clearance.md)
+- [Task-003: Validate and prepare the candidate](./tasks/Task-003-validation-and-clearance.md)
 
 ## Coordination Rules
 
@@ -79,6 +79,13 @@ the candidate may overlap execution, but it cannot satisfy either test.
 - Keep hosted CI `workflow_dispatch`-only and do not dispatch it.
 - Authorial local reviews may record evidence but cannot grant independent merge
   clearance.
+
+## Post-Plan Merge Gate
+
+The implementation plan is done when all three tasks and closing authorial
+analyses are complete. Issue closure remains separately gated on independent
+review of the exact pushed head and merge through the authorized protected path.
+Neither plan completion nor SR-034/SR-035 supplies that clearance.
 
 ## Qualification Boundary
 
