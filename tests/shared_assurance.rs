@@ -1082,23 +1082,24 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
-    // 83: the prior 68 plus 15 contextual-report rows. The earlier 68 was the
-    // audited post-deletion value. It was 72 before issue #13, which removed exactly four
-    // rows: FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4 and TC-026. Each was a claim
-    // about retained evidence that no longer exists, and each went with its test
-    // rather than being left to report unbacked.
+    // 89: the prior 85 plus FR-006-AC-8, NFR-003-AC-7, TC-038, and TC-039. The
+    // earlier 85 was the 83 contextual-report rows plus NFR-003-AC-6 and TC-037's
+    // review-identity control. The contextual 83 was the audited post-deletion
+    // 68 plus 15 context-bound report rows. Issue #13 had reduced 72 to 68 by
+    // removing exactly FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4, and TC-026 with
+    // the retained-evidence claims they owned.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 85, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 89, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 85,
+        totals["backed"], 89,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );
     // The field that actually moves. An adversarial review measured that
     // repointing one matrix row at nonexistent test cases leaves `totals.backed`
     // at its full count while `unbacked_rows` gains an entry, so the totals alone
-    // are not a check. That was measured at 72/72 and the count is 83/83 now;
-    // the figure is left out so it does not go stale again.
+    // are not a check. That was measured at 72/72; the figure is left out so it
+    // does not become a second stale copy of the exact population above.
     assert!(
         parsed["unbacked_rows"].as_array().unwrap().is_empty(),
         "the Quire export names a matrix row backed by nothing: {}",
