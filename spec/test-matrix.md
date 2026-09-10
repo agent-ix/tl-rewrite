@@ -76,5 +76,5 @@ relationships:
 | TC-035 | Preserve context-free API outcomes and exact v1 bytes while strictly round-tripping contextual v2 report families | Snapshot | P0 | FR-007-AC-5, NFR-001-AC-1 | ✅ implemented |
 | TC-036 | Emit contextual native domain records through the existing producer-owned shared intake boundary without new generic machinery | Integration | P0 | FR-007-AC-6, NFR-002-AC-3 | ✅ implemented |
 | TC-037 | Refuse duplicate or vacuously empty tracked SpecReview identity populations, including equal plain and quoted YAML spellings | Integration | P0 | NFR-003-AC-6 | ✅ implemented |
-| TC-038 | Restore exact tracked shared-input bytes after successful execution and forced spawn-failure unwind without double-panicking | Integration | P0 | FR-006-AC-8 | 🚧 planned |
+| TC-038 | Restore exact tracked shared-input bytes after successful execution and forced spawn-failure unwind, and preserve the original panic during a forced scratch-path restoration failure | Integration | P0 | FR-006-AC-8 | 🚧 planned |
 | TC-039 | Enforce one comment-safe scoped ix-flow package identity, manual-only hosted trigger, alias rejection, and exact released runtime version | Integration | P0 | NFR-003-AC-7 | 🚧 planned |

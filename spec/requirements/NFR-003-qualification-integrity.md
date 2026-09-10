@@ -3,6 +3,9 @@ id: NFR-003
 title: Make qualification controls explicit and fail closed
 type: NFR
 quality_attribute: reliability
+relationships:
+  - target: ix://agent-ix/tl-rewrite/FR-006
+    type: depends_on
 ---
 
 # NFR-003: Make qualification controls explicit and fail closed
@@ -13,7 +16,7 @@ Candidate qualification shall keep the producer boundary observable, derive ever
 attested result from the bytes a producer wrote, keep the twelve verification
 outcomes distinguishable, retain every semantic-equivalence counterexample as a
 replayable witness, preserve unique tracked specification-review identities,
-bind the hosted specification-tool executable to its scoped package identity,
+bind the hosted ix-flow executable to its scoped package identity,
 keep hosted CI manual-only, and grant no release authority.
 
 This requirement previously also owned a control over the retained evidence
@@ -28,9 +31,11 @@ declaration in `assurance/pins.json`, the change-assurance declaration in
 `assurance/change-assurance.json`, the driver `scripts/assurance_chain.py`, the
 pin classifier `scripts/check_shared_pins.py`, the provenance producer
 `scripts/check_provenance.py`, and the tests that exercise them.
-It also owns the hosted workflow's exact ix-flow package identity and trigger
-surface. A workflow comment is explanatory evidence, not an executable package
-install and not a trigger.
+It also owns `.github/workflows/ci.yml` for the hosted workflow's exact ix-flow
+package identity and trigger surface. A workflow comment is explanatory
+evidence, not an executable package install and not a trigger. FR-006-AC-8's
+tracked-input restoration control shall be implemented and verified before the
+hosted assurance-tool installation is changed.
 
 It no longer owns `tools.lock`, a local-CI runner, Make execution-control
 probes, a collector, a finalizer, a manifest verifier, an evidence-profile
