@@ -1,5 +1,5 @@
 ---
-id: SR-018
+id: SR-020
 title: "Dependency review of the complete tl-rewrite specification corpus"
 type: SpecReview
 analysis: dependency
@@ -7,7 +7,7 @@ scope: "spec/**/*.md"
 review_set: all
 ---
 
-# SR-018: Dependency review of the complete tl-rewrite specification corpus
+# SR-020: Dependency review of the complete tl-rewrite specification corpus
 
 ## Summary
 

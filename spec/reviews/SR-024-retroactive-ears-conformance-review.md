@@ -1,5 +1,5 @@
 ---
-id: SR-022
+id: SR-024
 title: "EARS conformance review of the complete tl-rewrite specification corpus"
 type: SpecReview
 analysis: ears-conformance
@@ -7,7 +7,7 @@ scope: "spec/**/*.md"
 review_set: all
 ---
 
-# SR-022: EARS conformance review of the complete tl-rewrite specification corpus
+# SR-024: EARS conformance review of the complete tl-rewrite specification corpus
 
 ## Summary
 

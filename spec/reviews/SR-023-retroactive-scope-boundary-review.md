@@ -1,5 +1,5 @@
 ---
-id: SR-021
+id: SR-023
 title: "Scope and boundary review of the complete tl-rewrite specification corpus"
 type: SpecReview
 analysis: scope-boundary
@@ -7,7 +7,7 @@ scope: "spec/**/*.md"
 review_set: all
 ---
 
-# SR-021: Scope and boundary review of the complete tl-rewrite specification corpus
+# SR-023: Scope and boundary review of the complete tl-rewrite specification corpus
 
 ## Summary
 

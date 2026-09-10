@@ -1,5 +1,5 @@
 ---
-id: SR-017
+id: SR-019
 title: "Integrity review of the complete tl-rewrite specification corpus"
 type: SpecReview
 analysis: integrity
@@ -7,7 +7,7 @@ scope: "spec/**/*.md"
 review_set: all
 ---
 
-# SR-017: Integrity review of the complete tl-rewrite specification corpus
+# SR-019: Integrity review of the complete tl-rewrite specification corpus
 
 ## Summary
 

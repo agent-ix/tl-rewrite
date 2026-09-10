@@ -15,7 +15,7 @@ relationships:
 
 ## Scope
 
-Correct the authorial status of SR-012, SR-013, and SR-014. They may record
+Correct the authorial status of SR-015, SR-013, and SR-014. They may record
 implementation, observed local execution, reviewed-head scope, and deferred
 work, but may not assert independent review clearance or use authorial records
 as review credit. Update their stale claims and add reviewed-head provenance
@@ -29,7 +29,7 @@ authored review may grant clearance. PLAN-003 retains typed tasks and remains
 
 ## Completion Record
 
-Completed on 2026-09-08. SR-012, SR-013, and SR-014 now identify themselves as
+Completed on 2026-09-08. SR-015, SR-013, and SR-014 now identify themselves as
 authorial records, name candidate `d4670c25f3300a4859688e0af94f4fd995ba65af`
 when describing historical execution, and state that they grant no independent
 clearance. This task does not clear any implementation or review finding.

@@ -39,4 +39,7 @@ requirement and its sources. Historical-prose exemption checking now compares a
 reviewed population ground truth rather than a copied predicate. The requirement
 and matrix explicitly own the non-UTF-8, hostile-exemption, stable disclosure,
 and literal `ci` controls, and record why active Make prose avoids the deleted
-target spelling.
+target spelling. The exact-head review remediation keeps the executable deny
+predicate independent from its reviewed identity set and drives the raw-byte
+scanner with a literal hostile input whose expected matches do not move with the
+scanner array.

@@ -1,5 +1,5 @@
 ---
-id: SR-016
+id: SR-018
 title: "Failure-domain review of the complete tl-rewrite specification corpus"
 type: SpecReview
 analysis: failure-domain
@@ -7,7 +7,7 @@ scope: "spec/**/*.md"
 review_set: all
 ---
 
-# SR-016: Failure-domain review of the complete tl-rewrite specification corpus
+# SR-018: Failure-domain review of the complete tl-rewrite specification corpus
 
 ## Summary
 

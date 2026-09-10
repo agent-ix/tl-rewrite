@@ -1,5 +1,5 @@
 ---
-id: SR-020
+id: SR-022
 title: "Risk and complexity review of the complete tl-rewrite specification corpus"
 type: SpecReview
 analysis: risk-complexity
@@ -7,7 +7,7 @@ scope: "spec/**/*.md"
 review_set: all
 ---
 
-# SR-020: Risk and complexity review of the complete tl-rewrite specification corpus
+# SR-022: Risk and complexity review of the complete tl-rewrite specification corpus
 
 ## Summary
 

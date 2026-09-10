@@ -44,7 +44,7 @@ description: "Implementation and verification record for issue #19."
   scope. Three typed tasks now allocate that work without treating authorial
   verification records as independent clearance. Implementation and a new
   independent review remain outstanding.
-- **2026-09-08 — Artifact-truth task completed.** SR-012, SR-013, and SR-014
+- **2026-09-08 — Artifact-truth task completed.** SR-015, SR-013, and SR-014
   now state their authorial status, identify `d4670c25` as the historical
   candidate for their execution observations, and grant neither independent
   clearance nor merge authority. This record update does not substitute for the
@@ -61,3 +61,11 @@ description: "Implementation and verification record for issue #19."
   make omission from established stateful paths fail at compile time. Scratch
   and shim cleanup reports failure rather than silently continuing. No runner,
   collector, envelope, or retention layer was introduced.
+- **2026-09-09 — Post-#30 review remediation.** Rebased onto the merged review-id
+  census, retained the reallocated residual record at SR-015, and moved this
+  branch's nine new full-corpus reviews to SR-017 through SR-025. The deleted-name
+  raw-byte probe now has a literal expected side independent from its scanner
+  array, the deny predicate and reviewed path identities are independent, and a
+  poisoned serialization lock no longer masks the actual state of shared inputs.
+  A fresh exact-head review and merge remain outstanding; hosted CI was not
+  dispatched.

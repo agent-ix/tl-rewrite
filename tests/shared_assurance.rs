@@ -307,12 +307,12 @@ mod shared_inputs {
     }
 
     pub(super) fn lock() -> Guard {
-        let lock = LOCK.lock().unwrap_or_else(|poisoned| {
-            panic!(
-                "shared assurance inputs may have been left mutated by a panicking test; \
-                 re-run `make assurance-inputs`: {poisoned}"
-            )
-        });
+        // Poison records that a prior holder panicked; it does not prove that
+        // shared inputs were mutated. Most holders are read-only, and the one
+        // mutating probe restores its file before making assertions. Recovering
+        // lets later controls inspect the actual inputs and report any real
+        // residue instead of cascading behind a misleading lock error.
+        let lock = LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         Guard { _lock: lock }
     }
 }
@@ -321,6 +321,23 @@ type AssuranceInputsGuard = shared_inputs::Guard;
 
 fn assurance_inputs_guard() -> AssuranceInputsGuard {
     shared_inputs::lock()
+}
+
+// Trace: TC-024, NFR-003-AC-2
+#[test]
+fn a_poisoned_shared_input_lock_does_not_mask_the_actual_inputs() {
+    let poisoned = std::panic::catch_unwind(|| {
+        let _inputs = assurance_inputs_guard();
+        panic!("poison the serialization control");
+    });
+    assert!(
+        poisoned.is_err(),
+        "the lock-poisoning control did not panic"
+    );
+
+    // Reacquisition is the property under test. Subsequent controls can now
+    // inspect the real inputs and report any residue by name.
+    let _recovered = assurance_inputs_guard();
 }
 
 fn clear_scratch_directory(directory: &Path, purpose: &str) {
@@ -1241,13 +1258,12 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // FR-006-AC-7 owns this test-domain control; it is intentionally not copied
     // into the sealed change-assurance record, whose shared schema has no
     // control-metadata field.
-    const DENIED_PATHS: [&str; 4] = [
-        "Cargo.lock",
-        "LICENSE-APACHE",
-        "LICENSE-MIT",
-        "corpus/west-v1/LICENSE",
-    ];
-    let denied = |path: &str| DENIED_PATHS.contains(&path);
+    let denied = |path: &str| {
+        matches!(
+            path,
+            "Cargo.lock" | "LICENSE-APACHE" | "LICENSE-MIT" | "corpus/west-v1/LICENSE"
+        )
+    };
     // The expected set below constrains the current tree. These negative cases
     // constrain the predicate itself, so restoring the old LICENSE-prefix or
     // lockfile-suffix rule is red even before such a path is committed.
@@ -1332,7 +1348,18 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         .filter(|entry| denied(entry))
         .cloned()
         .collect();
-    let expected_denied: BTreeSet<String> = DENIED_PATHS.into_iter().map(str::to_owned).collect();
+    // Keep this reviewed identity set independent from the executable predicate
+    // above. A one-line predicate widening must change the observed side without
+    // changing the expected side.
+    let expected_denied: BTreeSet<String> = [
+        "Cargo.lock",
+        "LICENSE-APACHE",
+        "LICENSE-MIT",
+        "corpus/west-v1/LICENSE",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
     assert_eq!(
         observed_denied, expected_denied,
         "the executable census deny-list differs from its reviewed ground truth"
@@ -1491,17 +1518,31 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     );
 
     // The same exemption-plus-scanner function used by the repository loop must
-    // find every forbidden name after a non-UTF-8 byte. The probe is the
-    // falsifiable expected side: deleting one executable needle leaves its
-    // matching hostile byte sequence unreported.
+    // find every forbidden name before a non-UTF-8 byte. This literal is an
+    // independent hostile input and expected result, not a rendering of the
+    // executable scanner array. Deleting one executable needle therefore leaves
+    // its hostile byte sequence present and its expected match missing.
+    const DELETED_REFERENCE_PROBE: &str = "check-failure-propagation\n\
+check-tool-identities\n\
+ci-for-evidence\n\
+verify-evidence\n\
+evidence-tool\n\
+legacy_evidence_view\n\
+legacy-compat\n\
+PROOF-legacy-compatibility\n\
+compat-view\n\
+COMPAT_RESULT\n\
+tl-rewrite-evidence-manifest-v1.schema.json\n\
+tl-rewrite-evidence-input-v1.schema.json";
     let non_utf8_probe = root.join("target/removal-census-non-utf8-probe.py");
-    let mut probe_bytes = DELETED_REFERENCES.join("\n").into_bytes();
+    let mut probe_bytes = DELETED_REFERENCE_PROBE.as_bytes().to_vec();
     probe_bytes.push(0xff);
     fs::write(&non_utf8_probe, probe_bytes).expect("write the non-UTF-8 census probe");
     let probe_matches = census_matches(&inputs, &root, &non_utf8_probe, &DELETED_REFERENCES);
     fs::remove_file(&non_utf8_probe).expect("remove the non-UTF-8 census probe");
+    let expected_probe_matches: Vec<&str> = DELETED_REFERENCE_PROBE.lines().collect();
     assert_eq!(
-        probe_matches, DELETED_REFERENCES,
+        probe_matches, expected_probe_matches,
         "the raw-byte census did not exercise every forbidden name"
     );
 
@@ -1625,7 +1666,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **124** scanned tracked files — 128 tracked
+    // Population at this review head: **125** scanned tracked files — 129 tracked
     // in total, minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
@@ -1633,7 +1674,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 12 root, 76 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // By area: 12 root, 77 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
@@ -1642,8 +1683,8 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 124,
-        "the source census population changed from the reviewed 124 tracked files \
+        inspected, 125,
+        "the source census population changed from the reviewed 125 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
