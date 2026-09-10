@@ -35,7 +35,7 @@ relationships:
 |---|---|---|---|
 | NFR-001 | deterministic and resource-bound tests | TC-004 through TC-008, TC-015, TC-017, TC-021, TC-031, TC-035 | ✅ covered |
 | NFR-002 | catalog, corpus, context, and provenance inspection | TC-001, TC-002, TC-016, TC-019, TC-030, TC-031, TC-034, TC-036 | ✅ covered |
-| NFR-003 | producer-boundary, outcome-distinguishability, identity, and mutation probes | TC-024, TC-027, TC-030, TC-037, TC-039 | 🚧 TC-039 planned |
+| NFR-003 | producer-boundary, outcome-distinguishability, identity, and mutation probes | TC-024, TC-027, TC-030, TC-037, TC-039 | ✅ implemented |
 
 ## Test Case Summary
 
@@ -77,4 +77,4 @@ relationships:
 | TC-036 | Emit contextual native domain records through the existing producer-owned shared intake boundary without new generic machinery | Integration | P0 | FR-007-AC-6, NFR-002-AC-3 | ✅ implemented |
 | TC-037 | Refuse duplicate or vacuously empty tracked SpecReview identity populations, including equal plain and quoted YAML spellings | Integration | P0 | NFR-003-AC-6 | ✅ implemented |
 | TC-038 | Restore exact tracked shared-input bytes after successful execution and forced spawn-failure unwind, and preserve the original panic during a forced scratch-path restoration failure | Integration | P0 | FR-006-AC-8 | ✅ implemented |
-| TC-039 | Enforce one comment-safe scoped ix-flow package identity, manual-only hosted trigger, alias rejection, and exact released runtime version | Integration | P0 | NFR-003-AC-7 | 🚧 planned |
+| TC-039 | Enforce one comment-safe scoped ix-flow package identity, manual-only hosted trigger, alias rejection, and exact released runtime version | Integration | P0 | NFR-003-AC-7 | ✅ implemented |

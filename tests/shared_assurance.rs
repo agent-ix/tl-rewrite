@@ -50,6 +50,104 @@ fn run(program: &Path, arguments: &[&str]) -> (i32, String, String) {
     )
 }
 
+fn yaml_without_comments(source: &str) -> String {
+    let mut uncommented = String::with_capacity(source.len());
+    for line in source.lines() {
+        let mut single_quoted = false;
+        let mut double_quoted = false;
+        let mut escaped = false;
+        for character in line.chars() {
+            if escaped {
+                uncommented.push(character);
+                escaped = false;
+                continue;
+            }
+            match character {
+                '\\' if double_quoted => {
+                    uncommented.push(character);
+                    escaped = true;
+                }
+                '\'' if !double_quoted => {
+                    single_quoted = !single_quoted;
+                    uncommented.push(character);
+                }
+                '"' if !single_quoted => {
+                    double_quoted = !double_quoted;
+                    uncommented.push(character);
+                }
+                '#' if !single_quoted && !double_quoted => break,
+                _ => uncommented.push(character),
+            }
+        }
+        uncommented.push('\n');
+    }
+    uncommented
+}
+
+fn workflow_ix_flow_packages(source: &str) -> Vec<String> {
+    yaml_without_comments(source)
+        .split_ascii_whitespace()
+        .filter_map(|token| {
+            let token = token.trim_matches(|character: char| {
+                matches!(
+                    character,
+                    '\'' | '"' | '\\' | '|' | ';' | ',' | '(' | ')' | '[' | ']'
+                )
+            });
+            token.contains("ix-flow@").then(|| token.to_owned())
+        })
+        .collect()
+}
+
+fn workflow_trigger_names(source: &str) -> Vec<String> {
+    let uncommented = yaml_without_comments(source);
+    let mut lines = uncommented.lines();
+    let Some(on_line) = lines.find(|line| line.trim() == "on:") else {
+        return Vec::new();
+    };
+    let on_indent = on_line.len() - on_line.trim_start().len();
+    let mut triggers = Vec::new();
+    for line in lines {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let indent = line.len() - line.trim_start().len();
+        if indent <= on_indent {
+            break;
+        }
+        if indent == on_indent + 2 {
+            if let Some(name) = trimmed.strip_suffix(':') {
+                triggers.push(name.to_owned());
+            }
+        }
+    }
+    triggers
+}
+
+fn hosted_workflow_control_errors(source: &str) -> Vec<String> {
+    // These are authored expected literals, not values extracted from the
+    // workflow. Independent review of `.github/workflows/ci.yml` is the second
+    // control against a coordinated edit of this census and its expected side.
+    const EXPECTED_PACKAGE: &str = "@agent-ix/ix-flow@0.0.4";
+    const EXPECTED_TRIGGER: &str = "workflow_dispatch";
+
+    let mut errors = Vec::new();
+    let packages = workflow_ix_flow_packages(source);
+    if packages != [EXPECTED_PACKAGE] {
+        errors.push(format!(
+            "executable ix-flow packages must be exactly [{EXPECTED_PACKAGE:?}], observed {packages:?}"
+        ));
+    }
+    let triggers = workflow_trigger_names(source);
+    if triggers != [EXPECTED_TRIGGER] {
+        errors.push(format!(
+            "hosted triggers must be exactly [{EXPECTED_TRIGGER:?}], observed {triggers:?}"
+        ));
+    }
+    errors
+}
+
 fn json_gate(program: &Path, arguments: &[&str]) -> Value {
     let (code, stdout, stderr) = run(program, arguments);
     assert_eq!(code, 0, "{arguments:?} exited {code}\n{stdout}\n{stderr}");
@@ -2111,6 +2209,57 @@ fn restoration_failure_is_reported_without_replacing_the_original_panic() {
         reports[0].contains("failed to restore tracked input")
             && reports[0].contains("while unwinding"),
         "the restoration failure was not reported: {reports:?}"
+    );
+}
+
+// Trace: TC-039, NFR-003-AC-7
+#[test]
+fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
+    let workflow = fs::read_to_string(root().join(".github/workflows/ci.yml"))
+        .expect("read hosted CI workflow");
+    let errors = hosted_workflow_control_errors(&workflow);
+    assert!(
+        errors.is_empty(),
+        "hosted workflow control errors: {errors:?}"
+    );
+
+    let comment_only =
+        format!("{workflow}\n# npm install --global ix-flow@99.99.99 is explanatory only\n");
+    assert!(
+        hosted_workflow_control_errors(&comment_only).is_empty(),
+        "a comment-only package spelling became executable"
+    );
+
+    let unscoped = workflow.replacen("@agent-ix/ix-flow@0.0.4", "ix-flow@0.0.4", 1);
+    assert!(
+        !hosted_workflow_control_errors(&unscoped).is_empty(),
+        "an unscoped package replacement was accepted"
+    );
+    let alias_duplicate = workflow.replacen(
+        "'@agent-ix/ix-flow@0.0.4'",
+        "'@agent-ix/ix-flow@0.0.4' 'ix-flow@npm:@agent-ix/ix-flow@0.0.4'",
+        1,
+    );
+    assert!(
+        !hosted_workflow_control_errors(&alias_duplicate).is_empty(),
+        "an executable alias-form duplicate was accepted"
+    );
+    let automatic = workflow.replacen(
+        "  workflow_dispatch:\n",
+        "  workflow_dispatch:\n  push:\n",
+        1,
+    );
+    assert!(
+        !hosted_workflow_control_errors(&automatic).is_empty(),
+        "an automatic hosted trigger was accepted"
+    );
+
+    let (code, stdout, stderr) = run(Path::new("ix-flow"), &["--version"]);
+    assert_eq!(code, 0, "ix-flow --version failed: {stderr}");
+    assert_eq!(
+        stdout.trim(),
+        "0.0.4",
+        "the released local ix-flow executable is not the pinned version"
     );
 }
 

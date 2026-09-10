@@ -2,7 +2,7 @@
 id: Task-002
 title: "Bind the hosted ix-flow identity"
 type: Task
-status: in_progress
+status: done
 track: Assurance
 priority: P0
 relationships:
@@ -33,3 +33,11 @@ control and must remain accepted.
 
 The focused control and mutation probes pass after Task-001. No hosted workflow
 run is dispatched.
+
+## Completion Record
+
+Completed on 2026-09-09 after Task-001. The workflow installs exactly the scoped
+`@agent-ix/ix-flow@0.0.4` package and retains its sole manual trigger. TC-039
+passed the real workflow, ignored a comment-only spelling, rejected an unscoped
+replacement and alias duplicate, rejected an added `push` trigger, and observed
+local `ix-flow --version` as exactly `0.0.4`. Hosted CI was not dispatched.

@@ -2,7 +2,7 @@
 id: Task-003
 title: "Validate and independently clear the candidate"
 type: Task
-status: not_started
+status: in_progress
 track: Assurance
 priority: P0
 relationships:
