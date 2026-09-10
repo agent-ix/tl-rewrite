@@ -12,7 +12,8 @@ quality_attribute: reliability
 Candidate qualification shall keep the producer boundary observable, derive every
 attested result from the bytes a producer wrote, keep the twelve verification
 outcomes distinguishable, retain every semantic-equivalence counterexample as a
-replayable witness, and grant no release authority.
+replayable witness, preserve unique tracked specification-review identities,
+and grant no release authority.
 
 This requirement previously also owned a control over the retained evidence
 archive. Issue #13 deleted that archive under the authority of
@@ -60,6 +61,7 @@ and tracked as `agent-ix/tl-rewrite#11`, which carries the reproduction.
 | Negatives without an accepted positive control | 0 | 0 | Test |
 | Attested results not derived from producer bytes | 0 | 0 | Test |
 | Retained counterexamples without a replayed witness | 0 | 0 | Test |
+| Duplicate normalized identities among tracked SpecReview artifacts | 0 | 0 | Test |
 | Automatic release decisions | 0 | 0 | Inspection |
 
 ## Verification
@@ -70,6 +72,9 @@ log required to be empty, and a control that stubs the tool the chain does use
 and requires the chain to fail — because an empty log and an unconsulted `PATH`
 are otherwise the same observation. Mutation probes remove one load-bearing
 check at a time and require the corresponding gate to go red.
+The review-identity census reads every version-control-tracked SpecReview
+frontmatter, normalizes matching YAML quotes, refuses an empty population, and
+reports every identity with more than one owning path.
 
 ## Acceptance Criteria
 
@@ -79,6 +84,7 @@ check at a time and require the corresponding gate to go red.
 | NFR-003-AC-2 | Neither Quire nor Quoin executes a producer, demonstrated by stubbing every producer and requiring no invocation, together with a control that stubs Quoin and requires the chain to fail. | Test (TC-024) |
 | NFR-003-AC-3 | The twelve verification outcomes stay distinguishable, each demonstrated by a case that produced it and matched, with every negative paired with a positive control and a control naming a non-existent scenario refused. | Test (TC-027) |
 | NFR-003-AC-5 | The revision constants this crate publishes as wire fields are the revisions Cargo.toml and Cargo.lock resolve, so a conformance report cannot attribute a verdict to a dependency that did not produce it. | Test (TC-030) |
+| NFR-003-AC-6 | Every version-control-tracked SpecReview artifact has one unique normalized frontmatter identity; matching plain and quoted YAML spellings collide, and an empty tracked review population is refused rather than reported as unique. | Test (TC-037) |
 
 ## Qualification Boundary
 

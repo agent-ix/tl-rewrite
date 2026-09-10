@@ -9,7 +9,7 @@ description: "What changed in the context-bound report implementation plan, and 
 ## History
 
 - **2026-09-04** - Opened the plan for `agent-ix/tl-rewrite#21` from reviewed
-  FR-007, StR-003, TM-001, and SR-012. The specification phase uses an isolated
+  FR-007, StR-003, TM-001, and context-bound SR-012. The specification phase uses an isolated
   branch from merged `main`; it is not stacked on review-residual PR #20.
 - **Dependency gate recorded.** The shared API is published on tl-syntax branch
   `issue/15-typed-signal-context` at

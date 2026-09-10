@@ -9,7 +9,7 @@
 //! A missing prerequisite is a failure here, never a skip. A gate that stands
 //! down when its dependency is absent reports the same green as one that ran.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -98,6 +98,109 @@ fn git_files(root: &Path, arguments: &[&str]) -> Vec<String> {
         .filter(|value| !value.is_empty())
         .map(str::to_owned)
         .collect()
+}
+
+fn normalized_frontmatter_scalar(value: &str) -> &str {
+    let value = value.trim();
+    if value.len() >= 2 {
+        let first = value.as_bytes()[0];
+        let last = value.as_bytes()[value.len() - 1];
+        if (first == b'\'' && last == b'\'') || (first == b'"' && last == b'"') {
+            return &value[1..value.len() - 1];
+        }
+    }
+    value
+}
+
+fn review_id(contents: &str, path: &str) -> String {
+    let mut lines = contents.lines();
+    assert_eq!(
+        lines.next(),
+        Some("---"),
+        "tracked review {path} has no YAML frontmatter"
+    );
+    let mut id = None;
+    let mut artifact_type = None;
+    for line in lines {
+        if line == "---" {
+            break;
+        }
+        if let Some(value) = line.strip_prefix("id:") {
+            id = Some(normalized_frontmatter_scalar(value).to_owned());
+        }
+        if let Some(value) = line.strip_prefix("type:") {
+            artifact_type = Some(normalized_frontmatter_scalar(value).to_owned());
+        }
+    }
+    assert_eq!(
+        artifact_type.as_deref(),
+        Some("SpecReview"),
+        "tracked review {path} is not a SpecReview artifact"
+    );
+    id.unwrap_or_else(|| panic!("tracked review {path} has no frontmatter id"))
+}
+
+fn duplicate_review_ids(
+    reviews: impl IntoIterator<Item = (String, String)>,
+) -> BTreeMap<String, Vec<String>> {
+    let mut paths_by_id = BTreeMap::<String, Vec<String>>::new();
+    for (path, contents) in reviews {
+        paths_by_id
+            .entry(review_id(&contents, &path))
+            .or_default()
+            .push(path);
+    }
+    assert!(
+        !paths_by_id.is_empty(),
+        "tracked SpecReview census is empty; uniqueness would be vacuous"
+    );
+    paths_by_id
+        .into_iter()
+        .filter(|(_, paths)| paths.len() > 1)
+        .collect()
+}
+
+// Trace: TC-037, NFR-003-AC-6
+#[test]
+fn every_tracked_spec_review_id_is_unique() {
+    let reviews = git_files(&root(), &["ls-files", "-z", "spec/reviews"])
+        .into_iter()
+        .map(|relative| {
+            let source = fs::read_to_string(root().join(&relative))
+                .unwrap_or_else(|error| panic!("could not read {relative}: {error}"));
+            (relative, source)
+        });
+    let duplicates = duplicate_review_ids(reviews);
+    assert!(
+        duplicates.is_empty(),
+        "duplicate tracked SpecReview ids: {duplicates:?}"
+    );
+}
+
+// Trace: TC-037, NFR-003-AC-6
+#[test]
+fn quoted_review_identity_collides_with_its_plain_yaml_value() {
+    let duplicates = duplicate_review_ids([
+        (
+            "plain.md".to_owned(),
+            "---\nid: SR-091\ntype: SpecReview\n---\n".to_owned(),
+        ),
+        (
+            "quoted.md".to_owned(),
+            "---\nid: \"SR-091\"\ntype: SpecReview\n---\n".to_owned(),
+        ),
+    ]);
+    assert_eq!(
+        duplicates.get("SR-091"),
+        Some(&vec!["plain.md".to_owned(), "quoted.md".to_owned()])
+    );
+}
+
+// Trace: TC-037, NFR-003-AC-6
+#[test]
+#[should_panic(expected = "tracked SpecReview census is empty")]
+fn review_identity_census_refuses_an_empty_set() {
+    let _ = duplicate_review_ids(std::iter::empty::<(String, String)>());
 }
 
 fn census_paths<F>(root: &Path, denied: F) -> (Vec<String>, Vec<String>, BTreeSet<String>)
@@ -741,9 +844,9 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // about retained evidence that no longer exists, and each went with its test
     // rather than being left to report unbacked.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 83, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 85, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 83,
+        totals["backed"], 85,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );
@@ -1497,7 +1600,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **112** scanned tracked files — 116 tracked
+    // Population at this review head: **113** scanned tracked files — 117 tracked
     // in total, minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
@@ -1505,7 +1608,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 12 root, 64 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // By area: 12 root, 65 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
@@ -1514,8 +1617,8 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 112,
-        "the source census population changed from the reviewed 112 tracked files \
+        inspected, 113,
+        "the source census population changed from the reviewed 113 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );

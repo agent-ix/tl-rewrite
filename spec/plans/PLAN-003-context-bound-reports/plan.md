@@ -55,7 +55,7 @@ tl-syntax#14 reviewed landing
 
 | Task | Scope | Exit evidence |
 |---|---|---|
-| Task-001 | FR-007, StR-003, matrix, assurance impacts, composite review | Grammar-clean specification and SR-012 with no unresolved blocking finding |
+| Task-001 | FR-007, StR-003, matrix, assurance impacts, composite review | Grammar-clean specification and context-bound SR-012 with no unresolved blocking finding |
 | Task-002 | Exact shared pin, contextual v2 fields, strict version-dependent serialization, deterministic catalog/context identities | TC-031 and strict positive/negative wire controls without a local signal/context schema |
 | Task-003 | Context-aware rewrite and replay entry points, input/output binding, contextual request digest, mutation matrix | TC-032 and TC-033, including exact replay and every independent substitution class |
 | Task-004 | Context-aware bounded equivalence and existing native Quoin intake | TC-034 and TC-036 with no new generic runner, collector, adapter framework, or evidence envelope |
