@@ -69,3 +69,6 @@ description: "Implementation and verification record for issue #19."
   poisoned serialization lock no longer masks the actual state of shared inputs.
   A fresh exact-head review and merge remain outstanding; hosted CI was not
   dispatched.
+- **2026-09-09 — Plan closed.** The independently reviewed PR #24 head
+  `5a26026` merged through the protected administrative squash path as main
+  `9fa547a`. Project 18 records the work Done. No hosted CI was dispatched.
