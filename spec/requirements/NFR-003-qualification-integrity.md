@@ -13,7 +13,8 @@ Candidate qualification shall keep the producer boundary observable, derive ever
 attested result from the bytes a producer wrote, keep the twelve verification
 outcomes distinguishable, retain every semantic-equivalence counterexample as a
 replayable witness, preserve unique tracked specification-review identities,
-and grant no release authority.
+bind the hosted specification-tool executable to its scoped package identity,
+keep hosted CI manual-only, and grant no release authority.
 
 This requirement previously also owned a control over the retained evidence
 archive. Issue #13 deleted that archive under the authority of
@@ -27,6 +28,9 @@ declaration in `assurance/pins.json`, the change-assurance declaration in
 `assurance/change-assurance.json`, the driver `scripts/assurance_chain.py`, the
 pin classifier `scripts/check_shared_pins.py`, the provenance producer
 `scripts/check_provenance.py`, and the tests that exercise them.
+It also owns the hosted workflow's exact ix-flow package identity and trigger
+surface. A workflow comment is explanatory evidence, not an executable package
+install and not a trigger.
 
 It no longer owns `tools.lock`, a local-CI runner, Make execution-control
 probes, a collector, a finalizer, a manifest verifier, an evidence-profile
@@ -62,6 +66,8 @@ and tracked as `agent-ix/tl-rewrite#11`, which carries the reproduction.
 | Attested results not derived from producer bytes | 0 | 0 | Test |
 | Retained counterexamples without a replayed witness | 0 | 0 | Test |
 | Duplicate normalized identities among tracked SpecReview artifacts | 0 | 0 | Test |
+| Executable ix-flow package identities in the hosted workflow | exactly `@agent-ix/ix-flow@0.0.4` once | exactly one scoped identity and zero aliases | Test |
+| Automatic hosted-workflow triggers | 0 | 0 | Test |
 | Automatic release decisions | 0 | 0 | Inspection |
 
 ## Verification
@@ -75,6 +81,13 @@ check at a time and require the corresponding gate to go red.
 The review-identity census reads every version-control-tracked SpecReview
 frontmatter, normalizes matching YAML quotes, refuses an empty population, and
 reports every identity with more than one owning path.
+The hosted-workflow census strips YAML comments before tokenizing executable
+content, counts package tokens across install-command and alias spellings,
+requires exactly one scoped ix-flow package at the pinned version, rejects every
+unscoped or duplicate identity, verifies the installed executable's version,
+and requires `workflow_dispatch` to be the sole trigger. A comment beside the
+expected package literals records that independent review of the workflow file
+is the second control against coordinated scanner-and-expected-side edits.
 
 ## Acceptance Criteria
 
@@ -85,6 +98,7 @@ reports every identity with more than one owning path.
 | NFR-003-AC-3 | The twelve verification outcomes stay distinguishable, each demonstrated by a case that produced it and matched, with every negative paired with a positive control and a control naming a non-existent scenario refused. | Test (TC-027) |
 | NFR-003-AC-5 | The revision constants this crate publishes as wire fields are the revisions Cargo.toml and Cargo.lock resolve, so a conformance report cannot attribute a verdict to a dependency that did not produce it. | Test (TC-030) |
 | NFR-003-AC-6 | Every version-control-tracked SpecReview artifact has one unique normalized frontmatter identity; matching plain and quoted YAML spellings collide, and an empty tracked review population is refused rather than reported as unique. | Test (TC-037) |
+| NFR-003-AC-7 | After YAML comments are removed, the hosted workflow contains exactly one executable ix-flow package identity, `@agent-ix/ix-flow@0.0.4`, contains no unscoped or alias-form duplicate, retains `workflow_dispatch` as its only trigger, and resolves `ix-flow --version` to exactly `0.0.4` under the released local toolchain. The expected literals identify independent workflow-file review as the second control. | Test (TC-039) |
 
 ## Qualification Boundary
 

@@ -164,6 +164,14 @@
             "FR-006",
             "NFR-003"
           ]
+        },
+        {
+          "id": "FR-006-AC-8",
+          "statement": "Every test mutation of a tracked shared-assurance input captures its exact original bytes before mutation, retains the shared-input serialization guard, and restores those bytes on normal return and panic unwind without replacing an active panic with a second panic.",
+          "source_ids": [
+            "FR-006",
+            "NFR-003"
+          ]
         }
       ],
       "preservation_constraints": [
