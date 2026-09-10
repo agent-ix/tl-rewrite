@@ -104,7 +104,7 @@ fn workflow_run_scripts(source: &str) -> Result<Vec<String>, Vec<String>> {
         };
         let run_value = run_value.trim();
 
-        if matches!(run_value, "|" | "|-" | "|+" | ">" | ">-" | ">+") {
+        if matches!(run_value, "|" | "|-" | "|+") {
             let start = index + 1;
             let mut end = start;
             while end < lines.len() {
@@ -261,7 +261,7 @@ fn shell_tokens(script: &str) -> Result<Vec<ShellToken>, String> {
                     }
                 }
             }
-            '`' | '*' | '?' | '[' | ']' | '{' | '}' | '~' => {
+            '`' | '*' | '?' | '[' | ']' | '{' | '}' | '~' | '(' | ')' | '<' | '>' => {
                 literal = false;
                 word.push(character);
             }
@@ -320,14 +320,11 @@ fn workflow_ix_flow_packages(source: &str) -> (Vec<String>, Vec<String>) {
                 let Some((install_index, _)) = words[npm_index + 1..]
                     .iter()
                     .enumerate()
-                    .find(|(_, word)| !word.text.starts_with('-'))
+                    .find(|(_, word)| matches!(word.text.as_str(), "install" | "i"))
                 else {
                     continue;
                 };
                 let install_index = npm_index + 1 + install_index;
-                if !matches!(words[install_index].text.as_str(), "install" | "i") {
-                    continue;
-                }
                 for argument in &words[install_index + 1..] {
                     if argument.text == "--" || argument.text.starts_with('-') {
                         continue;
@@ -337,7 +334,7 @@ fn workflow_ix_flow_packages(source: &str) -> (Vec<String>, Vec<String>) {
                             "non-literal npm package argument is not allowed: {:?}",
                             argument.text
                         ));
-                    } else if argument.text.contains("ix-flow") {
+                    } else if argument.text.to_ascii_lowercase().contains("ix-flow") {
                         packages.push(argument.text.clone());
                     }
                 }
@@ -2502,11 +2499,25 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
         "the supported npm i -g spelling changed the package population"
     );
 
+    let prefixed_install = workflow.replacen(
+        "npm install --global",
+        "npm --prefix /tmp install --global",
+        1,
+    );
+    assert!(
+        hosted_workflow_control_errors(&prefixed_install).is_empty(),
+        "an npm global option before install hid the executable package population"
+    );
+
     for (label, replacement) in [
         ("unscoped", "ix-flow@0.0.4"),
         ("unversioned", "@agent-ix/ix-flow"),
         ("npm alias", "ix-flow@npm:@agent-ix/ix-flow@0.0.4"),
         ("GitHub shorthand", "github:agent-ix/ix-flow#v0.2.3"),
+        (
+            "mixed-case GitHub shorthand",
+            "github:agent-ix/IX-FLOW#v0.2.3",
+        ),
         (
             "git URL",
             "git+https://github.com/agent-ix/ix-flow.git#v0.2.3",
@@ -2557,6 +2568,7 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
         "${{ env.IX_FLOW_PACKAGE }}",
         "'${{ env.IX_FLOW_PACKAGE }}'",
         "\"${{ env.IX_FLOW_PACKAGE }}\"",
+        "<(printf ix-flow-package)",
     ] {
         let dynamic = workflow.replacen("'@agent-ix/ix-flow@0.0.4'", expression, 1);
         let errors = hosted_workflow_control_errors(&dynamic);
@@ -2590,6 +2602,14 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
     assert!(
         !hosted_workflow_control_errors(&inline_automatic).is_empty(),
         "an inline-map automatic hosted trigger was accepted"
+    );
+
+    let folded_script = workflow.replacen("        run: |", "        run: >", 1);
+    assert!(
+        hosted_workflow_control_errors(&folded_script)
+            .iter()
+            .any(|error| error.contains("unsupported block-scalar")),
+        "a folded run script was interpreted with literal-block semantics instead of failing closed"
     );
 
     let (code, stdout, stderr) = run(Path::new("ix-flow"), &["--version"]);
