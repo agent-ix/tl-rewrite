@@ -94,7 +94,13 @@ fn workflow_ix_flow_packages(source: &str) -> Vec<String> {
                     '\'' | '"' | '\\' | '|' | ';' | ',' | '(' | ')' | '[' | ']'
                 )
             });
-            token.contains("ix-flow@").then(|| token.to_owned())
+            let is_package_identity = token == "ix-flow"
+                || token.starts_with("ix-flow@")
+                || token == "@agent-ix/ix-flow"
+                || token.starts_with("@agent-ix/ix-flow@")
+                || token.contains("@npm:ix-flow")
+                || token.contains("@npm:@agent-ix/ix-flow");
+            is_package_identity.then(|| token.to_owned())
         })
         .collect()
 }
@@ -117,8 +123,11 @@ fn workflow_trigger_names(source: &str) -> Vec<String> {
             break;
         }
         if indent == on_indent + 2 {
-            if let Some(name) = trimmed.strip_suffix(':') {
-                triggers.push(name.to_owned());
+            if let Some((name, _value)) = trimmed.split_once(':') {
+                triggers.push(
+                    name.trim_matches(|character| character == '\'' || character == '"')
+                        .to_owned(),
+                );
             }
         }
     }
@@ -2245,6 +2254,15 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
         !hosted_workflow_control_errors(&alias_duplicate).is_empty(),
         "an executable alias-form duplicate was accepted"
     );
+    let unversioned_duplicate = workflow.replacen(
+        "'@agent-ix/ix-flow@0.0.4'",
+        "'@agent-ix/ix-flow@0.0.4' '@agent-ix/ix-flow'",
+        1,
+    );
+    assert!(
+        !hosted_workflow_control_errors(&unversioned_duplicate).is_empty(),
+        "an executable unversioned duplicate was accepted"
+    );
     let automatic = workflow.replacen(
         "  workflow_dispatch:\n",
         "  workflow_dispatch:\n  push:\n",
@@ -2253,6 +2271,15 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
     assert!(
         !hosted_workflow_control_errors(&automatic).is_empty(),
         "an automatic hosted trigger was accepted"
+    );
+    let inline_automatic = workflow.replacen(
+        "  workflow_dispatch:\n",
+        "  workflow_dispatch:\n  pull_request: {}\n",
+        1,
+    );
+    assert!(
+        !hosted_workflow_control_errors(&inline_automatic).is_empty(),
+        "an inline-map automatic hosted trigger was accepted"
     );
 
     let (code, stdout, stderr) = run(Path::new("ix-flow"), &["--version"]);
