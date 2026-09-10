@@ -2,7 +2,7 @@
 id: Task-001
 title: "Restore tracked inputs across unwind"
 type: Task
-status: in_progress
+status: done
 track: Assurance
 priority: P0
 relationships:
@@ -31,3 +31,11 @@ original panic.
 
 The focused control passes, and deleting unwind restoration makes its forced
 spawn-failure case red without leaving the tracked input modified.
+
+## Completion Record
+
+Completed on 2026-09-09. The token-taking mirror helper now owns a restoration
+guard from before mutation through explicit normal restoration; Drop restores
+on a forced child-spawn unwind. A scratch-path failure emits an observable report
+without replacing the original panic. Focused TC-038 cases passed with exact
+post-unwind byte equality. Mutation falsification remains part of Task-003.

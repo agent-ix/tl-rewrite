@@ -2,7 +2,7 @@
 id: Task-002
 title: "Bind the hosted ix-flow identity"
 type: Task
-status: not_started
+status: in_progress
 track: Assurance
 priority: P0
 relationships:

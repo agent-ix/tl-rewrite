@@ -18,7 +18,7 @@ relationships:
 | FR-003 | FR-003-AC-1 through FR-003-AC-3 | TC-009 through TC-012 | ✅ covered |
 | FR-004 | FR-004-AC-1 through FR-004-AC-3 | TC-013 through TC-016, TC-028 | ✅ covered |
 | FR-005 | FR-005-AC-1, FR-005-AC-3 | TC-017, TC-019 | ✅ covered |
-| FR-006 | FR-006-AC-1 through FR-006-AC-3, FR-006-AC-5 through FR-006-AC-8 | TC-023, TC-024, TC-025, TC-027, TC-028, TC-029, TC-038 | 🚧 TC-038 planned |
+| FR-006 | FR-006-AC-1 through FR-006-AC-3, FR-006-AC-5 through FR-006-AC-8 | TC-023, TC-024, TC-025, TC-027, TC-028, TC-029, TC-038 | ✅ implemented |
 | FR-007 | FR-007-AC-1 through FR-007-AC-6 | TC-031 through TC-036 | ✅ covered |
 
 ## Stakeholder Requirement Coverage
@@ -76,5 +76,5 @@ relationships:
 | TC-035 | Preserve context-free API outcomes and exact v1 bytes while strictly round-tripping contextual v2 report families | Snapshot | P0 | FR-007-AC-5, NFR-001-AC-1 | ✅ implemented |
 | TC-036 | Emit contextual native domain records through the existing producer-owned shared intake boundary without new generic machinery | Integration | P0 | FR-007-AC-6, NFR-002-AC-3 | ✅ implemented |
 | TC-037 | Refuse duplicate or vacuously empty tracked SpecReview identity populations, including equal plain and quoted YAML spellings | Integration | P0 | NFR-003-AC-6 | ✅ implemented |
-| TC-038 | Restore exact tracked shared-input bytes after successful execution and forced spawn-failure unwind, and preserve the original panic during a forced scratch-path restoration failure | Integration | P0 | FR-006-AC-8 | 🚧 planned |
+| TC-038 | Restore exact tracked shared-input bytes after successful execution and forced spawn-failure unwind, and preserve the original panic during a forced scratch-path restoration failure | Integration | P0 | FR-006-AC-8 | ✅ implemented |
 | TC-039 | Enforce one comment-safe scoped ix-flow package identity, manual-only hosted trigger, alias rejection, and exact released runtime version | Integration | P0 | NFR-003-AC-7 | 🚧 planned |

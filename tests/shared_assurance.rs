@@ -11,9 +11,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use serde_json::Value;
 
@@ -321,6 +322,83 @@ type AssuranceInputsGuard = shared_inputs::Guard;
 
 fn assurance_inputs_guard() -> AssuranceInputsGuard {
     shared_inputs::lock()
+}
+
+struct TrackedFileRestore {
+    path: PathBuf,
+    original: Vec<u8>,
+    restored: bool,
+    failure_reports: Option<Arc<Mutex<Vec<String>>>>,
+}
+
+impl TrackedFileRestore {
+    fn new(path: PathBuf) -> Self {
+        Self::with_failure_reports(path, None)
+    }
+
+    fn observed(path: PathBuf, failure_reports: Arc<Mutex<Vec<String>>>) -> Self {
+        Self::with_failure_reports(path, Some(failure_reports))
+    }
+
+    fn with_failure_reports(
+        path: PathBuf,
+        failure_reports: Option<Arc<Mutex<Vec<String>>>>,
+    ) -> Self {
+        let original = fs::read(&path)
+            .unwrap_or_else(|error| panic!("read tracked input {}: {error}", path.display()));
+        Self {
+            path,
+            original,
+            restored: false,
+            failure_reports,
+        }
+    }
+
+    fn original(&self) -> &[u8] {
+        &self.original
+    }
+
+    fn restore(&mut self) {
+        fs::write(&self.path, &self.original).unwrap_or_else(|error| {
+            panic!(
+                "restore tracked input {} after mutation: {error}",
+                self.path.display()
+            )
+        });
+        self.restored = true;
+    }
+
+    fn report_unwind_failure(&self, error: &std::io::Error) {
+        let message = format!(
+            "failed to restore tracked input {} while unwinding: {error}",
+            self.path.display()
+        );
+        if let Some(reports) = &self.failure_reports {
+            reports
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .push(message.clone());
+        }
+        let _ = writeln!(std::io::stderr().lock(), "{message}");
+    }
+}
+
+impl Drop for TrackedFileRestore {
+    fn drop(&mut self) {
+        if self.restored {
+            return;
+        }
+        if let Err(error) = fs::write(&self.path, &self.original) {
+            if std::thread::panicking() {
+                self.report_unwind_failure(&error);
+            } else {
+                panic!(
+                    "restore tracked input {} after mutation: {error}",
+                    self.path.display()
+                );
+            }
+        }
+    }
 }
 
 // Trace: TC-024, NFR-003-AC-2
@@ -1666,7 +1744,7 @@ tl-rewrite-evidence-input-v1.schema.json";
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **125** scanned tracked files — 129 tracked
+    // Population at this review head: **139** scanned tracked files — 143 tracked
     // in total, minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
@@ -1674,7 +1752,7 @@ tl-rewrite-evidence-input-v1.schema.json";
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 12 root, 77 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // By area: 12 root, 91 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
@@ -1683,8 +1761,8 @@ tl-rewrite-evidence-input-v1.schema.json";
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 125,
-        "the source census population changed from the reviewed 125 tracked files \
+        inspected, 139,
+        "the source census population changed from the reviewed 139 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
@@ -1923,23 +2001,23 @@ fn a_control_naming_a_scenario_that_does_not_exist_is_refused() {
     fs::remove_dir_all(&scratch).expect("remove the isolated dangling-scenario scratch tree");
 }
 
-// Trace: TC-023, FR-006-AC-1
-#[test]
-fn the_mirror_scan_refuses_a_registry_reference_in_a_real_file() {
-    let _inputs = assurance_inputs_guard();
+fn run_mirror_file_scan(
+    _inputs: &AssuranceInputsGuard,
+    python: &Path,
+) -> (i32, String, String, Vec<u8>) {
     // The structural branch of `mirror_references` (pins.json) already has a
     // control. The file-scan branch needs its own: without one it is
     // indistinguishable from a loop over files that never match.
-    let python = assurance_python();
     let requirements = root().join("requirements-assurance.txt");
-    let original = fs::read(&requirements).expect("read requirements-assurance input");
+    let mut restoration = TrackedFileRestore::new(requirements.clone());
+    let original = restoration.original().to_vec();
     fs::write(
         &requirements,
         [original.as_slice(), b"\n--registry=https://npm.ix/\n"].concat(),
     )
     .expect("write mirror-reference probe input");
     let (code, stdout, stderr) = run(
-        &python,
+        python,
         &[
             "-c",
             "import json,sys,pathlib;sys.path.insert(0,'scripts');\
@@ -1949,7 +2027,17 @@ fn the_mirror_scan_refuses_a_registry_reference_in_a_real_file() {
              print(json.dumps(found))",
         ],
     );
-    fs::write(&requirements, &original).expect("restore requirements-assurance input");
+    restoration.restore();
+    (code, stdout, stderr, original)
+}
+
+// Trace: TC-023, TC-038, FR-006-AC-1, FR-006-AC-8
+#[test]
+fn the_mirror_scan_refuses_a_registry_reference_in_a_real_file() {
+    let inputs = assurance_inputs_guard();
+    let python = assurance_python();
+    let requirements = root().join("requirements-assurance.txt");
+    let (code, stdout, stderr, original) = run_mirror_file_scan(&inputs, &python);
     assert_eq!(code, 0, "the mirror file-scan probe failed: {stderr}");
     let offenders: Vec<String> = serde_json::from_str(stdout.trim()).unwrap();
     assert!(
@@ -1964,6 +2052,65 @@ fn the_mirror_scan_refuses_a_registry_reference_in_a_real_file() {
         fs::read(&requirements).expect("re-read restored requirements-assurance input"),
         original,
         "the mirror-reference probe left requirements-assurance.txt changed"
+    );
+}
+
+// Trace: TC-038, FR-006-AC-8
+#[test]
+fn a_spawn_failure_restores_the_exact_tracked_input_while_unwinding() {
+    let inputs = assurance_inputs_guard();
+    let requirements = root().join("requirements-assurance.txt");
+    let original = fs::read(&requirements).expect("read requirements-assurance input");
+    let unwind = std::panic::catch_unwind(|| {
+        let _ = run_mirror_file_scan(
+            &inputs,
+            Path::new("/definitely/missing/tl-rewrite-tc038-python"),
+        );
+    })
+    .expect_err("the forced spawn failure did not unwind");
+    let message = panic_message(unwind);
+    assert!(
+        message.contains("failed to run /definitely/missing/tl-rewrite-tc038-python"),
+        "the forced spawn failed for the wrong reason: {message}"
+    );
+    assert_eq!(
+        fs::read(&requirements).expect("re-read tracked input after forced unwind"),
+        original,
+        "the unwind path left requirements-assurance.txt changed"
+    );
+}
+
+// Trace: TC-038, FR-006-AC-8
+#[test]
+fn restoration_failure_is_reported_without_replacing_the_original_panic() {
+    let _inputs = assurance_inputs_guard();
+    let scratch = root().join("target/tracked-restore-failure-probe");
+    clear_scratch_directory(&scratch, "tracked restoration-failure probe");
+    fs::create_dir_all(&scratch).expect("create tracked restoration-failure probe");
+    let tracked = scratch.join("tracked-input.txt");
+    fs::write(&tracked, b"original bytes\n").expect("write scratch tracked input");
+    let reports = Arc::new(Mutex::new(Vec::new()));
+    let observed_reports = Arc::clone(&reports);
+    let unwind = std::panic::catch_unwind(move || {
+        let _restoration = TrackedFileRestore::observed(tracked.clone(), observed_reports);
+        fs::write(&tracked, b"mutated bytes\n").expect("mutate scratch tracked input");
+        fs::remove_dir_all(&scratch).expect("force tracked restoration failure");
+        panic!("original TC-038 unwind");
+    })
+    .expect_err("the restoration-failure control did not unwind");
+    assert_eq!(
+        panic_message(unwind),
+        "original TC-038 unwind",
+        "restoration failure replaced the original panic"
+    );
+    let reports = reports
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    assert_eq!(reports.len(), 1, "restoration failure reports: {reports:?}");
+    assert!(
+        reports[0].contains("failed to restore tracked input")
+            && reports[0].contains("while unwinding"),
+        "the restoration failure was not reported: {reports:?}"
     );
 }
 
