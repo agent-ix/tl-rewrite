@@ -23,15 +23,15 @@ formal-clause source profile.
 
 ### Non-Functional Requirements
 
-- [ ] **NFR-003-AC-7:** The executable ix-flow package-specification multiset is
+- [x] **NFR-003-AC-7:** The executable ix-flow package-specification multiset is
   exactly [`@agent-ix/ix-flow@0.0.4`].
-- [ ] **NFR-003-AC-8:** Alternate, duplicate, and identity-bearing package-spec
+- [x] **NFR-003-AC-8:** Alternate, duplicate, and identity-bearing package-spec
   families are rejected and reported.
-- [ ] **NFR-003-AC-9:** Inert comments and YAML metadata do not enter the
+- [x] **NFR-003-AC-9:** Inert comments and YAML metadata do not enter the
   executable population.
-- [ ] **NFR-003-AC-10:** `workflow_dispatch` is the only hosted trigger.
-- [ ] **NFR-003-AC-11:** The released local ix-flow runtime reports `0.0.4`.
-- [ ] **NFR-003-AC-12:** Dynamic or otherwise unclassifiable package arguments
+- [x] **NFR-003-AC-10:** `workflow_dispatch` is the only hosted trigger.
+- [x] **NFR-003-AC-11:** The released local ix-flow runtime reports `0.0.4`.
+- [x] **NFR-003-AC-12:** Dynamic or otherwise unclassifiable package arguments
   fail closed.
 
 SR-036 through SR-043 record the accepted composite specification review.
@@ -104,8 +104,8 @@ safe or useful.
 
 | Task | Track | Owns (references) | Verified by (verifies) | Status |
 |---|---|---|---|---|
-| Task-001 | A | NFR-003 | TC-039 | in_progress |
-| Task-002 | A | NFR-003 | TC-039 | not_started |
+| Task-001 | A | NFR-003 | TC-039 | done |
+| Task-002 | A | NFR-003 | TC-039 | in_progress |
 
 ## Coordination Rules
 
@@ -124,4 +124,3 @@ Plan completion requires both tasks and closing authorial reviews. Issue closure
 then requires independent review of the exact pushed head and merge through the
 authorized protected path. Hosted CI and the human source-release decision stay
 outside this plan.
-

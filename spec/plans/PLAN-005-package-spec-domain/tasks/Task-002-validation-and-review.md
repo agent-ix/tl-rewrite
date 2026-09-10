@@ -2,7 +2,7 @@
 id: Task-002
 title: "Validate and review the candidate"
 type: Task
-status: not_started
+status: in_progress
 track: A
 priority: P0
 relationships:
@@ -43,4 +43,3 @@ and write closing authorial code and gap reviews.
 
 - Authorial review is not independent approval.
 - Human source-release acceptance remains pending and outside this task.
-

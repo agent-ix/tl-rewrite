@@ -84,25 +84,268 @@ fn yaml_without_comments(source: &str) -> String {
     uncommented
 }
 
-fn workflow_ix_flow_packages(source: &str) -> Vec<String> {
-    yaml_without_comments(source)
-        .split_ascii_whitespace()
-        .filter_map(|token| {
-            let token = token.trim_matches(|character: char| {
-                matches!(
-                    character,
-                    '\'' | '"' | '\\' | '|' | ';' | ',' | '(' | ')' | '[' | ']'
-                )
-            });
-            let is_package_identity = token == "ix-flow"
-                || token.starts_with("ix-flow@")
-                || token == "@agent-ix/ix-flow"
-                || token.starts_with("@agent-ix/ix-flow@")
-                || token.contains("@npm:ix-flow")
-                || token.contains("@npm:@agent-ix/ix-flow");
-            is_package_identity.then(|| token.to_owned())
-        })
-        .collect()
+fn workflow_run_scripts(source: &str) -> Result<Vec<String>, Vec<String>> {
+    let uncommented = yaml_without_comments(source);
+    let lines: Vec<&str> = uncommented.lines().collect();
+    let mut scripts = Vec::new();
+    let mut errors = Vec::new();
+    let mut index = 0;
+
+    while index < lines.len() {
+        let line = lines[index];
+        let indentation = line.len() - line.trim_start().len();
+        let trimmed = line.trim_start();
+        let run_value = trimmed
+            .strip_prefix("run:")
+            .or_else(|| trimmed.strip_prefix("- run:"));
+        let Some(run_value) = run_value else {
+            index += 1;
+            continue;
+        };
+        let run_value = run_value.trim();
+
+        if matches!(run_value, "|" | "|-" | "|+" | ">" | ">-" | ">+") {
+            let start = index + 1;
+            let mut end = start;
+            while end < lines.len() {
+                let candidate = lines[end];
+                if candidate.trim().is_empty()
+                    || candidate.len() - candidate.trim_start().len() > indentation
+                {
+                    end += 1;
+                } else {
+                    break;
+                }
+            }
+            let content_indent = lines[start..end]
+                .iter()
+                .filter(|candidate| !candidate.trim().is_empty())
+                .map(|candidate| candidate.len() - candidate.trim_start().len())
+                .min()
+                .unwrap_or(indentation + 2);
+            let mut script = String::new();
+            for candidate in &lines[start..end] {
+                if candidate.trim().is_empty() {
+                    script.push('\n');
+                } else if candidate.len() >= content_indent {
+                    script.push_str(&candidate[content_indent..]);
+                    script.push('\n');
+                } else {
+                    errors.push(format!(
+                        "run script line has unsupported indentation: {candidate:?}"
+                    ));
+                }
+            }
+            scripts.push(script);
+            index = end;
+            continue;
+        }
+
+        if run_value.is_empty() {
+            errors.push("run key has no statically classifiable script".to_owned());
+        } else if run_value.starts_with('|') || run_value.starts_with('>') {
+            errors.push(format!(
+                "run script uses unsupported block-scalar header {run_value:?}"
+            ));
+        } else {
+            let decoded = if run_value.starts_with('\'') && run_value.ends_with('\'') {
+                run_value[1..run_value.len() - 1].replace("''", "'")
+            } else if run_value.starts_with('"') && run_value.ends_with('"') {
+                run_value[1..run_value.len() - 1].to_owned()
+            } else {
+                run_value.to_owned()
+            };
+            scripts.push(decoded);
+        }
+        index += 1;
+    }
+
+    if errors.is_empty() {
+        Ok(scripts)
+    } else {
+        Err(errors)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ShellWord {
+    text: String,
+    literal: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum ShellToken {
+    Word(ShellWord),
+    Boundary,
+}
+
+fn shell_tokens(script: &str) -> Result<Vec<ShellToken>, String> {
+    let mut tokens = Vec::new();
+    let mut word = String::new();
+    let mut literal = true;
+    let mut quote = None;
+    let mut escaped = false;
+    let mut workflow_expression = false;
+    let mut characters = script.chars().peekable();
+
+    let flush_word = |tokens: &mut Vec<ShellToken>, word: &mut String, literal: &mut bool| {
+        if !word.is_empty() {
+            tokens.push(ShellToken::Word(ShellWord {
+                text: std::mem::take(word),
+                literal: *literal,
+            }));
+            *literal = true;
+        }
+    };
+
+    while let Some(character) = characters.next() {
+        if escaped {
+            if character != '\n' {
+                word.push(character);
+            }
+            escaped = false;
+            continue;
+        }
+
+        if quote == Some('\'') {
+            if character == '\'' {
+                quote = None;
+            } else {
+                // GitHub evaluates its `${{ ... }}` interpolation before the
+                // shell sees the script, so shell single quotes do not make
+                // that package argument static.
+                if character == '$' && characters.peek() == Some(&'{') {
+                    let mut lookahead = characters.clone();
+                    lookahead.next();
+                    if lookahead.peek() == Some(&'{') {
+                        literal = false;
+                    }
+                }
+                word.push(character);
+            }
+            continue;
+        }
+
+        if quote == Some('"') {
+            match character {
+                '"' => quote = None,
+                '\\' => escaped = true,
+                '$' | '`' => {
+                    literal = false;
+                    word.push(character);
+                }
+                _ => word.push(character),
+            }
+            continue;
+        }
+
+        if workflow_expression {
+            word.push(character);
+            if word.ends_with("}}") {
+                workflow_expression = false;
+            }
+            continue;
+        }
+
+        match character {
+            '\'' | '"' => quote = Some(character),
+            '\\' => escaped = true,
+            '$' => {
+                literal = false;
+                word.push(character);
+                if characters.peek() == Some(&'{') {
+                    let mut lookahead = characters.clone();
+                    lookahead.next();
+                    if lookahead.peek() == Some(&'{') {
+                        workflow_expression = true;
+                    }
+                }
+            }
+            '`' | '*' | '?' | '[' | ']' | '{' | '}' | '~' => {
+                literal = false;
+                word.push(character);
+            }
+            ' ' | '\t' | '\r' if !workflow_expression => {
+                flush_word(&mut tokens, &mut word, &mut literal);
+            }
+            '\n' | ';' | '|' | '&' if !workflow_expression => {
+                flush_word(&mut tokens, &mut word, &mut literal);
+                if !matches!(tokens.last(), Some(ShellToken::Boundary)) {
+                    tokens.push(ShellToken::Boundary);
+                }
+                if matches!(character, '|' | '&') && characters.peek() == Some(&character) {
+                    characters.next();
+                }
+            }
+            _ => word.push(character),
+        }
+    }
+    if escaped || quote.is_some() || workflow_expression {
+        return Err(format!(
+            "shell script has an unterminated or unsupported token near {word:?}"
+        ));
+    }
+    flush_word(&mut tokens, &mut word, &mut literal);
+    Ok(tokens)
+}
+
+fn workflow_ix_flow_packages(source: &str) -> (Vec<String>, Vec<String>) {
+    let scripts = match workflow_run_scripts(source) {
+        Ok(scripts) => scripts,
+        Err(errors) => return (Vec::new(), errors),
+    };
+    let mut packages = Vec::new();
+    let mut errors = Vec::new();
+
+    for script in scripts {
+        let tokens = match shell_tokens(&script) {
+            Ok(tokens) => tokens,
+            Err(error) => {
+                errors.push(error);
+                continue;
+            }
+        };
+        for command in tokens.split(|token| *token == ShellToken::Boundary) {
+            let words: Vec<&ShellWord> = command
+                .iter()
+                .filter_map(|token| match token {
+                    ShellToken::Word(word) => Some(word),
+                    ShellToken::Boundary => None,
+                })
+                .collect();
+            for (npm_index, npm) in words.iter().enumerate() {
+                if npm.text != "npm" || !npm.literal {
+                    continue;
+                }
+                let Some((install_index, _)) = words[npm_index + 1..]
+                    .iter()
+                    .enumerate()
+                    .find(|(_, word)| !word.text.starts_with('-'))
+                else {
+                    continue;
+                };
+                let install_index = npm_index + 1 + install_index;
+                if !matches!(words[install_index].text.as_str(), "install" | "i") {
+                    continue;
+                }
+                for argument in &words[install_index + 1..] {
+                    if argument.text == "--" || argument.text.starts_with('-') {
+                        continue;
+                    }
+                    if !argument.literal {
+                        errors.push(format!(
+                            "non-literal npm package argument is not allowed: {:?}",
+                            argument.text
+                        ));
+                    } else if argument.text.contains("ix-flow") {
+                        packages.push(argument.text.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    (packages, errors)
 }
 
 fn workflow_trigger_names(source: &str) -> Vec<String> {
@@ -141,8 +384,7 @@ fn hosted_workflow_control_errors(source: &str) -> Vec<String> {
     const EXPECTED_PACKAGE: &str = "@agent-ix/ix-flow@0.0.4";
     const EXPECTED_TRIGGER: &str = "workflow_dispatch";
 
-    let mut errors = Vec::new();
-    let packages = workflow_ix_flow_packages(source);
+    let (packages, mut errors) = workflow_ix_flow_packages(source);
     if packages != [EXPECTED_PACKAGE] {
         errors.push(format!(
             "executable ix-flow packages must be exactly [{EXPECTED_PACKAGE:?}], observed {packages:?}"
@@ -1091,16 +1333,19 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
-    // 89: the prior 85 plus FR-006-AC-8, NFR-003-AC-7, TC-038, and TC-039. The
+    // 94: the prior 89 plus the five atomic NFR-003 criteria split from the
+    // original bundled AC-7 by issue #33. TC-039 backs AC-7 through AC-12. The
+    // prior 89 was 85 plus FR-006-AC-8, the original NFR-003-AC-7, TC-038, and
+    // TC-039. The
     // earlier 85 was the 83 contextual-report rows plus NFR-003-AC-6 and TC-037's
     // review-identity control. The contextual 83 was the audited post-deletion
     // 68 plus 15 context-bound report rows. Issue #13 had reduced 72 to 68 by
     // removing exactly FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4, and TC-026 with
     // the retained-evidence claims they owned.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 89, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 94, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 89,
+        totals["backed"], 94,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );
@@ -1852,7 +2097,7 @@ tl-rewrite-evidence-input-v1.schema.json";
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **141** scanned tracked files — 145 tracked
+    // Population at this review head: **154** scanned tracked files — 158 tracked
     // in total, minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
@@ -1860,7 +2105,7 @@ tl-rewrite-evidence-input-v1.schema.json";
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 12 root, 93 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // By area: 12 root, 106 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
@@ -1869,8 +2114,8 @@ tl-rewrite-evidence-input-v1.schema.json";
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 141,
-        "the source census population changed from the reviewed 141 tracked files \
+        inspected, 154,
+        "the source census population changed from the reviewed 154 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
@@ -2222,7 +2467,8 @@ fn restoration_failure_is_reported_without_replacing_the_original_panic() {
     );
 }
 
-// Trace: TC-039, NFR-003-AC-7
+// Trace: TC-039, NFR-003-AC-7, NFR-003-AC-8, NFR-003-AC-9, NFR-003-AC-10,
+// NFR-003-AC-11, NFR-003-AC-12
 #[test]
 fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
     let workflow = fs::read_to_string(root().join(".github/workflows/ci.yml"))
@@ -2240,11 +2486,52 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
         "a comment-only package spelling became executable"
     );
 
-    let unscoped = workflow.replacen("@agent-ix/ix-flow@0.0.4", "ix-flow@0.0.4", 1);
-    assert!(
-        !hosted_workflow_control_errors(&unscoped).is_empty(),
-        "an unscoped package replacement was accepted"
+    let metadata_only = workflow.replacen(
+        "name: Install specification tools and modules",
+        "name: ix-flow is inert step metadata",
+        1,
     );
+    assert!(
+        hosted_workflow_control_errors(&metadata_only).is_empty(),
+        "a metadata-only package spelling became executable"
+    );
+
+    let short_install = workflow.replacen("npm install --global", "npm i -g", 1);
+    assert!(
+        hosted_workflow_control_errors(&short_install).is_empty(),
+        "the supported npm i -g spelling changed the package population"
+    );
+
+    for (label, replacement) in [
+        ("unscoped", "ix-flow@0.0.4"),
+        ("unversioned", "@agent-ix/ix-flow"),
+        ("npm alias", "ix-flow@npm:@agent-ix/ix-flow@0.0.4"),
+        ("GitHub shorthand", "github:agent-ix/ix-flow#v0.2.3"),
+        (
+            "git URL",
+            "git+https://github.com/agent-ix/ix-flow.git#v0.2.3",
+        ),
+        (
+            "registry tarball URL",
+            "https://registry.npmjs.org/@agent-ix/ix-flow/-/ix-flow-0.0.4.tgz",
+        ),
+        ("file", "file:../ix-flow"),
+        ("tarball path", "../ix-flow-0.0.4.tgz"),
+        ("workspace", "workspace:ix-flow"),
+        ("link", "link:../ix-flow"),
+    ] {
+        let mutated = workflow.replacen("@agent-ix/ix-flow@0.0.4", replacement, 1);
+        let errors = hosted_workflow_control_errors(&mutated);
+        assert!(
+            !errors.is_empty(),
+            "a {label} ix-flow package specification was accepted"
+        );
+        assert!(
+            errors.iter().any(|error| error.contains(replacement)),
+            "the {label} refusal did not name the observed specification {replacement:?}: {errors:?}"
+        );
+    }
+
     let alias_duplicate = workflow.replacen(
         "'@agent-ix/ix-flow@0.0.4'",
         "'@agent-ix/ix-flow@0.0.4' 'ix-flow@npm:@agent-ix/ix-flow@0.0.4'",
@@ -2263,6 +2550,29 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
         !hosted_workflow_control_errors(&unversioned_duplicate).is_empty(),
         "an executable unversioned duplicate was accepted"
     );
+
+    for expression in [
+        "$IX_FLOW_PACKAGE",
+        "$(ix-flow-package)",
+        "${{ env.IX_FLOW_PACKAGE }}",
+        "'${{ env.IX_FLOW_PACKAGE }}'",
+        "\"${{ env.IX_FLOW_PACKAGE }}\"",
+    ] {
+        let dynamic = workflow.replacen("'@agent-ix/ix-flow@0.0.4'", expression, 1);
+        let errors = hosted_workflow_control_errors(&dynamic);
+        let marker = if expression.contains("IX_FLOW_PACKAGE") {
+            "IX_FLOW_PACKAGE"
+        } else {
+            "ix-flow-package"
+        };
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("non-literal") && error.contains(marker)),
+            "a dynamic package argument did not fail closed and name its expression {expression:?}: {errors:?}"
+        );
+    }
+
     let automatic = workflow.replacen(
         "  workflow_dispatch:\n",
         "  workflow_dispatch:\n  push:\n",

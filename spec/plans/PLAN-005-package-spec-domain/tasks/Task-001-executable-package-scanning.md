@@ -2,7 +2,7 @@
 id: Task-001
 title: "Implement executable package scanning"
 type: Task
-status: in_progress
+status: done
 track: A
 priority: P0
 relationships:
@@ -22,13 +22,13 @@ or unsupported package-token shapes.
 
 ## Subtasks
 
-- [ ] Extract inline and block `run:` scripts without treating comments or YAML
+- [x] Extract inline and block `run:` scripts without treating comments or YAML
   metadata as executable.
-- [ ] Tokenize the required shell-command subset, retaining whether each
+- [x] Tokenize the required shell-command subset, retaining whether each
   package argument is literal and statically classifiable.
-- [ ] Census scoped/unscoped registry, alias, git/GitHub, URL, tarball/file,
+- [x] Census scoped/unscoped registry, alias, git/GitHub, URL, tarball/file,
   workspace/link, unversioned, and duplicate ix-flow specifications.
-- [ ] Extend TC-039 with positive inert-text controls and negative family,
+- [x] Extend TC-039 with positive inert-text controls and negative family,
   dynamic-expression, duplicate, trigger, and runtime controls.
 
 ## Deliverables
@@ -43,3 +43,11 @@ or unsupported package-token shapes.
 - Hosted CI remains undispatched.
 - Completion unblocks Task-002.
 
+## Completion Record
+
+Completed on 2026-09-09. The Rust scanner now isolates inline and block YAML
+`run:` scripts, tokenizes the required shell subset, inspects package arguments
+to `npm install` and `npm i`, and fails closed on dynamic arguments. TC-039 is
+green for the exact workflow, its inert metadata/comment controls, and the
+supported short npm spelling; its alternate-family, duplicate, non-literal,
+trigger, and runtime controls are retained for Task-002 falsification.

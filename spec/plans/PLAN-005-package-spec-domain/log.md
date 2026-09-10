@@ -13,4 +13,10 @@ description: "Implementation and verification record for issue #33."
   scanning first, then mutation falsification, full exact-toolchain validation,
   and closing authorial reviews. Hosted CI remains manual-only and is not
   dispatched.
-
+- **2026-09-09 — Task-001 completed.** Replaced whole-workflow word matching
+  with a Rust scanner over executable YAML `run:` scripts and npm install
+  package arguments. TC-039 now covers the exact scoped registry package,
+  alternate package-spec families, duplicates, non-literal expressions, inert
+  metadata/comments, short npm syntax, triggers, and the released runtime.
+  Quire reports 94/94 backed rows. Task-002 is now in progress; hosted CI was
+  not dispatched.

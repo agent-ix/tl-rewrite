@@ -1,6 +1,6 @@
 {
   "schema_version": "tl-rewrite.change-assurance-declaration/v1",
-  "purpose": "What this repository states about the change under issues #9, #13, #19, and #31, in the shape Quoin's FR-063 record requires. Quoin owns the record schema, its digest, and its retention; this file is the author's statement whose record projection gets sealed into one. TC-029's executable census controls are owned by FR-006-AC-7 and the test matrix rather than copied into an unsealed declaration block: the packaged record schema has no control-metadata field, and this repository does not invent one.",
+  "purpose": "What this repository states about the change under issues #9, #13, #19, #31, and #33, in the shape Quoin's FR-063 record requires. Quoin owns the record schema, its digest, and its retention; this file is the author's statement whose record projection gets sealed into one. TC-029's executable census controls are owned by FR-006-AC-7 and the test matrix rather than copied into an unsealed declaration block: the packaged record schema has no control-metadata field, and this repository does not invent one.",
   "not_an_envelope": "Quoin's packaged change-assurance-record-v1, proof-attestation-v1, and verification-receipt-v1 schemas are the shapes. This file projects into the record body Quoin requires and derives nothing beyond the digests its own derived_fields names. It is not a local evidence envelope, it retains nothing, and it computes no verdict.",
   "derived_fields": [
     "subject.base_revision and impact_snapshot.revision come from the candidate revision the caller names.",
@@ -181,11 +181,51 @@
         },
         {
           "id": "NFR-003-AC-7",
-          "statement": "After YAML comments are removed, the hosted workflow contains exactly one executable ix-flow package identity, @agent-ix/ix-flow@0.0.4, contains no unscoped or alias-form duplicate, retains workflow_dispatch as its only trigger, and resolves the installed executable to exactly 0.0.4.",
+          "statement": "For every YAML run script, the multiset of literal ix-flow package specifications consumed by npm install or npm i is exactly [@agent-ix/ix-flow@0.0.4].",
           "source_ids": [
             "NFR-003",
             "hosted-ci",
             "assurance-pins"
+          ]
+        },
+        {
+          "id": "NFR-003-AC-8",
+          "statement": "Alternate, duplicate, unversioned, alias, git, GitHub shorthand, URL, tarball/file, workspace/link, and unscoped ix-flow package specifications are rejected and every observed specification is named.",
+          "source_ids": [
+            "NFR-003",
+            "hosted-ci"
+          ]
+        },
+        {
+          "id": "NFR-003-AC-9",
+          "statement": "An ix-flow spelling in a YAML comment or metadata field does not enter the executable package population.",
+          "source_ids": [
+            "NFR-003",
+            "hosted-ci"
+          ]
+        },
+        {
+          "id": "NFR-003-AC-10",
+          "statement": "The hosted-workflow trigger population is exactly [workflow_dispatch].",
+          "source_ids": [
+            "NFR-003",
+            "hosted-ci"
+          ]
+        },
+        {
+          "id": "NFR-003-AC-11",
+          "statement": "Under the released local toolchain, ix-flow --version reports exactly 0.0.4.",
+          "source_ids": [
+            "NFR-003",
+            "assurance-pins"
+          ]
+        },
+        {
+          "id": "NFR-003-AC-12",
+          "statement": "An npm install or npm i package argument using shell expansion, command substitution, workflow interpolation, or an unsupported token shape produces a census error instead of being omitted.",
+          "source_ids": [
+            "NFR-003",
+            "hosted-ci"
           ]
         }
       ],
