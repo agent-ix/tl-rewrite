@@ -35,7 +35,8 @@ local evidence and does not grant independent exact-head clearance.
 - Shell tokens retain literal versus dynamic provenance across unquoted,
   single-quoted, and double-quoted input. GitHub workflow interpolation remains
   dynamic even inside shell quotes; shell/command/process substitution, glob,
-  grouping, and redirection shapes are refused as non-literal package arguments.
+  and grouping shapes are refused as non-literal package arguments, while any
+  unquoted redirection causes the whole run script to fail closed.
 - The complete documented npm install-alias family is found after global options
   and their values from a bare or path-qualified npm executable at command
   position, including shell groups and literal nested shells. The exact scoped
@@ -54,7 +55,7 @@ local evidence and does not grant independent exact-head clearance.
 | ID | Severity | Summary | Refs |
 | --- | --- | --- | --- |
 | FND-4401 | medium | **FIXED:** the first implementation stopped at the first non-option word after `npm`, so an option value before `install` hid the package population. TC-039 now accepts `npm --prefix /tmp install` and the scanner locates the literal install subcommand. | NFR-003-AC-7, TC-039, `workflow_ix_flow_packages` |
-| FND-4402 | medium | **FIXED:** process-substitution punctuation was initially classified as literal. Parentheses and redirection shapes now make package arguments non-literal, and TC-039 refuses `<(printf ix-flow-package)`. | NFR-003-AC-12, TC-039, `shell_tokens` |
+| FND-4402 | medium | **FIXED:** process-substitution punctuation was initially classified as literal. TC-039 now refuses `<(printf ix-flow-package)` because its unquoted redirection causes the entire run script to fail closed. | NFR-003-AC-12, TC-039, `shell_tokens` |
 | FND-4403 | low | **SUPERSEDED by semantic YAML parsing:** the source scanner originally could not reproduce folded-block semantics and therefore failed closed. The YAML parser now supplies the correctly folded scalar value, while mixed-case GitHub identity recognition remains covered. | NFR-003-AC-7, NFR-003-AC-8, TC-039 |
 | FND-4404 | low | The control is internal Rust assurance infrastructure and does not add a user-authored TL or Quire language surface. | NFR-003, TC-039, `tests/shared_assurance.rs` |
 | FND-4405 | high | **FIXED after independent review of `d8138fa`:** quoted YAML `run` keys were omitted. Run-key recognition now accepts plain, single-quoted, and double-quoted keys, with a retained quoted-key control. | NFR-003-AC-7, TC-039, `workflow_run_scripts` |
@@ -67,5 +68,5 @@ local evidence and does not grant independent exact-head clearance.
 | FND-4412 | medium | **FIXED after independent review of `484e480`:** active NFR scope, metric, and PLAN-005 text still limited the command domain to three aliases. The requirement, plan, task, log, review, and matrix now agree on the complete documented alias family and command-position boundary. | NFR-003-AC-7, TC-039, NFR-003, PLAN-005, tl-rewrite#34 review |
 | FND-4413 | high | **FIXED after independent review of `a30dd8b`:** a `sh`/`bash` command without `-c` returned from the whole run-scalar scan and suppressed later commands. It now ends only that command's nested-shell inspection, and TC-039 retains the later-alternate mutation. | NFR-003-AC-7, TC-039, `scan_ix_flow_packages`, tl-rewrite#34 review |
 | FND-4414 | medium | **FIXED after independent review of `a30dd8b`:** the inert-argument control quoted each complete command-shaped phrase, so a regression that searched for exact `npm`/`bash` words survived. The fixture now passes those spellings as distinct inert argv words. | NFR-003-AC-7, TC-039, tests/shared_assurance.rs, tl-rewrite#34 review |
-| FND-4415 | medium | **FIXED during cross-lane remediation:** a leading shell redirection could occupy the scanner's command position and hide a path-qualified npm alternate. Command discovery now skips attached or separate leading redirections and TC-039 covers the mutation. | NFR-003-AC-7, TC-039, `command_executable_index`, tl-parse#28 review |
-| FND-4416 | high | **FIXED after independent review of `35a6e8c`:** `2>&1` was split at `&` before command discovery could recognize the declared `>&` redirection. The tokenizer now retains fd-duplication operators and TC-039 names an alternate after that prefix. | NFR-003-AC-7, TC-039, `shell_tokens`, tl-rewrite#34 review |
+| FND-4415 | medium | **SUPERSEDED by the closed grammar:** leading shell redirection cannot occupy a partially interpreted command position because every unquoted redirection-bearing run script is rejected. TC-039 covers attached, separate, fd-duplication, and chained forms. | NFR-003-AC-7, TC-039, `shell_tokens`, tl-parse#28 review |
+| FND-4416 | high | **FIXED by closing the admitted grammar after independent review of `35a6e8c`:** the scanner no longer attempts to tokenize `2>&1` or any other unquoted redirection. It rejects the full run script with its observed identities, and TC-039 includes the reviewer-discovered `2>&1> /dev/null` chain. | NFR-003-AC-7, TC-039, `shell_tokens`, tl-rewrite#34 review |
