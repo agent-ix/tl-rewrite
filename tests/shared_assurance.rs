@@ -1439,7 +1439,9 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
-    // 94: the prior 89 plus the five atomic NFR-003 criteria split from the
+    // 96: the prior 94 plus FR-002-AC-4 and TC-040, which bind semantic
+    // identity independently of diagnostic source spans. The prior 94 was the
+    // prior 89 plus the five atomic NFR-003 criteria split from the
     // original bundled AC-7 by issue #33. TC-039 backs AC-7 through AC-12. The
     // prior 89 was 85 plus FR-006-AC-8, the original NFR-003-AC-7, TC-038, and
     // TC-039. The
@@ -1449,9 +1451,9 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // removing exactly FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4, and TC-026 with
     // the retained-evidence claims they owned.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 94, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 96, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 94,
+        totals["backed"], 96,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );
@@ -2203,7 +2205,7 @@ tl-rewrite-evidence-input-v1.schema.json";
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **156** scanned tracked files — 160 tracked
+    // Population at this review head: **158** scanned tracked files — 162 tracked
     // in total, minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
@@ -2211,7 +2213,7 @@ tl-rewrite-evidence-input-v1.schema.json";
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 12 root, 108 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // By area: 12 root, 110 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
@@ -2220,8 +2222,8 @@ tl-rewrite-evidence-input-v1.schema.json";
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 156,
-        "the source census population changed from the reviewed 156 tracked files \
+        inspected, 158,
+        "the source census population changed from the reviewed 158 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );

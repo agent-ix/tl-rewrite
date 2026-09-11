@@ -11,7 +11,7 @@ make spec
 ```
 
 The library consumes validated `tl-syntax.formula/v1` documents pinned to
-revision `953ee825e5060335b4c79682f5f41a78c5a1bfae`. Its v1 catalog enables 38 closed-trace rules with stable
+revision `26b801d4a68ebfe720062cfdb3c66b070ab60e92`. Its v1 catalog enables 38 closed-trace rules with stable
 identity, revision, profile, precondition, and derivation metadata. Two
 growth-sensitive nested Until/Release transformations from WEST paper Theorem 3
 are retained as primary-source catalog entries but deliberately excluded.
@@ -22,7 +22,7 @@ Only a fixed point carries a normalized formula. `replay` detects substituted
 inputs, catalog/options, steps, intermediates, or output. `check_equivalence`
 enumerates every valuation in a horizon-complete bounded closed-trace domain
 and delegates verdicts to pinned `tl-mltl` revision
-`f7eb8bdf93f588050a40b2a4bf7b418f7c63a0e9`.
+`4bff3871ea0d157afd8de8b8c18c7954f0a7d184`.
 
 The supported `mltl.closed-trace/v1` profile uses false padding for missing
 proposition observations, while Boolean constants remain time-independent at

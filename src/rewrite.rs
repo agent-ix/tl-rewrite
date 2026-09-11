@@ -428,7 +428,7 @@ enum Abort {
 
 struct PassState {
     nodes: Vec<Node>,
-    interner: BTreeMap<(NodeKind, Option<SourceSpan>), NodeId>,
+    interner: BTreeMap<NodeKind, NodeId>,
     work_units: u64,
     budgets: RewriteBudgets,
 }
@@ -447,7 +447,7 @@ impl PassState {
 
     fn emit(&mut self, kind: NodeKind, span: Option<SourceSpan>) -> Result<NodeId, Abort> {
         self.work()?;
-        if let Some(id) = self.interner.get(&(kind, span)) {
+        if let Some(id) = self.interner.get(&kind) {
             return Ok(*id);
         }
         if self.nodes.len() >= u32::MAX as usize {
@@ -455,7 +455,7 @@ impl PassState {
         }
         let id = NodeId(self.nodes.len() as u32);
         self.nodes.push(Node { kind, span });
-        self.interner.insert((kind, span), id);
+        self.interner.insert(kind, id);
         Ok(id)
     }
 
@@ -543,8 +543,7 @@ fn compact_document(input: &FormulaDocument) -> Option<FormulaDocument> {
             continue;
         }
         let kind = remap(node.kind, &mapped);
-        let key = (kind, node.span);
-        let id = if let Some(existing) = interner.get(&key) {
+        let id = if let Some(existing) = interner.get(&kind) {
             *existing
         } else {
             let id = NodeId(nodes.len() as u32);
@@ -552,7 +551,7 @@ fn compact_document(input: &FormulaDocument) -> Option<FormulaDocument> {
                 kind,
                 span: node.span,
             });
-            interner.insert(key, id);
+            interner.insert(kind, id);
             id
         };
         mapped[index] = id;
@@ -899,7 +898,10 @@ fn build_pass(
         let replacement = apply_first(state, before, node.span)?;
         let output = if let Some((rule_id, rule_revision, output)) = replacement {
             let before_sha256 = sha256_json(&before);
-            let after_sha256 = sha256_json(&state.nodes[output.0 as usize]);
+            // Step identities feed the rolling replay fingerprint.  Preserve the
+            // node span as diagnostic provenance, but never let it change that
+            // semantic identity.
+            let after_sha256 = sha256_json(&state.nodes[output.0 as usize].kind);
             pending_steps.push(PendingStep {
                 source_node: index as u32,
                 source_span: node.span,
@@ -983,7 +985,7 @@ fn report_base(
 ) -> RewriteReport {
     let catalog_sha256 = catalog().catalog_sha256;
     let request_sha256 = sha256_json(&(
-        input,
+        input.semantic_view(),
         &formula_id,
         options,
         &source_revision,
@@ -995,7 +997,7 @@ fn report_base(
         engine_source_revision: source_revision,
         syntax_revision: TL_SYNTAX_REVISION.to_owned(),
         catalog_sha256,
-        input_sha256: sha256_json(input),
+        input_sha256: sha256_json(&input.semantic_view()),
         request_sha256,
         signal_catalog_sha256: None,
         requirement_context: None,
@@ -1027,7 +1029,7 @@ fn contextual_report_base(
     let signal_catalog_sha256 = sha256_json(signal_catalog);
     let request_sha256 = sha256_json(&(
         "tl-rewrite.contextual-request/v2",
-        input,
+        input.semantic_view(),
         &formula_id,
         options,
         &source_revision,
@@ -1042,7 +1044,7 @@ fn contextual_report_base(
         engine_source_revision: source_revision,
         syntax_revision: TL_SYNTAX_REVISION.to_owned(),
         catalog_sha256,
-        input_sha256: sha256_json(input),
+        input_sha256: sha256_json(&input.semantic_view()),
         request_sha256,
         signal_catalog_sha256: Some(signal_catalog_sha256),
         requirement_context: Some(requirement_context),
@@ -1096,7 +1098,7 @@ where
         &mut String,
     ) -> Result<FormulaDocument, Abort>,
 {
-    let mut seen = BTreeSet::from([sha256_json(&current)]);
+    let mut seen = BTreeSet::from([sha256_json(&current.semantic_view())]);
     let mut steps = Vec::new();
     let mut rolling = sha256_bytes(b"tl-rewrite.trace/v1");
 
@@ -1106,7 +1108,7 @@ where
             Err(Abort::Budget(budget)) => {
                 report.status = RewriteStatus::BudgetExhausted;
                 report.exhausted_budget = Some(budget);
-                report.partial_sha256 = Some(sha256_json(&current));
+                report.partial_sha256 = Some(sha256_json(&current.semantic_view()));
                 report.detail = Some(format!("rewrite exhausted {budget:?} budget"));
                 report.work_units = state.work_units;
                 report.rule_applications = steps.len() as u64;
@@ -1115,7 +1117,7 @@ where
             }
         };
         report.iterations = pass + 1;
-        let candidate_sha256 = sha256_json(&candidate);
+        let candidate_sha256 = sha256_json(&candidate.semantic_view());
         if candidate == current {
             report.status = if steps.is_empty() && !input_was_compacted {
                 RewriteStatus::Unchanged
@@ -1143,7 +1145,7 @@ where
 
     report.status = RewriteStatus::BudgetExhausted;
     report.exhausted_budget = Some(BudgetKind::Iterations);
-    report.partial_sha256 = Some(sha256_json(&current));
+    report.partial_sha256 = Some(sha256_json(&current.semantic_view()));
     report.detail = Some("rewrite exhausted Iterations budget".to_owned());
     report.work_units = state.work_units;
     report.rule_applications = steps.len() as u64;
@@ -1186,7 +1188,7 @@ where
     if current.nodes().len() > options.budgets.max_nodes as usize {
         report.status = RewriteStatus::BudgetExhausted;
         report.exhausted_budget = Some(BudgetKind::Nodes);
-        report.partial_sha256 = Some(sha256_json(&current));
+        report.partial_sha256 = Some(sha256_json(&current.semantic_view()));
         report.detail = Some("rewrite exhausted Nodes budget".to_owned());
         return report;
     }
@@ -1407,22 +1409,26 @@ mod tests {
     use std::collections::BTreeMap;
     use tl_syntax::{
         FormulaDocument, Node, NodeId, NodeKind, OwnedSignalDeclaration, PropositionBinding,
-        PropositionId, SemanticProfile, SignalCatalogDocument, SignalDomain, SignalId,
+        PropositionId, SemanticProfile, SignalCatalogDocument, SignalDomain, SignalId, SourceSpan,
     };
 
     // Trace: TC-020, FR-002-AC-2, NFR-001-AC-2
     #[test]
     fn repeated_complete_state_through_engine_is_non_convergent() {
-        let document = |kind| {
+        let document = |kind, start| {
             FormulaDocument::new(
                 SemanticProfile::ClosedTraceV1,
                 NodeId(0),
-                vec![Node::new(kind)],
+                vec![Node::with_span(
+                    kind,
+                    SourceSpan::new(start, start + 1).unwrap(),
+                )],
             )
             .unwrap()
         };
-        let first = document(NodeKind::True);
-        let second = document(NodeKind::False);
+        let first = document(NodeKind::True, 0);
+        let second = document(NodeKind::False, 2);
+        let repeated_first = document(NodeKind::True, 4);
         let options = RewriteOptions::default();
         let report = report_base(&first, "cycle".to_owned(), options, "source".to_owned());
         let state = PassState {
@@ -1441,7 +1447,7 @@ mod tests {
                 Ok(if pass % 2 == 0 {
                     second.clone()
                 } else {
-                    first.clone()
+                    repeated_first.clone()
                 })
             },
         );

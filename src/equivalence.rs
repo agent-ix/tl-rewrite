@@ -320,8 +320,8 @@ fn report_base(
     ConformanceReport {
         schema_version: "tl-rewrite.conformance/v1".to_owned(),
         comparison_id,
-        original_sha256: sha256_json(original),
-        rewritten_sha256: sha256_json(rewritten),
+        original_sha256: sha256_json(&original.semantic_view()),
+        rewritten_sha256: sha256_json(&rewritten.semantic_view()),
         semantic_profile: original.semantic_profile().as_str().to_owned(),
         syntax_revision: TL_SYNTAX_REVISION.to_owned(),
         evaluator_revision: TL_MLTL_REVISION.to_owned(),
@@ -478,8 +478,8 @@ pub fn check_equivalence_with_context(
     report.signal_catalog_sha256 = Some(sha256_json(signal_catalog));
     report.request_sha256 = Some(sha256_json(&(
         "tl-rewrite.contextual-conformance-request/v2",
-        original,
-        rewritten,
+        original.semantic_view(),
+        rewritten.semantic_view(),
         &comparison_id,
         options,
         signal_catalog,
