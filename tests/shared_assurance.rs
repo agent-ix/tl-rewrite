@@ -141,6 +141,18 @@ fn shell_tokens(script: &str) -> Result<Vec<ShellToken>, String> {
     };
 
     while let Some(character) = characters.next() {
+        // GitHub evaluates workflow expressions before the generated script
+        // reaches the shell. Shell quotes and backslash escaping therefore do
+        // not make `${{ ... }}` literal at this boundary.
+        if character == '$' && characters.peek() == Some(&'{') {
+            let mut lookahead = characters.clone();
+            lookahead.next();
+            if lookahead.peek() == Some(&'{') {
+                return Err(format!(
+                    "non-literal workflow expression is unsupported: {script:?}"
+                ));
+            }
+        }
         if escaped {
             word_started = true;
             if character != '\n' {
@@ -155,17 +167,6 @@ fn shell_tokens(script: &str) -> Result<Vec<ShellToken>, String> {
                 quote = None;
             } else {
                 word_started = true;
-                // GitHub evaluates `${{ ... }}` before the shell sees the
-                // script, so shell single quotes cannot make it static.
-                if character == '$' && characters.peek() == Some(&'{') {
-                    let mut lookahead = characters.clone();
-                    lookahead.next();
-                    if lookahead.peek() == Some(&'{') {
-                        return Err(format!(
-                            "non-literal workflow expression is unsupported: {script:?}"
-                        ));
-                    }
-                }
                 word.push(character);
             }
             continue;
@@ -2743,6 +2744,30 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
         hosted_workflow_control_errors(&inert_substitution_spellings).is_empty(),
         "quoted or escaped substitution spellings became executable"
     );
+
+    for (label, replacement) in [
+        (
+            "single-quoted",
+            "printf '%s\\n' '${{ inputs.script }}'; npm install --global",
+        ),
+        (
+            "shell-escaped",
+            "printf '%s\\n' \\${{ inputs.script }}; npm install --global",
+        ),
+        (
+            "double-quoted shell-escaped",
+            "printf '%s\\n' \"\\${{ inputs.script }}\"; npm install --global",
+        ),
+    ] {
+        let expression = replace_first_install_invocation(&workflow, replacement);
+        let errors = hosted_workflow_control_errors(&expression);
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("non-literal workflow expression")),
+            "{label} GitHub workflow expression stayed green: {errors:?}"
+        );
+    }
 
     let preceding_shell = replace_first_install_invocation(
         &workflow,
