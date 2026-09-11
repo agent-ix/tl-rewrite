@@ -16,7 +16,10 @@ relationships:
 When a caller supplies the shared tl-syntax signal catalog and optional
 requirement context, tl-rewrite shall validate formula bindings and carry that
 context through deterministic rewrite, replay, and bounded-equivalence reports
-without changing the existing context-free API or its v1 wire bytes.
+without changing the existing context-free API or its v1 wire schema. Before
+the v0.1 release, FR-002-AC-4 performs one explicit baseline correction so
+diagnostic source spans no longer contribute to formula-level digest values;
+the corrected bytes are then frozen by this requirement.
 
 ## Inputs
 
@@ -80,9 +83,11 @@ not the truth or suitability of a caller's declaration.
 ## Versioning and compatibility
 
 - Existing `rewrite`, `replay`, and `check_equivalence` entry points retain
-  their current behavior and remain context-free wrappers over the common
-  implementation. Their native records continue to serialize byte-for-byte as
-  `tl-rewrite.report/v1`, `tl-rewrite.replay/v1`, and
+  their context-free behavior and v1 schemas. FR-002-AC-4 repins their
+  pre-release v0.1 snapshots once so formula-level digest values use the
+  explicit span-free tl-syntax semantic view; no field, status, or schema is
+  added or removed. Their corrected native records then serialize
+  byte-for-byte as `tl-rewrite.report/v1`, `tl-rewrite.replay/v1`, and
   `tl-rewrite.conformance/v1` for identical inputs.
 - Context-aware entry points emit closed v2 forms of those same native report
   families. V1 rejects contextual fields; v2 requires a signal-catalog identity
@@ -106,7 +111,7 @@ not the truth or suitability of a caller's declaration.
 | FR-007-AC-2 | Exact contextual replay verifies, while independently changing, dropping, or substituting any catalog declaration, domain, name, binding, context field, context presence, formula, option, rule-catalog identity, or intermediate makes replay return mismatch. | Test (TC-032) |
 | FR-007-AC-3 | Contextual rewrite validates input and successful output formulas against one shared catalog, preserves every surviving proposition binding, and reports the first unresolved input or output proposition as a typed non-success without successful output. | Test (TC-033) |
 | FR-007-AC-4 | Contextual bounded equivalence carries the same context identities and refuses an unresolved original or rewritten proposition as a distinct non-conclusive reason before enumeration. | Test (TC-034) |
-| FR-007-AC-5 | Existing context-free APIs return the same semantic results and exact v1 serialized bytes; contextual v2 records round-trip strictly and reject v1/v2 field smuggling, missing identities, unknown fields, and unsupported versions. | Test (TC-035) |
+| FR-007-AC-5 | Existing context-free APIs retain their fields, statuses, and v1 schemas; the one pre-release FR-002-AC-4 semantic-identity correction is pinned as the v0.1 byte baseline, after which identical calls return exact serialized bytes. Contextual v2 records round-trip strictly and reject v1/v2 field smuggling, missing identities, unknown fields, and unsupported versions. | Test (TC-035) |
 | FR-007-AC-6 | Contextual native results serialize as producer-owned domain records usable by the existing Quoin intake without Quoin or Quire executing the producer; no local generic evidence or execution machinery is added, and the crate remains unpublished under its dual license. | Test (TC-036) |
 
 ## Dependencies

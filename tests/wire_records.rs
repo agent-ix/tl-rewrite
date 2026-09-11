@@ -61,9 +61,9 @@ fn versioned_records_round_trip_and_reject_unknown_fields() {
     assert!(serde_json::from_value::<ConformanceReport>(add_unknown(conformance_value)).is_err());
 }
 
-// Trace: TC-035, FR-007-AC-5
+// Trace: TC-035, FR-002-AC-4, FR-007-AC-5
 #[test]
-fn context_free_report_families_keep_their_v1_wire_bytes() {
+fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
     let input = document(SemanticProfile::ClosedTraceV1, vec![proposition(0)]);
     let rewrite_report = rewrite(&input, "v1-snapshot", RewriteOptions::default(), "source");
     let replay_report = replay(&input, &rewrite_report);
@@ -77,20 +77,20 @@ fn context_free_report_families_keep_their_v1_wire_bytes() {
     let rewrite_bytes = serde_json::to_vec(&rewrite_report).unwrap();
     let replay_bytes = serde_json::to_vec(&replay_report).unwrap();
     let conformance_bytes = serde_json::to_vec(&conformance).unwrap();
-    // The v1 schemas are fixed, but their bytes bind declared dependency
-    // identities: the rewrite snapshot moved with tl-syntax, replay carries
-    // rewrite-report digests, and conformance binds both tl-syntax and tl-mltl.
+    // These are the frozen v0.1 bytes after the one pre-release semantic-
+    // identity correction required by FR-002-AC-4. The v1 schemas did not
+    // change; diagnostic spans no longer contribute to formula digests.
     assert_eq!(
         digest(&rewrite_bytes),
-        "a1076329ed3a700bcc1a5e14f7bcdaab9bc1f6e313911218c43e7937349813f1"
+        "ac6c05ba2773048e0dee4b0a58478913c2208fd3df93abeed7319ea431982a52"
     );
     assert_eq!(
         digest(&replay_bytes),
-        "32c6d754cc0189597cece52ddf7c40ff2909ef972c70b6c3cf8f4a6e2dc183f0"
+        "a5a5024fccef3cd91f7f44939dc3c4e5da532c76c78a5644a370128b18158b13"
     );
     assert_eq!(
         digest(&conformance_bytes),
-        "3520c38c9c91a1aeef9f08fecfc9326f3995e39ebd33c2dee044c73dfc59058e"
+        "f85004601a350630ab62172d610d343148578a4b4dc0c00fe958a6b23f042dfe"
     );
     assert_eq!(rewrite_report.schema_version, "tl-rewrite.report/v1");
     assert_eq!(replay_report.schema_version, "tl-rewrite.replay/v1");
