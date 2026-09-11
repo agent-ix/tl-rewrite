@@ -36,8 +36,10 @@ local evidence and does not grant independent exact-head clearance.
   single-quoted, and double-quoted input. GitHub workflow interpolation remains
   dynamic even inside shell quotes; shell/command/process substitution, glob,
   grouping, and redirection shapes are refused as non-literal package arguments.
-- Npm `install`, `i`, and `add` are found after global options and their values. The
-  exact scoped registry specification is accepted across long and short npm
+- The complete documented npm install-alias family is found after global options
+  and their values from a bare or path-qualified npm executable at command
+  position, including shell groups and literal nested shells. The exact scoped
+  registry specification is accepted across long and short npm
   spellings; unscoped, unversioned, alias, git/GitHub, URL, tarball/file,
   workspace/link, mixed-case, and duplicate variants are rejected and named.
 - Three detached implementation mutations made TC-039 red: metadata intrusion,
@@ -61,3 +63,5 @@ local evidence and does not grant independent exact-head clearance.
 | FND-4408 | high | **FIXED after independent review of `a6585b4`:** source-spelling recognition omitted YAML-decoded keys and flow mappings. The control now parses YAML and selects only semantic job-step run scalars, covering escaped keys and flow-style steps. | NFR-003-AC-7, TC-039, `workflow_run_scripts`, tl-rewrite#34 review |
 | FND-4409 | high | **FIXED after independent review of `a6585b4`:** the npm command domain still omitted documented aliases such as `in`. The specification, scanner, and mutation table now enumerate all aliases reported by the pinned npm install manual. | NFR-003-AC-7, NFR-003-AC-12, TC-039, `workflow_ix_flow_packages`, tl-rewrite#34 review |
 | FND-4410 | medium | **FIXED after independent review of `a6585b4`:** line-oriented extraction counted a `run:`-looking line inside multiline step-name metadata. Semantic job-step selection now excludes multiline names and `defaults.run` metadata. | NFR-003-AC-9, TC-039, `workflow_run_scripts`, tl-rewrite#34 review |
+| FND-4411 | high | **FIXED after independent review of `484e480`:** shell option detection treated `--norc` as `-c`, and scanning every argument treated inert command-shaped data as executable. The scanner now accepts only a short-option bundle containing `c` on the resolved command executable and TC-039 covers both controls. | NFR-003-AC-7, TC-039, `scan_ix_flow_packages`, tl-rewrite#34 review |
+| FND-4412 | medium | **FIXED after independent review of `484e480`:** active NFR scope, metric, and PLAN-005 text still limited the command domain to three aliases. The requirement, plan, task, log, review, and matrix now agree on the complete documented alias family and command-position boundary. | NFR-003-AC-7, TC-039, NFR-003, PLAN-005, tl-rewrite#34 review |

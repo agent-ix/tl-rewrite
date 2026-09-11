@@ -59,8 +59,9 @@ unchanged; the hosted workflow stays `workflow_dispatch`-only.
 ### Integration Tests
 
 - [x] **TC-039 executable population:** Read only YAML `run` scripts and accept
-  exactly one literal `@agent-ix/ix-flow@0.0.4` package argument across npm
-  `install`, `i`, and `add` spellings.
+  exactly one literal `@agent-ix/ix-flow@0.0.4` package argument from a bare or
+  path-qualified npm executable at command position across the complete
+  documented install-alias family, shell groups, and literal nested shells.
 - [x] **TC-039 alternate families:** Reject unscoped, unversioned, npm-alias,
   git, GitHub shorthand, URL, tarball/file, workspace/link, and duplicate
   ix-flow specifications while naming all observations.

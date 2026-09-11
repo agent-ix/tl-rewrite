@@ -16,8 +16,9 @@ relationships:
 ## Scope
 
 Replace whole-workflow token counting with a focused Rust scanner that extracts
-YAML `run` scripts, identifies package arguments consumed by npm `install`, `i`,
-and `add`, classifies literal ix-flow specifications, and fails closed on dynamic
+YAML `run` scripts, identifies package arguments consumed at command position
+by bare or path-qualified npm across the complete documented install-alias family,
+classifies literal ix-flow specifications, and fails closed on dynamic
 or unsupported package-token shapes.
 
 ## Subtasks
@@ -46,8 +47,9 @@ or unsupported package-token shapes.
 ## Completion Record
 
 Completed on 2026-09-09. The Rust scanner now isolates inline and block YAML
-`run` scripts, tokenizes the required shell subset, inspects package arguments
-to npm `install`, `i`, and `add`, and fails closed on dynamic arguments. TC-039 is
+`run` scripts, tokenizes the required shell subset, inspects command-position
+package arguments across the complete npm install-alias family, and fails closed
+on dynamic arguments. TC-039 is
 green for the exact workflow, its inert metadata/comment controls, and the
 supported short npm spelling; its alternate-family, duplicate, non-literal,
 trigger, and runtime controls are retained for Task-002 falsification.
