@@ -124,7 +124,6 @@ fn shell_tokens(script: &str) -> Result<Vec<ShellToken>, String> {
     let mut literal = true;
     let mut quote = None;
     let mut escaped = false;
-    let mut workflow_expression = false;
     let mut characters = script.chars().peekable();
 
     let flush_word = |tokens: &mut Vec<ShellToken>,
@@ -156,14 +155,15 @@ fn shell_tokens(script: &str) -> Result<Vec<ShellToken>, String> {
                 quote = None;
             } else {
                 word_started = true;
-                // GitHub evaluates its `${{ ... }}` interpolation before the
-                // shell sees the script, so shell single quotes do not make
-                // that package argument static.
+                // GitHub evaluates `${{ ... }}` before the shell sees the
+                // script, so shell single quotes cannot make it static.
                 if character == '$' && characters.peek() == Some(&'{') {
                     let mut lookahead = characters.clone();
                     lookahead.next();
                     if lookahead.peek() == Some(&'{') {
-                        literal = false;
+                        return Err(format!(
+                            "non-literal workflow expression is unsupported: {script:?}"
+                        ));
                     }
                 }
                 word.push(character);
@@ -176,23 +176,14 @@ fn shell_tokens(script: &str) -> Result<Vec<ShellToken>, String> {
                 '"' => quote = None,
                 '\\' => escaped = true,
                 '$' | '`' => {
-                    word_started = true;
-                    literal = false;
-                    word.push(character);
+                    return Err(format!(
+                        "non-literal shell expansion is unsupported: {script:?}"
+                    ));
                 }
                 _ => {
                     word_started = true;
                     word.push(character);
                 }
-            }
-            continue;
-        }
-
-        if workflow_expression {
-            word_started = true;
-            word.push(character);
-            if word.ends_with("}}") {
-                workflow_expression = false;
             }
             continue;
         }
@@ -207,31 +198,29 @@ fn shell_tokens(script: &str) -> Result<Vec<ShellToken>, String> {
                 escaped = true;
             }
             '$' => {
-                word_started = true;
-                literal = false;
-                word.push(character);
-                if characters.peek() == Some(&'{') {
-                    let mut lookahead = characters.clone();
-                    lookahead.next();
-                    if lookahead.peek() == Some(&'{') {
-                        workflow_expression = true;
-                    }
-                }
+                return Err(format!(
+                    "non-literal shell expansion is unsupported: {script:?}"
+                ));
+            }
+            '`' => {
+                return Err(format!(
+                    "non-literal shell expansion is unsupported: {script:?}"
+                ));
             }
             '<' | '>' => {
                 return Err(format!(
                     "non-literal shell redirection is unsupported: {script:?}"
                 ));
             }
-            '`' | '*' | '?' | '[' | ']' | '~' => {
+            '*' | '?' | '[' | ']' | '~' => {
                 word_started = true;
                 literal = false;
                 word.push(character);
             }
-            ' ' | '\t' | '\r' if !workflow_expression => {
+            ' ' | '\t' | '\r' => {
                 flush_word(&mut tokens, &mut word, &mut word_started, &mut literal);
             }
-            '#' if !word_started && !workflow_expression => {
+            '#' if !word_started => {
                 for comment_character in characters.by_ref() {
                     if comment_character == '\n' {
                         if !matches!(tokens.last(), Some(ShellToken::Boundary)) {
@@ -241,7 +230,7 @@ fn shell_tokens(script: &str) -> Result<Vec<ShellToken>, String> {
                     }
                 }
             }
-            '\n' | ';' | '|' | '&' if !workflow_expression => {
+            '\n' | ';' | '|' | '&' => {
                 flush_word(&mut tokens, &mut word, &mut word_started, &mut literal);
                 if !matches!(tokens.last(), Some(ShellToken::Boundary)) {
                     tokens.push(ShellToken::Boundary);
@@ -250,12 +239,12 @@ fn shell_tokens(script: &str) -> Result<Vec<ShellToken>, String> {
                     characters.next();
                 }
             }
-            '(' | '{' if !word_started && !workflow_expression => {
+            '(' | '{' if !word_started => {
                 if !matches!(tokens.last(), Some(ShellToken::Boundary)) {
                     tokens.push(ShellToken::Boundary);
                 }
             }
-            ')' | '}' if !workflow_expression => {
+            ')' | '}' => {
                 flush_word(&mut tokens, &mut word, &mut word_started, &mut literal);
                 if !matches!(tokens.last(), Some(ShellToken::Boundary)) {
                     tokens.push(ShellToken::Boundary);
@@ -267,7 +256,7 @@ fn shell_tokens(script: &str) -> Result<Vec<ShellToken>, String> {
             }
         }
     }
-    if escaped || quote.is_some() || workflow_expression {
+    if escaped || quote.is_some() {
         return Err(format!(
             "shell script has an unterminated or unsupported token near {word:?}"
         ));
@@ -2719,6 +2708,40 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
                 && error.contains("github:agent-ix/ix-flow#redirected-fd")
                 && error.contains("github:agent-ix/ix-flow#redirected-chained")),
         "an unquoted shell redirection was partially scanned: {redirected_errors:?}"
+    );
+
+    let command_substitution = replace_first_install_invocation(
+        &workflow,
+        "printf '%s\\n' \"$(2>&1> /dev/null /usr/bin/npm add --global github:agent-ix/ix-flow#substitution)\"; npm install --global",
+    );
+    let substitution_errors = hosted_workflow_control_errors(&command_substitution);
+    assert!(
+        substitution_errors.iter().any(|error| error
+            .contains("non-literal shell expansion")
+            && error.contains("github:agent-ix/ix-flow#substitution")),
+        "a double-quoted command substitution hid an executable npm command: {substitution_errors:?}"
+    );
+
+    let backtick_substitution = replace_first_install_invocation(
+        &workflow,
+        "printf '%s\\n' `/usr/bin/npm add --global github:agent-ix/ix-flow#backtick`; npm install --global",
+    );
+    let backtick_errors = hosted_workflow_control_errors(&backtick_substitution);
+    assert!(
+        backtick_errors
+            .iter()
+            .any(|error| error.contains("non-literal shell expansion")
+                && error.contains("github:agent-ix/ix-flow#backtick")),
+        "a backtick command substitution hid an executable npm command: {backtick_errors:?}"
+    );
+
+    let inert_substitution_spellings = replace_first_install_invocation(
+        &workflow,
+        "printf '%s\\n' '$(npm add github:agent-ix/ix-flow#single-quoted)' '`npm add github:agent-ix/ix-flow#single-backtick`' \"\\$(npm add github:agent-ix/ix-flow#escaped-dollar)\" \"\\`npm add github:agent-ix/ix-flow#escaped-backtick\\`\"; npm install --global",
+    );
+    assert!(
+        hosted_workflow_control_errors(&inert_substitution_spellings).is_empty(),
+        "quoted or escaped substitution spellings became executable"
     );
 
     let preceding_shell = replace_first_install_invocation(
