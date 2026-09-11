@@ -300,13 +300,26 @@ fn is_shell_assignment(word: &ShellWord) -> bool {
         && characters.all(|character| character == '_' || character.is_ascii_alphanumeric())
 }
 
+fn shell_redirection_word_span(word: &ShellWord) -> Option<usize> {
+    let remainder = word
+        .text
+        .trim_start_matches(|character: char| character.is_ascii_digit());
+    let operator = ["<<<", "<<-", ">>", "<<", "<>", "<&", ">&", ">|", ">", "<"]
+        .into_iter()
+        .find(|operator| remainder.starts_with(*operator))?;
+    Some(usize::from(remainder.len() == operator.len()) + 1)
+}
+
 fn command_executable_index(words: &[&ShellWord]) -> Option<usize> {
     let mut index = 0;
-    while words
-        .get(index)
-        .is_some_and(|word| is_shell_assignment(word))
-    {
-        index += 1;
+    while let Some(word) = words.get(index) {
+        if is_shell_assignment(word) {
+            index += 1;
+        } else if let Some(span) = shell_redirection_word_span(word) {
+            index += span;
+        } else {
+            break;
+        }
     }
     if words
         .get(index)
@@ -323,6 +336,8 @@ fn command_executable_index(words: &[&ShellWord]) -> Option<usize> {
                 index += 2;
             } else if word.literal && (word.text.starts_with('-') || is_shell_assignment(word)) {
                 index += 1;
+            } else if let Some(span) = shell_redirection_word_span(word) {
+                index += span;
             } else {
                 break;
             }
@@ -374,7 +389,7 @@ fn scan_ix_flow_packages(
                 .position(|word| is_shell_command_option(word))
                 .map(|offset| executable_index + 1 + offset)
             else {
-                return;
+                continue;
             };
             let nested = words[command_option + 1..]
                 .iter()
@@ -2699,6 +2714,30 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
         "a grouped path-qualified npm command hid an alternate install: {grouped_errors:?}"
     );
 
+    let redirected_path_install = replace_first_install_invocation(
+        &workflow,
+        ">/tmp/reviewer-log /usr/bin/npm add --global github:agent-ix/ix-flow#redirected-attached; > /tmp/reviewer-log-2 /usr/bin/npm in --global github:agent-ix/ix-flow#redirected-separate; npm install --global",
+    );
+    let redirected_errors = hosted_workflow_control_errors(&redirected_path_install);
+    assert!(
+        redirected_errors.iter().any(|error| error
+            .contains("github:agent-ix/ix-flow#redirected-attached")
+            && error.contains("github:agent-ix/ix-flow#redirected-separate")),
+        "a leading shell redirection hid a path-qualified npm command: {redirected_errors:?}"
+    );
+
+    let preceding_shell = replace_first_install_invocation(
+        &workflow,
+        "bash --version; /usr/bin/npm add --global github:agent-ix/ix-flow#after-shell; npm install --global",
+    );
+    let preceding_shell_errors = hosted_workflow_control_errors(&preceding_shell);
+    assert!(
+        preceding_shell_errors
+            .iter()
+            .any(|error| error.contains("github:agent-ix/ix-flow#after-shell")),
+        "a non--c shell invocation suppressed later commands: {preceding_shell_errors:?}"
+    );
+
     let long_shell_option = replace_first_install_invocation(
         &workflow,
         "bash --norc -c 'npm in --global github:agent-ix/ix-flow#nested-long'; npm install --global",
@@ -2713,7 +2752,7 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
 
     let inert_arguments = replace_first_install_invocation(
         &workflow,
-        "printf '%s\\n' 'npm add github:agent-ix/ix-flow#inert' 'bash -c npm in ix-flow@9.9.9'; npm install --global",
+        "printf '%s\\n' npm add github:agent-ix/ix-flow#inert bash -c npm in ix-flow@9.9.9; npm install --global",
     );
     assert!(
         hosted_workflow_control_errors(&inert_arguments).is_empty(),
