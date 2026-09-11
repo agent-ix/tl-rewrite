@@ -19,7 +19,7 @@ relationships:
 | FR-004 | FR-004-AC-1 through FR-004-AC-3 | TC-013 through TC-016, TC-028 | ✅ covered |
 | FR-005 | FR-005-AC-1, FR-005-AC-3 | TC-017, TC-019 | ✅ covered |
 | FR-006 | FR-006-AC-1 through FR-006-AC-3, FR-006-AC-5 through FR-006-AC-8 | TC-023, TC-024, TC-025, TC-027, TC-028, TC-029, TC-038 | ✅ implemented |
-| FR-007 | FR-007-AC-1 through FR-007-AC-6 | TC-031 through TC-036 | ✅ covered |
+| FR-007 | FR-007-AC-1 through FR-007-AC-6 | TC-031 through TC-036, TC-040 | ✅ covered |
 
 ## Stakeholder Requirement Coverage
 
@@ -78,4 +78,4 @@ relationships:
 | TC-037 | Refuse duplicate or vacuously empty tracked SpecReview identity populations, including equal plain and quoted YAML spellings | Integration | P0 | NFR-003-AC-6 | ✅ implemented |
 | TC-038 | Restore exact tracked shared-input bytes after successful execution and forced spawn-failure unwind, and preserve the original panic during a forced scratch-path restoration failure | Integration | P0 | FR-006-AC-8 | ✅ implemented |
 | TC-039 | Enforce one scoped registry ix-flow specification across semantic job-step run scalars, command-position bare/path-qualified npm after assignments, shell groups, the complete documented npm-install alias family, and literal nested shell commands; fail closed on unquoted redirection and executable expansion scripts; reject alternate/non-literal families and automatic triggers; ignore inert command arguments and non-`-c` shell invocations without suppressing later commands; verify the exact runtime | Integration | P0 | NFR-003-AC-7, NFR-003-AC-8, NFR-003-AC-9, NFR-003-AC-10, NFR-003-AC-11, NFR-003-AC-12 | ✅ implemented |
-| TC-040 | Intern and identify span-distinct equivalent formula inputs semantically | Unit | P0 | FR-002-AC-4 | ✅ implemented |
+| TC-040 | Intern and identify span-distinct equivalent formula inputs semantically across context-free and contextual rewrite/conformance paths | Unit | P0 | FR-002-AC-4, FR-007-AC-1, FR-007-AC-2, FR-007-AC-4 | ✅ implemented |

@@ -3,7 +3,7 @@ id: SR-047
 title: "Rust code review — semantic rewrite identity"
 type: SpecReview
 analysis: code-review
-scope: "src/rewrite.rs, src/equivalence.rs, tests/rewrite.rs, tests/wire_records.rs, Cargo.toml, Cargo.lock, deny.toml, spec/requirements/FR-002-bounded-engine.md, spec/requirements/FR-007-context-bound-reports.md, spec/test-matrix.md"
+scope: "src/rewrite.rs, src/equivalence.rs, tests/rewrite.rs, tests/contextual_rewrite.rs, tests/wire_records.rs, Cargo.toml, Cargo.lock, deny.toml, README.md, assurance/pins.json, spec/requirements/FR-002-bounded-engine.md, spec/requirements/FR-007-context-bound-reports.md, spec/test-matrix.md"
 review_set: base
 ---
 
@@ -43,6 +43,14 @@ full `FormulaDocument` as the v1 input/request digest source made the real
 parser-seam TC-040 fail with distinct identities for `p1|p1` and
 `( p1 ) | p1`. Both mutations were removed before the final gate.
 
+Independent review then found three more defects. After remediation, replacing
+semantic views with full documents in either contextual request family made
+the span-distinct TC-040 control fail, once for rewrite identity and once for
+conformance request identity. Reverting the v1 family to full-document hashing
+made the now span-bearing TC-035 exact-byte snapshot fail. GitHub comparison
+also confirmed `26b801d4` is an ancestor of tl-syntax main, while `4bff3871`
+and `a5c9de3b` exactly equal the respective tl-mltl and tl-parse main heads.
+
 ## Findings
 
 | ID | Severity | Summary | Refs |
@@ -50,4 +58,7 @@ parser-seam TC-040 fail with distinct identities for `p1|p1` and
 | FND-1601 | medium | FIXED before review request: replay-step `after_sha256` included diagnostic span provenance, changing the rolling fingerprint for semantically identical input. Digest `NodeKind` only; retain the span solely in `RewriteStep::source_span`. | FR-002-AC-4, TC-040 |
 | FND-1602 | high | FIXED during rebase review: the semantic digest correction changed all three TC-035 v1 snapshots while FR-007 still claimed the prior exact bytes. The implementation keeps the v1 schemas and fields; FR-007 now authorizes and TC-035 pins the one pre-release v0.1 correction. | FR-002-AC-4, FR-007-AC-5, TC-035, TC-040 |
 | FND-1603 | medium | FIXED during full-gate review: the new dev-only parser seam dependency was absent from Cargo Deny's closed Git-source allow-list, so `make ci` failed at `cargo deny check sources`. `deny.toml` now names the exact repository class and documents the dev-only boundary; the dependency revision is reachable from tl-parse main. | FR-002-AC-4, TC-040, Cargo.toml, Cargo.lock, deny.toml |
-| FND-1604 | low | No unsafe code, panic-prone production indexing, nondeterministic container, or new assurance execution path was introduced by this amendment. | FR-002, NFR-001, FR-006 |
+| FND-1604 | high | FIXED after independent review: Cargo and the published revision constants named review-branch heads rather than durable merged-main identities. The chain now uses tl-syntax `26b801d4`, current tl-mltl main `4bff3871`, and current tl-parse main `a5c9de3b`; the latter two consume the same merged tl-syntax revision. | NFR-002-AC-2, TC-030, Cargo.toml, Cargo.lock, src/lib.rs |
+| FND-1605 | high | FIXED after independent review: contextual v2 rewrite and conformance request digests still consumed full span-bearing documents even though FR-002-AC-4 was unqualified. Both paths now consume semantic views, and TC-040 compares span-distinct contextual rewrite and conformance identities. | FR-002-AC-4, FR-007-AC-1, FR-007-AC-4, TC-040 |
+| FND-1606 | medium | FIXED after independent review: TC-035's span-free snapshot could stay green if formula hashing regressed to full `FormulaDocument`. Its frozen fixture now carries a non-null span, so the v0.1 byte golden distinguishes semantic-view hashing from structural hashing. | FR-002-AC-4, FR-007-AC-5, TC-035 |
+| FND-1607 | low | No unsafe code, panic-prone production indexing, nondeterministic container, or new assurance execution path was introduced by this amendment. | FR-002, NFR-001, FR-006 |

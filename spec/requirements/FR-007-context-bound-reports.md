@@ -43,7 +43,7 @@ the corrected bytes are then frozen by this requirement.
   deterministically serialized signal-catalog document and embeds the exact
   optional shared requirement-context document. The request digest is
   domain-separated from v1 and binds the complete catalog document, explicit
-  presence or absence of context, formula identity and bytes, options, rule
+  presence or absence of context, the formula semantic view, options, rule
   catalog, and applicable source/dependency identities.
 - Context-aware rewrite validates every input proposition before executing the
   rewrite and every successful output proposition before returning success.
@@ -108,7 +108,7 @@ not the truth or suitability of a caller's declaration.
 | ID | Criteria | Verification |
 |---|---|---|
 | FR-007-AC-1 | A contextual rewrite report carries the exact optional shared requirement id, revision, clause id, anchor and clause span, the complete signal-catalog digest identity, and the existing ordered per-step node spans at their distinct locus. | Test (TC-031) |
-| FR-007-AC-2 | Exact contextual replay verifies, while independently changing, dropping, or substituting any catalog declaration, domain, name, binding, context field, context presence, formula, option, rule-catalog identity, or intermediate makes replay return mismatch. | Test (TC-032) |
+| FR-007-AC-2 | Exact contextual replay verifies, while independently changing, dropping, or substituting any catalog declaration, domain, name, binding, context field, context presence, formula semantics, option, rule-catalog identity, or intermediate makes replay return mismatch. Diagnostic formula spans remain report provenance but do not change formula-level digest identities. | Test (TC-032, TC-040) |
 | FR-007-AC-3 | Contextual rewrite validates input and successful output formulas against one shared catalog, preserves every surviving proposition binding, and reports the first unresolved input or output proposition as a typed non-success without successful output. | Test (TC-033) |
 | FR-007-AC-4 | Contextual bounded equivalence carries the same context identities and refuses an unresolved original or rewritten proposition as a distinct non-conclusive reason before enumeration. | Test (TC-034) |
 | FR-007-AC-5 | Existing context-free APIs retain their fields, statuses, and v1 schemas; the one pre-release FR-002-AC-4 semantic-identity correction is pinned as the v0.1 byte baseline, after which identical calls return exact serialized bytes. Contextual v2 records round-trip strictly and reject v1/v2 field smuggling, missing identities, unknown fields, and unsupported versions. | Test (TC-035) |

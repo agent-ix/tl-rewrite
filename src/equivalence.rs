@@ -478,8 +478,8 @@ pub fn check_equivalence_with_context(
     report.signal_catalog_sha256 = Some(sha256_json(signal_catalog));
     report.request_sha256 = Some(sha256_json(&(
         "tl-rewrite.contextual-conformance-request/v2",
-        original,
-        rewritten,
+        original.semantic_view(),
+        rewritten.semantic_view(),
         &comparison_id,
         options,
         signal_catalog,

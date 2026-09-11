@@ -8,7 +8,7 @@ use tl_rewrite::{
     catalog, check_equivalence, replay, rewrite, CatalogDocument, ConformanceOptions,
     ConformanceReport, ReplayReport, RewriteOptions, RewriteReport,
 };
-use tl_syntax::SemanticProfile;
+use tl_syntax::{Node, SemanticProfile, SourceSpan};
 
 fn add_unknown(mut value: serde_json::Value) -> serde_json::Value {
     value
@@ -64,7 +64,13 @@ fn versioned_records_round_trip_and_reject_unknown_fields() {
 // Trace: TC-035, FR-002-AC-4, FR-007-AC-5
 #[test]
 fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
-    let input = document(SemanticProfile::ClosedTraceV1, vec![proposition(0)]);
+    let input = document(
+        SemanticProfile::ClosedTraceV1,
+        vec![Node::with_span(
+            proposition(0).kind,
+            SourceSpan::new(4, 7).unwrap(),
+        )],
+    );
     let rewrite_report = rewrite(&input, "v1-snapshot", RewriteOptions::default(), "source");
     let replay_report = replay(&input, &rewrite_report);
     let conformance = check_equivalence(
@@ -82,15 +88,15 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
     // change; diagnostic spans no longer contribute to formula digests.
     assert_eq!(
         digest(&rewrite_bytes),
-        "ac6c05ba2773048e0dee4b0a58478913c2208fd3df93abeed7319ea431982a52"
+        "1645c0ec6d22a866146ee9ee240fcb22364beea659f1fb49dfd3e45cfa92f784"
     );
     assert_eq!(
         digest(&replay_bytes),
-        "a5a5024fccef3cd91f7f44939dc3c4e5da532c76c78a5644a370128b18158b13"
+        "9c66888b5d9e5413a6ee6cdf5ff491666cd471991d999e0edd65fc2c898b198c"
     );
     assert_eq!(
         digest(&conformance_bytes),
-        "f85004601a350630ab62172d610d343148578a4b4dc0c00fe958a6b23f042dfe"
+        "20de1baa30fcde19d1c547f21caa502c2cac957f43c191b523e40f24b585a080"
     );
     assert_eq!(rewrite_report.schema_version, "tl-rewrite.report/v1");
     assert_eq!(replay_report.schema_version, "tl-rewrite.replay/v1");

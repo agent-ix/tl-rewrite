@@ -1029,7 +1029,7 @@ fn contextual_report_base(
     let signal_catalog_sha256 = sha256_json(signal_catalog);
     let request_sha256 = sha256_json(&(
         "tl-rewrite.contextual-request/v2",
-        input,
+        input.semantic_view(),
         &formula_id,
         options,
         &source_revision,
@@ -1044,7 +1044,7 @@ fn contextual_report_base(
         engine_source_revision: source_revision,
         syntax_revision: TL_SYNTAX_REVISION.to_owned(),
         catalog_sha256,
-        input_sha256: sha256_json(input),
+        input_sha256: sha256_json(&input.semantic_view()),
         request_sha256,
         signal_catalog_sha256: Some(signal_catalog_sha256),
         requirement_context: Some(requirement_context),
