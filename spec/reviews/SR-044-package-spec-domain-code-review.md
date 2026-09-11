@@ -32,11 +32,12 @@ local evidence and does not grant independent exact-head clearance.
   quoted keys; YAML
   metadata and comments cannot enter the npm package population. Folded or
   otherwise unsupported block-scalar headers fail closed.
-- Shell tokens retain literal versus dynamic provenance across unquoted,
-  single-quoted, and double-quoted input. GitHub workflow interpolation remains
-  dynamic even inside shell quotes; shell/command/process substitution, glob,
-  and grouping shapes are refused as non-literal package arguments, while any
-  unquoted redirection causes the whole run script to fail closed.
+- The admitted shell grammar is deliberately closed: any unquoted redirection
+  or unescaped shell expansion outside single quotes rejects the whole run
+  script. Because GitHub expands workflow expressions before shell parsing,
+  `${{ ... }}` rejects the whole scalar even in shell comments, shell quotes,
+  or backslash-escaped text. Ordinary single-quoted and escaped shell literals
+  remain inert controls.
 - The complete documented npm install-alias family is found after global options
   and their values from a bare or path-qualified npm executable at command
   position, including shell groups and literal nested shells. The exact scoped
@@ -71,4 +72,6 @@ local evidence and does not grant independent exact-head clearance.
 | FND-4415 | medium | **SUPERSEDED by the closed grammar:** leading shell redirection cannot occupy a partially interpreted command position because every unquoted redirection-bearing run script is rejected. TC-039 covers attached, separate, fd-duplication, and chained forms. | NFR-003-AC-7, TC-039, `shell_tokens`, tl-parse#28 review |
 | FND-4416 | high | **FIXED by closing the admitted grammar after independent review of `35a6e8c`:** the scanner no longer attempts to tokenize `2>&1` or any other unquoted redirection. It rejects the full run script with its observed identities, and TC-039 includes the reviewer-discovered `2>&1> /dev/null` chain. | NFR-003-AC-7, TC-039, `shell_tokens`, tl-rewrite#34 review |
 | FND-4417 | high | **FIXED after independent review of `23f1a60`:** double shell quotes do not suppress command-substitution grammar, so executable npm and redirection inside `$(...)` were treated as inert outer arguments. The closed grammar now rejects every unescaped `$` or backtick outside single quotes, while single-quoted and escaped spellings remain inert controls. | NFR-003-AC-7, NFR-003-AC-12, TC-039, `shell_tokens`, tl-rewrite#34 review |
-| FND-4418 | high | **FIXED from the sibling exact-head review of `89127ce`:** shell escaping was processed before GitHub-expression recognition, so `\${{ ... }}` could reach GitHub evaluation while remaining green locally. The scanner now recognizes `${{ ... }}` before shell quote or escape handling, with single-quoted, unquoted-escaped, and double-quoted-escaped mutations. | NFR-003-AC-7, NFR-003-AC-12, TC-039, `shell_tokens`, tl-parse#30 review, tl-rewrite#34 review |
+| FND-4418 | high | **FIXED from exact-head reviews of `89127ce` and `7672b5e`:** shell escaping and shell-comment removal ran before GitHub-expression recognition, so `\${{ ... }}` and `# ${{ ... }}` could inject executable text during GitHub's pre-shell expansion while remaining green locally. The scanner now rejects `${{ ... }}` anywhere in the run scalar, with single-quoted, unquoted-escaped, double-quoted-escaped, and shell-comment mutations. | NFR-003-AC-7, NFR-003-AC-12, TC-039, `shell_tokens`, tl-parse#30 review, tl-rewrite#34 review |
+| FND-4419 | medium | **FIXED after independent review of `7672b5e`:** the unquoted shell-expansion and single-quoted GitHub-expression clauses were not independently falsified because combined fixtures could fail for another reason. TC-039 now carries isolated mutations for each clause. | NFR-003-AC-7, TC-039, `shell_tokens`, tl-rewrite#34 review |
+| FND-4420 | medium | **FIXED after independent review of `7672b5e`:** this review's evidence prose still described dynamic package-argument refusal after the requirement and implementation had moved to whole-run rejection. The evidence now states the closed grammar and pre-shell GitHub-expression boundary. | NFR-003-AC-7, SR-044, tl-rewrite#34 review |
