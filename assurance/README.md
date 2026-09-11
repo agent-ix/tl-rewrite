@@ -6,7 +6,7 @@ manifest, no verdict, and no store.
 | File | What it is |
 |---|---|
 | `pins.json` | The Engineering Assurance release this repository adopts, and the digests of the artifacts it reads from that release. Component versions are deliberately not restated: the packaged compatibility matrix is their authority. |
-| `change-assurance.json` | The author's statement about the changes under issues #9 and #13, in the shape Quoin's FR-063 record requires. |
+| `change-assurance.json` | The author's cumulative statement about the changes under issues #9, #13, #19, #31, and #33, in the shape Quoin's FR-063 record requires. |
 
 ## How the pieces relate
 
