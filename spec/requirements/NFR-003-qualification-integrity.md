@@ -90,11 +90,13 @@ check at a time and require the corresponding gate to go red.
 The review-identity census reads every version-control-tracked SpecReview
 frontmatter, normalizes matching YAML quotes, refuses an empty population, and
 reports every identity with more than one owning path.
-The hosted-workflow census isolates YAML `run` scripts, including quoted keys,
-before applying shell comment rules, and inspects the package arguments of every
-`npm install`, `npm i`, and `npm add` command. Inside literal-block scripts, `#`
-starts a shell comment only at a word boundary; a word-internal hash remains
-part of its argument.
+The hosted-workflow census parses YAML and selects only semantic
+`jobs.*.steps[*].run` string scalars before applying shell comment rules. It
+inspects direct commands and statically literal `sh`/`bash -c` scripts for every
+documented npm-install alias: `install`, `add`, `i`, `in`, `ins`, `inst`,
+`insta`, `instal`, `isnt`, `isnta`, `isntal`, and `isntall`. A `#` starts a
+shell comment only before any word has started; after even an empty quoted word
+it remains part of executable argument content.
 An argument is an ix-flow specification when its literal package token names
 `ix-flow`, including a scoped name or an identity-bearing git, GitHub shorthand,
 URL, tarball/file, workspace/link, or npm-alias spelling. The census requires
@@ -121,12 +123,12 @@ expected-side edits.
 | NFR-003-AC-3 | The twelve verification outcomes stay distinguishable, each demonstrated by a case that produced it and matched, with every negative paired with a positive control and a control naming a non-existent scenario refused. | Test (TC-027) |
 | NFR-003-AC-5 | The revision constants this crate publishes as wire fields are the revisions Cargo.toml and Cargo.lock resolve, so a conformance report cannot attribute a verdict to a dependency that did not produce it. | Test (TC-030) |
 | NFR-003-AC-6 | Every version-control-tracked SpecReview artifact has one unique normalized frontmatter identity; matching plain and quoted YAML spellings collide, and an empty tracked review population is refused rather than reported as unique. | Test (TC-037) |
-| NFR-003-AC-7 | For every scalar YAML `run` script, including quoted keys and literal blocks, the multiset of literal ix-flow package specifications consumed by `npm install`, `npm i`, or `npm add` is exactly [`@agent-ix/ix-flow@0.0.4`]. | Test (TC-039) |
+| NFR-003-AC-7 | For every semantic `jobs.*.steps[*].run` string scalar, independent of YAML key spelling, spacing, block style, or flow style, the multiset of literal ix-flow package specifications consumed directly or through a statically literal `sh`/`bash -c` script by every documented npm-install alias (`install`, `add`, `i`, `in`, `ins`, `inst`, `insta`, `instal`, `isnt`, `isnta`, `isntal`, `isntall`) is exactly [`@agent-ix/ix-flow@0.0.4`]. | Test (TC-039) |
 | NFR-003-AC-8 | Replacing or supplementing the admitted specification with an unscoped, unversioned, npm-alias, git, GitHub shorthand, URL, tarball/file, workspace/link, or duplicate ix-flow specification produces a census error that names every observed ix-flow specification. | Test (TC-039) |
-| NFR-003-AC-9 | Adding an ix-flow spelling only to a YAML comment, a shell comment beginning at a word boundary inside a run script, or a metadata field leaves the executable package population unchanged; a word-internal shell `#` remains part of executable argument content. | Test (TC-039) |
-| NFR-003-AC-10 | The hosted-workflow trigger population is exactly [`workflow_dispatch`]. | Test (TC-039) |
+| NFR-003-AC-9 | Adding an ix-flow spelling only to a YAML comment, a shell comment before any shell word begins, or YAML metadata (including multiline step names and `defaults.run`) leaves the executable package population unchanged; a `#` after any started word, including an empty quoted word, remains executable argument content. | Test (TC-039) |
+| NFR-003-AC-10 | The semantically parsed hosted-workflow trigger population is exactly [`workflow_dispatch`], independent of intervening top-level metadata. | Test (TC-039) |
 | NFR-003-AC-11 | Under the released local toolchain, `ix-flow --version` reports exactly `0.0.4`. | Test (TC-039) |
-| NFR-003-AC-12 | An `npm install`, `npm i`, or `npm add` package argument that uses shell expansion, command substitution, workflow interpolation, or an unsupported token shape produces a census error instead of being omitted from the package population. | Test (TC-039) |
+| NFR-003-AC-12 | A package argument consumed by any documented npm-install alias, or a nested shell script supplied to `sh`/`bash -c`, that uses shell expansion, command substitution, workflow interpolation, or an unsupported token shape produces a census error instead of being omitted from the package population. | Test (TC-039) |
 
 ## Qualification Boundary
 
