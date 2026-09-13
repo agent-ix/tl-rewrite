@@ -2217,12 +2217,12 @@ tl-rewrite-evidence-input-v1.schema.json";
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **168** scanned tracked files. Issue #27
-    // adds the three SR-048 through SR-050 review artifacts to `spec`; the
+    // Population at this review head: **169** scanned tracked files. Issue #27
+    // adds the four SR-048 through SR-051 review artifacts to `spec`; the
     // implementation and matrix changes add no new path. The prior **165**:
     // issue #35
     // added 7 files to the reviewed 158: FR-008, the five PLAN-006 bundle files,
-    // and `tests/future_lowering_parity.rs`. The 168 are 172 tracked in total,
+    // and `tests/future_lowering_parity.rs`. The 169 are 173 tracked in total,
     // minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
@@ -2230,7 +2230,7 @@ tl-rewrite-evidence-input-v1.schema.json";
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 12 root, 119 `spec`, 11 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // By area: 12 root, 120 `spec`, 11 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
@@ -2239,8 +2239,8 @@ tl-rewrite-evidence-input-v1.schema.json";
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 168,
-        "the source census population changed from the reviewed 168 tracked files \
+        inspected, 169,
+        "the source census population changed from the reviewed 169 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
