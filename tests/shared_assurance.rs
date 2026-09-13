@@ -2210,8 +2210,11 @@ tl-rewrite-evidence-input-v1.schema.json";
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **158** scanned tracked files — 162 tracked
-    // in total, minus the 4 the
+    // Population at this review head: **165** scanned tracked files. Issue #35
+    // added 7 files to the reviewed 158: FR-008, the five PLAN-006 bundle files,
+    // and `tests/future_lowering_parity.rs`. The area counts below are the
+    // pre-#35 158, and the new files sit under `spec` (+6) and `tests` (+1).
+    // The 158 were 162 tracked in total, minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
     // version of this comment enumerated four exclusions for a count of five and
@@ -2227,8 +2230,8 @@ tl-rewrite-evidence-input-v1.schema.json";
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 158,
-        "the source census population changed from the reviewed 158 tracked files \
+        inspected, 165,
+        "the source census population changed from the reviewed 165 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
