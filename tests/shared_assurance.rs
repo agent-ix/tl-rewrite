@@ -1421,8 +1421,8 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     let parsed: Value = serde_json::from_slice(&bytes).expect("the Quire export is JSON");
     let text = String::from_utf8_lossy(&bytes);
     for requirement in [
-        "FR-001", "FR-002", "FR-003", "FR-004", "FR-005", "FR-006", "FR-007", "NFR-001", "NFR-002",
-        "NFR-003", "StR-001", "StR-002", "StR-003",
+        "FR-001", "FR-002", "FR-003", "FR-004", "FR-005", "FR-006", "FR-007", "FR-008", "NFR-001",
+        "NFR-002", "NFR-003", "StR-001", "StR-002", "StR-003",
     ] {
         assert!(
             text.contains(requirement),
@@ -1439,6 +1439,11 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
+    // 99: issue #35 added FR-008-AC-1 through FR-008-AC-5 and TC-041 through
+    // TC-045. The released Quire measures main at 89 (51 criteria plus 38
+    // test-case rows), so this is 89 plus those 10 rows. The prior pin of 96 was
+    // 7 above that measurement. Main's Functional Requirement Coverage table also
+    // has 7 rows, but that match is not a confirmed cause.
     // 96: the prior 94 plus FR-002-AC-4 and TC-040, which bind semantic
     // identity independently of diagnostic source spans. The prior 94 was the
     // prior 89 plus the five atomic NFR-003 criteria split from the
@@ -1451,9 +1456,9 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // removing exactly FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4, and TC-026 with
     // the retained-evidence claims they owned.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 96, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 99, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 96,
+        totals["backed"], 99,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );

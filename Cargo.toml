@@ -25,6 +25,14 @@ proptest = "=1.5.0"
 serde_yaml_ng = "0.10"
 tempfile = "=3.10.1"
 tl-parse = { git = "https://github.com/agent-ix/tl-parse.git", rev = "a5c9de3ba75af6a3b5937130ddfb9f131e8e5860" }
+# Test-only W/M lowering lane (FR-008, agent-ix/tl-rewrite#35). These carry the
+# tl-syntax future-operator lowering and the tl-parse clean-ascii/v2 parser. They
+# are renamed so no crate code can reach them as `tl_syntax` or `tl_parse`, and
+# lowered graphs cross into the production tl-syntax type only through the
+# formula v1 wire document. The production tl-syntax pin cannot move to the
+# lowering revision until tl-mltl consumes it (see assurance/pins.json).
+tl-parse-derived = { package = "tl-parse", git = "https://github.com/agent-ix/tl-parse.git", rev = "9ca856b4c040fc2c3329b6defd26a1c9b57de748" }
+tl-syntax-lowering = { package = "tl-syntax", git = "https://github.com/agent-ix/tl-syntax.git", rev = "8dc18eec5af227f484170362c9e8894b8531a27d", default-features = false, features = ["alloc", "serde"] }
 
 [profile.release]
 lto = "thin"

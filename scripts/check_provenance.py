@@ -219,24 +219,30 @@ def dependency_rows() -> list[dict[str, Any]]:
                 row(f"dependency:{crate}", "fail", f"Cargo.toml does not pin {crate} by revision")
             )
             continue
-        locked = re.search(
+        # A renamed dev-dependency can lock a second revision of the same package
+        # (issue #35), so the production entry is the one the manifest pins, not
+        # whichever entry sorts first.
+        locked_revisions = re.findall(
             rf'name = "{re.escape(crate)}"\nversion = "[^"]+"\nsource = "git\+[^"]*'
             rf'rev=([0-9a-f]{{40}})#',
             lockfile,
         )
-        if locked is None:
+        if not locked_revisions:
             rows.append(
                 row(f"dependency:{crate}", "fail", f"Cargo.lock does not resolve {crate} to a git revision")
             )
             continue
-        if revision != pinned.group(1) or revision != locked.group(1):
+        locked_revision = (
+            pinned.group(1) if pinned.group(1) in locked_revisions else locked_revisions[0]
+        )
+        if revision != pinned.group(1) or revision != locked_revision:
             rows.append(
                 row(
                     f"dependency:{crate}",
                     "fail",
                     (
                         f"{constant} is {revision}, Cargo.toml pins {pinned.group(1)}, and "
-                        f"Cargo.lock resolves {locked.group(1)}; the wire field would attribute "
+                        f"Cargo.lock resolves {locked_revision}; the wire field would attribute "
                         "a verdict to a revision that did not produce it"
                     ),
                 )

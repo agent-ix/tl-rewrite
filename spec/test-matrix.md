@@ -11,7 +11,7 @@ relationships:
 
 ## Functional Requirement Coverage
 
-| Functional Req | Acceptance Criteria | Test Cases | Coverage Status |
+| Functional Req | Acceptance Criteria | Test Cases | Status |
 |---|---|---|---|
 | FR-001 | FR-001-AC-1 through FR-001-AC-3 | TC-001 through TC-004 | ✅ covered |
 | FR-002 | FR-002-AC-1 through FR-002-AC-4 | TC-005 through TC-008, TC-020, TC-021, TC-040 | ✅ covered |
@@ -20,13 +20,14 @@ relationships:
 | FR-005 | FR-005-AC-1, FR-005-AC-3 | TC-017, TC-019 | ✅ covered |
 | FR-006 | FR-006-AC-1 through FR-006-AC-3, FR-006-AC-5 through FR-006-AC-8 | TC-023, TC-024, TC-025, TC-027, TC-028, TC-029, TC-038 | ✅ implemented |
 | FR-007 | FR-007-AC-1 through FR-007-AC-6 | TC-031 through TC-036, TC-040 | ✅ covered |
+| FR-008 | FR-008-AC-1 through FR-008-AC-5 | TC-041 through TC-045 | ✅ covered |
 
 ## Stakeholder Requirement Coverage
 
-| Stakeholder Req | Trace to US/FR | Test/Validation | Coverage Status |
+| Stakeholder Req | Trace to US/FR | Test/Validation | Status |
 |---|---|---|---|
 | StR-001 | FR-001, FR-003, FR-005 | TC-001, TC-009, TC-010, TC-019 | ✅ covered |
-| StR-002 | FR-002, FR-004, FR-006 | TC-005, TC-006, TC-013, TC-016, TC-028 | ✅ covered |
+| StR-002 | FR-002, FR-004, FR-006, FR-008 | TC-005, TC-006, TC-013, TC-016, TC-028, TC-041, TC-042 | ✅ covered |
 | StR-003 | FR-007 | TC-031 through TC-034 | ✅ covered |
 
 ## Non-Functional Requirement Coverage
@@ -79,3 +80,8 @@ relationships:
 | TC-038 | Restore exact tracked shared-input bytes after successful execution and forced spawn-failure unwind, and preserve the original panic during a forced scratch-path restoration failure | Integration | P0 | FR-006-AC-8 | ✅ implemented |
 | TC-039 | Enforce one scoped registry ix-flow specification across semantic job-step run scalars, command-position bare/path-qualified npm after assignments, shell groups, the complete documented npm-install alias family, and literal nested shell commands; fail closed on unquoted redirection and executable expansion scripts; reject alternate/non-literal families and automatic triggers; ignore inert command arguments and non-`-c` shell invocations without suppressing later commands; verify the exact runtime | Integration | P0 | NFR-003-AC-7, NFR-003-AC-8, NFR-003-AC-9, NFR-003-AC-10, NFR-003-AC-11, NFR-003-AC-12 | ✅ implemented |
 | TC-040 | Intern and identify span-distinct equivalent formula inputs semantically across context-free and contextual rewrite/conformance paths | Unit | P0 | FR-002-AC-4, FR-007-AC-1, FR-007-AC-2, FR-007-AC-4 | ✅ implemented |
+| TC-041 | Rewrite lowered W/M graphs to reports equal to their direct primitive twins across intervals, operand shapes, negation, and nesting | Integration | P0 | FR-008-AC-1 | ✅ implemented |
+| TC-042 | Preserve budget, profile-refusal, and signal-binding outcomes between lowered and direct W/M graphs | Integration | P0 | FR-008-AC-2 | ✅ implemented |
+| TC-043 | Match clean-ascii/v2 W/M parses to direct graphs by semantic view, lowering records, and span-insensitive rewrite identities | Integration | P0 | FR-008-AC-3 | ✅ implemented |
+| TC-044 | Inspect engine source and production dependencies for any derived-operator branch, with synthetic scanner controls | Integration | P0 | FR-008-AC-4 | ✅ implemented |
+| TC-045 | Fail parity for every wrong-lowering, profile, shape, resource, and span-attribution mutant | Integration | P0 | FR-008-AC-5 | ✅ implemented |
