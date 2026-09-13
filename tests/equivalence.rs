@@ -9,7 +9,7 @@ use tl_rewrite::{
     check_equivalence, rewrite, ConformanceOptions, ConformanceReason, ConformanceStatus,
     RewriteOptions, RewriteStatus, TL_MLTL_REVISION, WEST_REVISION,
 };
-use tl_syntax::{Interval, Node, NodeId, NodeKind, SemanticProfile};
+use tl_syntax::{Interval, Node, NodeId, NodeKind, SemanticProfile, SourceSpan};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -60,6 +60,38 @@ fn supported_pair_is_exhaustively_equivalent_over_horizon() {
     assert_eq!(report.total_traces, Some(8));
     assert_eq!(report.traces_checked, 8);
     assert_eq!(report.evaluator_revision, TL_MLTL_REVISION);
+}
+
+// Trace: TC-040, FR-002-AC-4
+#[test]
+fn conformance_identity_ignores_diagnostic_source_spans() {
+    let formula = |end| {
+        document(
+            SemanticProfile::ClosedTraceV1,
+            vec![Node::with_span(
+                proposition(0).kind,
+                SourceSpan::new(0, end).unwrap(),
+            )],
+        )
+    };
+    let compact = formula(2);
+    let spaced = formula(7);
+    let first = check_equivalence(
+        &compact,
+        &compact,
+        "span-equivalence",
+        ConformanceOptions::default(),
+    );
+    let second = check_equivalence(
+        &spaced,
+        &spaced,
+        "span-equivalence",
+        ConformanceOptions::default(),
+    );
+
+    assert_eq!(first.comparison_id, second.comparison_id);
+    assert_eq!(first.original_sha256, second.original_sha256);
+    assert_eq!(first.rewritten_sha256, second.rewritten_sha256);
 }
 
 // Trace: TC-014, FR-004-AC-1

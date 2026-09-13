@@ -11,22 +11,23 @@ relationships:
 
 ## Functional Requirement Coverage
 
-| Functional Req | Acceptance Criteria | Test Cases | Coverage Status |
+| Functional Req | Acceptance Criteria | Test Cases | Status |
 |---|---|---|---|
-| FR-001 | FR-001-AC-1 through FR-001-AC-3 | TC-001 through TC-004, TC-037 | ✅ covered |
-| FR-002 | FR-002-AC-1 through FR-002-AC-3 | TC-005 through TC-008, TC-020, TC-021 | ✅ covered |
+| FR-001 | FR-001-AC-1 through FR-001-AC-3 | TC-001 through TC-004, TC-046 | ✅ covered |
+| FR-002 | FR-002-AC-1 through FR-002-AC-4 | TC-005 through TC-008, TC-020, TC-021, TC-040 | ✅ covered |
 | FR-003 | FR-003-AC-1 through FR-003-AC-3 | TC-009 through TC-012 | ✅ covered |
-| FR-004 | FR-004-AC-1 through FR-004-AC-3 | TC-013 through TC-016, TC-028, TC-037 | ✅ covered |
+| FR-004 | FR-004-AC-1 through FR-004-AC-3 | TC-013 through TC-016, TC-028, TC-046 | ✅ covered |
 | FR-005 | FR-005-AC-1, FR-005-AC-3 | TC-017, TC-019 | ✅ covered |
-| FR-006 | FR-006-AC-1 through FR-006-AC-3, FR-006-AC-5 through FR-006-AC-7 | TC-023, TC-024, TC-025, TC-027, TC-028, TC-029 | ✅ covered |
-| FR-007 | FR-007-AC-1 through FR-007-AC-6 | TC-031 through TC-036 | ✅ covered |
+| FR-006 | FR-006-AC-1 through FR-006-AC-3, FR-006-AC-5 through FR-006-AC-8 | TC-023, TC-024, TC-025, TC-027, TC-028, TC-029, TC-038 | ✅ implemented |
+| FR-007 | FR-007-AC-1 through FR-007-AC-6 | TC-031 through TC-036, TC-040 | ✅ covered |
+| FR-008 | FR-008-AC-1 through FR-008-AC-5 | TC-041 through TC-045 | ✅ covered |
 
 ## Stakeholder Requirement Coverage
 
-| Stakeholder Req | Trace to US/FR | Test/Validation | Coverage Status |
+| Stakeholder Req | Trace to US/FR | Test/Validation | Status |
 |---|---|---|---|
 | StR-001 | FR-001, FR-003, FR-005 | TC-001, TC-009, TC-010, TC-019 | ✅ covered |
-| StR-002 | FR-002, FR-004, FR-006 | TC-005, TC-006, TC-013, TC-016, TC-028 | ✅ covered |
+| StR-002 | FR-002, FR-004, FR-006, FR-008 | TC-005, TC-006, TC-013, TC-016, TC-028, TC-041, TC-042 | ✅ covered |
 | StR-003 | FR-007 | TC-031 through TC-034 | ✅ covered |
 
 ## Non-Functional Requirement Coverage
@@ -35,7 +36,7 @@ relationships:
 |---|---|---|---|
 | NFR-001 | deterministic and resource-bound tests | TC-004 through TC-008, TC-015, TC-017, TC-021, TC-031, TC-035 | ✅ covered |
 | NFR-002 | catalog, corpus, context, and provenance inspection | TC-001, TC-002, TC-016, TC-019, TC-030, TC-031, TC-034, TC-036 | ✅ covered |
-| NFR-003 | producer-boundary, outcome-distinguishability, and mutation probes | TC-024, TC-027, TC-030 | ✅ covered |
+| NFR-003 | producer-boundary, outcome-distinguishability, identity, and mutation probes | TC-024, TC-027, TC-030, TC-037, TC-039 | ✅ implemented |
 
 ## Test Case Summary
 
@@ -67,7 +68,7 @@ relationships:
 | TC-025 | Bind the sealed record's impact snapshot to the Quire export | Integration | P0 | FR-006-AC-3 | ✅ implemented |
 | TC-027 | Demonstrate all twelve verification outcomes with paired controls | Integration | P0 | FR-006-AC-5, NFR-003-AC-3 | ✅ implemented |
 | TC-028 | Retain every counterexample as an independently replayed witness | Integration | P0 | FR-006-AC-6, FR-004-AC-1, StR-002-VC-2 | ✅ implemented |
-| TC-029 | Leave no local evidence framework or retained legacy evidence; enumerate every tracked and untracked-not-ignored repository path through Git, constrain exact denial, area and declaration-exemption sets, scan raw bytes, fail closed on enumeration or reads, retain a preferred-Makefile control for the removed compatibility-target census, and separately pin stable Makefile disclosure clauses plus non-UTF-8, unreadable-path and hostile-exemption controls | Integration | P0 | FR-006-AC-7 | ✅ implemented |
+| TC-029 | Leave no local evidence framework or retained legacy evidence; enumerate every tracked and untracked-not-ignored repository path through Git; constrain exact denial, area, exact-declaration and reviewed historical-prose populations; scan raw bytes; fail closed on enumeration or reads; retain preferred-Makefile, non-UTF-8, unreadable-path, hostile-exemption, stable-disclosure and literal-`ci` controls. These are executable controls owned by FR-006-AC-7, not fields in a local assurance record. | Integration | P0 | FR-006-AC-7 | ✅ implemented |
 | TC-030 | Require published revision constants to be the resolved revisions | Integration | P0 | NFR-002-AC-2, NFR-003-AC-5 | ✅ implemented |
 | TC-031 | Preserve exact shared requirement context, signal-catalog identity, and distinct clause/node spans in contextual rewrite reports | Integration | P0 | FR-007-AC-1, StR-003-VC-1, NFR-001-AC-1, NFR-002-AC-3 | ✅ implemented |
 | TC-032 | Verify exact contextual replay and reject every independently mutated, omitted, or substituted catalog/context/request input | Integration | P0 | FR-007-AC-2, StR-003-VC-2 | ✅ implemented |
@@ -75,4 +76,13 @@ relationships:
 | TC-034 | Bind context into bounded-equivalence reports and distinguish original/rewritten binding refusal before enumeration | Integration | P0 | FR-007-AC-4, StR-003-VC-1, NFR-002-AC-3 | ✅ implemented |
 | TC-035 | Preserve context-free API outcomes and exact v1 bytes while strictly round-tripping contextual v2 report families | Snapshot | P0 | FR-007-AC-5, NFR-001-AC-1 | ✅ implemented |
 | TC-036 | Emit contextual native domain records through the existing producer-owned shared intake boundary without new generic machinery | Integration | P0 | FR-007-AC-6, NFR-002-AC-3 | ✅ implemented |
-| TC-037 | Ground bounded temporal and reflexive Boolean rewrite families as finite-domain properties against the exact evaluator | Property | P0 | FR-001-AC-2, FR-004-AC-1, NFR-001-AC-1 | ✅ implemented |
+| TC-037 | Refuse duplicate or vacuously empty tracked SpecReview identity populations, including equal plain and quoted YAML spellings | Integration | P0 | NFR-003-AC-6 | ✅ implemented |
+| TC-038 | Restore exact tracked shared-input bytes after successful execution and forced spawn-failure unwind, and preserve the original panic during a forced scratch-path restoration failure | Integration | P0 | FR-006-AC-8 | ✅ implemented |
+| TC-039 | Enforce one scoped registry ix-flow specification across semantic job-step run scalars, command-position bare/path-qualified npm after assignments, shell groups, the complete documented npm-install alias family, and literal nested shell commands; fail closed on unquoted redirection and executable expansion scripts; reject alternate/non-literal families and automatic triggers; ignore inert command arguments and non-`-c` shell invocations without suppressing later commands; verify the exact runtime | Integration | P0 | NFR-003-AC-7, NFR-003-AC-8, NFR-003-AC-9, NFR-003-AC-10, NFR-003-AC-11, NFR-003-AC-12 | ✅ implemented |
+| TC-040 | Intern and identify span-distinct equivalent formula inputs semantically across context-free and contextual rewrite/conformance paths | Unit | P0 | FR-002-AC-4, FR-007-AC-1, FR-007-AC-2, FR-007-AC-4 | ✅ implemented |
+| TC-041 | Lower W/M to graphs identical to their direct primitive twins, with equal rewrite and conformance reports, across intervals up to u32::MAX, operand shapes, negation, and nesting | Integration | P0 | FR-008-AC-1 | ✅ implemented |
+| TC-042 | Preserve budget, profile-refusal, and signal-binding outcomes between lowered and direct W/M graphs | Integration | P0 | FR-008-AC-2 | ✅ implemented |
+| TC-043 | Match clean-ascii/v2 W/M parses to direct graphs by semantic view, lowering records, span-insensitive rewrite identities, and associativity | Integration | P0 | FR-008-AC-3 | ✅ implemented |
+| TC-044 | Inspect crate source, examples, the catalog, and every production dependency section for any derived-operator branch, with synthetic scanner controls | Integration | P0 | FR-008-AC-4 | ✅ implemented |
+| TC-045 | Fail parity for every wrong-lowering, profile, shape, resource, and span-attribution mutant | Integration | P0 | FR-008-AC-5 | ✅ implemented |
+| TC-046 | Ground bounded temporal and reflexive Boolean rewrite families as finite-domain properties against the exact evaluator | Property | P0 | FR-001-AC-2, FR-004-AC-1, NFR-001-AC-1 | ✅ implemented |

@@ -23,6 +23,6 @@ across the three existing native report families.
 ## Completion Evidence
 
 FR-007, StR-003, the updated assurance artifacts and TM-001 are grammar-clean.
-SR-012 records and closes the wrapper/envelope, optional-absence,
+The context-bound SR-012 records and closes the wrapper/envelope, optional-absence,
 binding-ownership, proposition-removal, digest-input, and provenance-truth
 findings.

@@ -74,6 +74,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "equivalent"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
+
+[[package]]
 name = "errno"
 version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -114,6 +120,22 @@ dependencies = [
  "cfg-if",
  "libc",
  "wasi",
+]
+
+[[package]]
+name = "hashbrown"
+version = "0.14.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
+
+[[package]]
+name = "indexmap"
+version = "2.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "168fb715dda47215e360912c096649d23d58bf392ac62f73919e831745e40f26"
+dependencies = [
+ "equivalent",
+ "hashbrown",
 ]
 
 [[package]]
@@ -286,6 +308,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ryu"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
+
+[[package]]
 name = "serde"
 version = "1.0.229"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -326,6 +354,19 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
+]
+
+[[package]]
+name = "serde_yaml_ng"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b4db627b98b36d4203a7b458cf3573730f2bb591b28871d916dfa9efabfd41f"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
 ]
 
 [[package]]
@@ -376,12 +417,34 @@ dependencies = [
 [[package]]
 name = "tl-mltl"
 version = "0.1.0"
-source = "git+https://github.com/agent-ix/tl-mltl.git?rev=11eaa04710ffe0ea52b8abf5e70eafe150a99232#11eaa04710ffe0ea52b8abf5e70eafe150a99232"
+source = "git+https://github.com/agent-ix/tl-mltl.git?rev=4bff3871ea0d157afd8de8b8c18c7954f0a7d184#4bff3871ea0d157afd8de8b8c18c7954f0a7d184"
 dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "tl-syntax",
+ "tl-syntax 0.1.0 (git+https://github.com/agent-ix/tl-syntax.git?rev=26b801d4a68ebfe720062cfdb3c66b070ab60e92)",
+]
+
+[[package]]
+name = "tl-parse"
+version = "0.1.0"
+source = "git+https://github.com/agent-ix/tl-parse.git?rev=9ca856b4c040fc2c3329b6defd26a1c9b57de748#9ca856b4c040fc2c3329b6defd26a1c9b57de748"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "tl-syntax 0.1.0 (git+https://github.com/agent-ix/tl-syntax.git?rev=8dc18eec5af227f484170362c9e8894b8531a27d)",
+]
+
+[[package]]
+name = "tl-parse"
+version = "0.1.0"
+source = "git+https://github.com/agent-ix/tl-parse.git?rev=a5c9de3ba75af6a3b5937130ddfb9f131e8e5860#a5c9de3ba75af6a3b5937130ddfb9f131e8e5860"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "tl-syntax 0.1.0 (git+https://github.com/agent-ix/tl-syntax.git?rev=26b801d4a68ebfe720062cfdb3c66b070ab60e92)",
 ]
 
 [[package]]
@@ -391,16 +454,28 @@ dependencies = [
  "proptest",
  "serde",
  "serde_json",
+ "serde_yaml_ng",
  "sha2",
  "tempfile",
  "tl-mltl",
- "tl-syntax",
+ "tl-parse 0.1.0 (git+https://github.com/agent-ix/tl-parse.git?rev=9ca856b4c040fc2c3329b6defd26a1c9b57de748)",
+ "tl-parse 0.1.0 (git+https://github.com/agent-ix/tl-parse.git?rev=a5c9de3ba75af6a3b5937130ddfb9f131e8e5860)",
+ "tl-syntax 0.1.0 (git+https://github.com/agent-ix/tl-syntax.git?rev=26b801d4a68ebfe720062cfdb3c66b070ab60e92)",
+ "tl-syntax 0.1.0 (git+https://github.com/agent-ix/tl-syntax.git?rev=8dc18eec5af227f484170362c9e8894b8531a27d)",
 ]
 
 [[package]]
 name = "tl-syntax"
 version = "0.1.0"
-source = "git+https://github.com/agent-ix/tl-syntax.git?rev=6ad7499f2ccc179bb33b2590666399c6632a7e3c#6ad7499f2ccc179bb33b2590666399c6632a7e3c"
+source = "git+https://github.com/agent-ix/tl-syntax.git?rev=26b801d4a68ebfe720062cfdb3c66b070ab60e92#26b801d4a68ebfe720062cfdb3c66b070ab60e92"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "tl-syntax"
+version = "0.1.0"
+source = "git+https://github.com/agent-ix/tl-syntax.git?rev=8dc18eec5af227f484170362c9e8894b8531a27d#8dc18eec5af227f484170362c9e8894b8531a27d"
 dependencies = [
  "serde",
 ]
@@ -422,6 +497,12 @@ name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "version_check"

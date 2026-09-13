@@ -79,6 +79,82 @@ fn context() -> RequirementContextDocument {
     context_with("demo.context")
 }
 
+// Trace: TC-040, FR-002-AC-4, FR-007-AC-1, FR-007-AC-4
+#[test]
+fn contextual_formula_identities_ignore_diagnostic_source_spans() {
+    let formula = |right_start| {
+        document(
+            SemanticProfile::ClosedTraceV1,
+            vec![
+                Node::with_span(proposition(7).kind, SourceSpan::new(0, 2).unwrap()),
+                Node::with_span(
+                    proposition(7).kind,
+                    SourceSpan::new(right_start, right_start + 2).unwrap(),
+                ),
+                Node::with_span(
+                    NodeKind::Or {
+                        left: NodeId(0),
+                        right: NodeId(1),
+                    },
+                    SourceSpan::new(0, right_start + 2).unwrap(),
+                ),
+            ],
+        )
+    };
+    let compact = formula(3);
+    let spaced = formula(7);
+    let supplied_catalog = catalog(7);
+    let first = rewrite_with_context(
+        &compact,
+        "contextual-semantic-identity",
+        RewriteOptions::default(),
+        "source",
+        &supplied_catalog,
+        Some(context()),
+    );
+    let second = rewrite_with_context(
+        &spaced,
+        "contextual-semantic-identity",
+        RewriteOptions::default(),
+        "source",
+        &supplied_catalog,
+        Some(context()),
+    );
+    assert_eq!(first.input_sha256, second.input_sha256);
+    assert_eq!(first.request_sha256, second.request_sha256);
+    assert_eq!(first.output_sha256, second.output_sha256);
+    assert_ne!(first.steps[0].source_span, second.steps[0].source_span);
+
+    let first_equivalence = check_equivalence_with_context(
+        &compact,
+        &compact,
+        "contextual-semantic-identity",
+        ConformanceOptions::default(),
+        &supplied_catalog,
+        Some(context()),
+    );
+    let second_equivalence = check_equivalence_with_context(
+        &spaced,
+        &spaced,
+        "contextual-semantic-identity",
+        ConformanceOptions::default(),
+        &supplied_catalog,
+        Some(context()),
+    );
+    assert_eq!(
+        first_equivalence.original_sha256,
+        second_equivalence.original_sha256
+    );
+    assert_eq!(
+        first_equivalence.rewritten_sha256,
+        second_equivalence.rewritten_sha256
+    );
+    assert_eq!(
+        first_equivalence.request_sha256,
+        second_equivalence.request_sha256
+    );
+}
+
 // Trace: TC-031, TC-033, FR-007-AC-1, FR-007-AC-3
 #[test]
 fn contextual_rewrite_carries_exact_context_and_refuses_missing_input_binding() {

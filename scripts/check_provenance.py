@@ -19,7 +19,10 @@ emits names them as the revisions the comparison ran against. Before this change
 while `Cargo.toml` pinned `fe1c620d` — so every conformance report in the
 repository attributed its verdicts to an evaluator that did not produce them.
 Nothing noticed, because the only test compared the constant to itself. The
-constants, `Cargo.toml` and `Cargo.lock` are now required to agree.
+constants, `Cargo.toml` and `Cargo.lock` are now required to agree. Since issue
+#35 a renamed dev-dependency locks a second tl-syntax revision, so agreement
+means: the `[dependencies]` pin is locked, every other locked revision is one a
+`[dev-dependencies]` entry declares, and tl-mltl compiles the pinned tl-syntax.
 
 **The corpus revision is the declared upstream revision.** `WEST_REVISION` and
 `corpus/west-v1/manifest.json` name the same upstream commit.
@@ -48,6 +51,13 @@ CHECKSUM_LINE = re.compile(r"^([0-9a-f]{64})  ([^/]+)$")
 DEPENDENCIES = {
     "TL_SYNTAX_REVISION": "tl-syntax",
     "TL_MLTL_REVISION": "tl-mltl",
+}
+
+# Production dependencies that themselves compile a published crate. The
+# revision they lock must be the published one, or a conformance verdict names
+# a revision the evaluator did not run on.
+PRODUCTION_CONSUMERS = {
+    "tl-syntax": ("tl-mltl",),
 }
 
 # Corpora whose bytes are an oracle for a producer. Each is digested here so that
@@ -193,11 +203,80 @@ def oracle_rows() -> list[dict[str, Any]]:
     return rows
 
 
+def manifest_section(manifest: str, name: str) -> str:
+    """Return the body of one top-level `[name]` table of Cargo.toml."""
+    match = re.search(
+        rf"^\[{re.escape(name)}\]\n(.*?)(?=^\[|\Z)", manifest, re.MULTILINE | re.DOTALL
+    )
+    return match.group(1) if match else ""
+
+
+def development_revisions(manifest: str, crate: str) -> set[str]:
+    """Revisions of `crate` that `[dev-dependencies]` declares, renamed or not."""
+    revisions = set()
+    for line in manifest_section(manifest, "dev-dependencies").splitlines():
+        entry = re.match(r'^([A-Za-z0-9_-]+) = \{(.*)\}\s*$', line)
+        if entry is None:
+            continue
+        package = re.search(r'package = "([^"]+)"', entry.group(2))
+        if (package.group(1) if package else entry.group(1)) != crate:
+            continue
+        rev = re.search(r'rev = "([0-9a-f]{40})"', entry.group(2))
+        if rev is not None:
+            revisions.add(rev.group(1))
+    return revisions
+
+
+def lock_packages(lockfile: str) -> list[dict[str, Any]]:
+    """Parse Cargo.lock's `[[package]]` tables into name, git revision and dependencies.
+
+    Python 3.10 has no `tomllib`, and Cargo writes these tables in one fixed
+    shape, so each table is read field by field rather than matched as a span.
+    """
+    packages = []
+    for table in lockfile.split("[[package]]\n")[1:]:
+        name = re.search(r'^name = "([^"]+)"$', table, re.MULTILINE)
+        if name is None:
+            raise ProvenanceError("Cargo.lock holds a [[package]] table with no name")
+        source = re.search(r'^source = "([^"]+)"$', table, re.MULTILINE)
+        rev = re.search(r"[?&]rev=([0-9a-f]{40})#", source.group(1)) if source else None
+        dependencies = re.search(r"^dependencies = \[\n(.*?)^\]$", table, re.MULTILINE | re.DOTALL)
+        packages.append(
+            {
+                "name": name.group(1),
+                "rev": rev.group(1) if rev else None,
+                "dependencies": (
+                    re.findall(r'^ "([^"]+)",$', dependencies.group(1), re.MULTILINE)
+                    if dependencies
+                    else []
+                ),
+            }
+        )
+    return packages
+
+
+def consumer_revision(packages: list[dict[str, Any]], consumer: str, crate: str) -> str | None:
+    """The locked revision of `crate` that the locked package `consumer` compiles against."""
+    consumers = [package for package in packages if package["name"] == consumer]
+    if len(consumers) != 1:
+        return None
+    locked = [package["rev"] for package in packages if package["name"] == crate]
+    for dependency in consumers[0]["dependencies"]:
+        if dependency == crate:
+            # Cargo omits the qualifier only when one entry of the name is locked.
+            return locked[0] if len(locked) == 1 else None
+        if dependency.startswith(f"{crate} "):
+            qualified = re.search(r"[?&]rev=([0-9a-f]{40})\)$", dependency)
+            return qualified.group(1) if qualified else None
+    return None
+
+
 def dependency_rows() -> list[dict[str, Any]]:
     """Require the published revision constants to be the compiled revisions."""
     library = read("src/lib.rs")
     manifest = read("Cargo.toml")
-    lockfile = read("Cargo.lock")
+    packages = lock_packages(read("Cargo.lock"))
+    production = manifest_section(manifest, "dependencies")
     rows = []
     for constant, crate in DEPENDENCIES.items():
         declared = re.search(rf'{constant}: &str = "([0-9a-f]{{40}})";', library)
@@ -212,32 +291,74 @@ def dependency_rows() -> list[dict[str, Any]]:
             continue
         revision = declared.group(1)
         pinned = re.search(
-            rf'{re.escape(crate)} = \{{ git = "[^"]+", rev = "([0-9a-f]{{40}})"', manifest
+            rf'^{re.escape(crate)} = \{{ git = "[^"]+", rev = "([0-9a-f]{{40}})"',
+            production,
+            re.MULTILINE,
         )
         if pinned is None:
             rows.append(
                 row(f"dependency:{crate}", "fail", f"Cargo.toml does not pin {crate} by revision")
             )
             continue
-        locked = re.search(
-            rf'name = "{re.escape(crate)}"\nversion = "[^"]+"\nsource = "git\+[^"]*'
-            rf'rev=([0-9a-f]{{40}})#',
-            lockfile,
-        )
-        if locked is None:
+        locked_revisions = [
+            package["rev"]
+            for package in packages
+            if package["name"] == crate and package["rev"] is not None
+        ]
+        if not locked_revisions:
             rows.append(
                 row(f"dependency:{crate}", "fail", f"Cargo.lock does not resolve {crate} to a git revision")
             )
             continue
-        if revision != pinned.group(1) or revision != locked.group(1):
+        if revision != pinned.group(1) or pinned.group(1) not in locked_revisions:
             rows.append(
                 row(
                     f"dependency:{crate}",
                     "fail",
                     (
                         f"{constant} is {revision}, Cargo.toml pins {pinned.group(1)}, and "
-                        f"Cargo.lock resolves {locked.group(1)}; the wire field would attribute "
-                        "a verdict to a revision that did not produce it"
+                        f"Cargo.lock resolves {', '.join(sorted(locked_revisions))}; the wire "
+                        "field would attribute a verdict to a revision that did not produce it"
+                    ),
+                )
+            )
+            continue
+        # A renamed dev-dependency can lock a second revision of the same package
+        # (issue #35). Every other locked revision must be one a
+        # `[dev-dependencies]` entry declares, so an undeclared second revision
+        # is a failure rather than something the production pin hides.
+        dev_revisions = development_revisions(manifest, crate)
+        undeclared = sorted(
+            locked for locked in set(locked_revisions) - {revision} if locked not in dev_revisions
+        )
+        if undeclared:
+            rows.append(
+                row(
+                    f"dependency:{crate}",
+                    "fail",
+                    (
+                        f"Cargo.lock also resolves {crate} at {', '.join(undeclared)}, which "
+                        "neither the production pin nor any dev-dependency declares"
+                    ),
+                )
+            )
+            continue
+        # The revision a production consumer compiles against is the one that
+        # matters: if tl-mltl resolved the development tl-syntax, the evaluator
+        # would run on a revision the wire field does not name.
+        mismatched = []
+        for consumer in PRODUCTION_CONSUMERS.get(crate, ()):
+            resolved = consumer_revision(packages, consumer, crate)
+            if resolved != revision:
+                mismatched.append(f"{consumer} resolves {crate} at {resolved}")
+        if mismatched:
+            rows.append(
+                row(
+                    f"dependency:{crate}",
+                    "fail",
+                    (
+                        f"{constant} is {revision} but {'; '.join(mismatched)}, so a production "
+                        "consumer compiles a revision the wire field does not name"
                     ),
                 )
             )

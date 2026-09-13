@@ -1,0 +1,77 @@
+---
+id: SR-044
+title: "Rust code review of executable ix-flow package scanning"
+type: SpecReview
+analysis: code-review
+scope: "tests/shared_assurance.rs and NFR-003 corrective issue/33 head"
+review_set: subset
+relationships:
+  - target: ix://agent-ix/tl-rewrite/PLAN-005
+    type: reviews
+  - target: ix://agent-ix/tl-rewrite/TM-001
+    type: references
+---
+
+## Summary
+
+Reviewed YAML run-script isolation, shell-token classification, npm subcommand
+recognition, ix-flow package-family census, fail-closed diagnostics, trigger and
+runtime controls, and the sealed requirement projection at `6f13a58`. Two
+review-time parser gaps were reproduced, fixed, and retained as TC-039 controls;
+no remaining code defect was established.
+
+## Verdict
+
+**PASS** — the Rust assurance implementation agrees with NFR-003-AC-7 through
+AC-12 and changes no production rewrite behavior. This authorial review records
+local evidence and does not grant independent exact-head clearance.
+
+## Review Evidence
+
+- The scanner extracts inline and literal-block YAML `run` scripts, including
+  quoted keys; YAML
+  metadata and comments cannot enter the npm package population. Folded or
+  otherwise unsupported block-scalar headers fail closed.
+- The admitted shell grammar is deliberately closed: any unquoted redirection
+  or unescaped shell expansion outside single quotes rejects the whole run
+  script. Because GitHub expands workflow expressions before shell parsing,
+  `${{ ... }}` rejects the whole scalar even in shell comments, shell quotes,
+  or backslash-escaped text. Ordinary single-quoted and escaped shell literals
+  remain inert controls.
+- The complete documented npm install-alias family is found after global options
+  and their values from a bare or path-qualified npm executable at command
+  position, including shell groups and literal nested shells. The exact scoped
+  registry specification is accepted across long and short npm
+  spellings; unscoped, unversioned, alias, git/GitHub, URL, tarball/file,
+  workspace/link, mixed-case, and duplicate variants are rejected and named.
+- Three detached implementation mutations made TC-039 red: metadata intrusion,
+  omitted GitHub-shorthand recognition, and disabled non-literal rejection.
+- The complete branch-local `make ci` gate passed at `6f13a58`, including 18/18
+  shared-assurance tests, 94/94 Quire rows, 106/106 strict documents, exact
+  released pins, MSRV, provenance, and the Quoin chain. Hosted CI was not
+  dispatched.
+
+## Findings
+
+| ID | Severity | Summary | Refs |
+| --- | --- | --- | --- |
+| FND-4401 | medium | **FIXED:** the first implementation stopped at the first non-option word after `npm`, so an option value before `install` hid the package population. TC-039 now accepts `npm --prefix /tmp install` and the scanner locates the literal install subcommand. | NFR-003-AC-7, TC-039, `workflow_ix_flow_packages` |
+| FND-4402 | medium | **FIXED:** process-substitution punctuation was initially classified as literal. TC-039 now refuses `<(printf ix-flow-package)` because its unquoted redirection causes the entire run script to fail closed. | NFR-003-AC-12, TC-039, `shell_tokens` |
+| FND-4403 | low | **SUPERSEDED by semantic YAML parsing:** the source scanner originally could not reproduce folded-block semantics and therefore failed closed. The YAML parser now supplies the correctly folded scalar value, while mixed-case GitHub identity recognition remains covered. | NFR-003-AC-7, NFR-003-AC-8, TC-039 |
+| FND-4404 | low | The control is internal Rust assurance infrastructure and does not add a user-authored TL or Quire language surface. | NFR-003, TC-039, `tests/shared_assurance.rs` |
+| FND-4405 | high | **FIXED after independent review of `d8138fa`:** quoted YAML `run` keys were omitted. Run-key recognition now accepts plain, single-quoted, and double-quoted keys, with a retained quoted-key control. | NFR-003-AC-7, TC-039, `workflow_run_scripts` |
+| FND-4406 | high | **FIXED after independent review of `d8138fa`:** stripping YAML comments across literal-block content treated every unquoted `#` as non-executable, although shell treats a word-internal hash as argument content. Run scripts are now extracted before shell comments are classified, with positive word-internal and negative word-boundary controls. | NFR-003-AC-9, TC-039, `shell_tokens` |
+| FND-4407 | high | **FIXED after independent review of `d8138fa`:** npm `add` is an install alias but was outside the recognized command domain. NFR-003-AC-7/12 and TC-039 now include `add`; the reviewer’s GitHub-spec mutation turns the census red. | NFR-003-AC-7, NFR-003-AC-12, TC-039, `workflow_ix_flow_packages` |
+| FND-4408 | high | **FIXED after independent review of `a6585b4`:** source-spelling recognition omitted YAML-decoded keys and flow mappings. The control now parses YAML and selects only semantic job-step run scalars, covering escaped keys and flow-style steps. | NFR-003-AC-7, TC-039, `workflow_run_scripts`, tl-rewrite#34 review |
+| FND-4409 | high | **FIXED after independent review of `a6585b4`:** the npm command domain still omitted documented aliases such as `in`. The specification, scanner, and mutation table now enumerate all aliases reported by the pinned npm install manual. | NFR-003-AC-7, NFR-003-AC-12, TC-039, `workflow_ix_flow_packages`, tl-rewrite#34 review |
+| FND-4410 | medium | **FIXED after independent review of `a6585b4`:** line-oriented extraction counted a `run:`-looking line inside multiline step-name metadata. Semantic job-step selection now excludes multiline names and `defaults.run` metadata. | NFR-003-AC-9, TC-039, `workflow_run_scripts`, tl-rewrite#34 review |
+| FND-4411 | high | **FIXED after independent review of `484e480`:** shell option detection treated `--norc` as `-c`, and scanning every argument treated inert command-shaped data as executable. The scanner now accepts only a short-option bundle containing `c` on the resolved command executable and TC-039 covers both controls. | NFR-003-AC-7, TC-039, `scan_ix_flow_packages`, tl-rewrite#34 review |
+| FND-4412 | medium | **FIXED after independent review of `484e480`:** active NFR scope, metric, and PLAN-005 text still limited the command domain to three aliases. The requirement, plan, task, log, review, and matrix now agree on the complete documented alias family and command-position boundary. | NFR-003-AC-7, TC-039, NFR-003, PLAN-005, tl-rewrite#34 review |
+| FND-4413 | high | **FIXED after independent review of `a30dd8b`:** a `sh`/`bash` command without `-c` returned from the whole run-scalar scan and suppressed later commands. It now ends only that command's nested-shell inspection, and TC-039 retains the later-alternate mutation. | NFR-003-AC-7, TC-039, `scan_ix_flow_packages`, tl-rewrite#34 review |
+| FND-4414 | medium | **FIXED after independent review of `a30dd8b`:** the inert-argument control quoted each complete command-shaped phrase, so a regression that searched for exact `npm`/`bash` words survived. The fixture now passes those spellings as distinct inert argv words. | NFR-003-AC-7, TC-039, tests/shared_assurance.rs, tl-rewrite#34 review |
+| FND-4415 | medium | **SUPERSEDED by the closed grammar:** leading shell redirection cannot occupy a partially interpreted command position because every unquoted redirection-bearing run script is rejected. TC-039 covers attached, separate, fd-duplication, and chained forms. | NFR-003-AC-7, TC-039, `shell_tokens`, tl-parse#28 review |
+| FND-4416 | high | **FIXED by closing the admitted grammar after independent review of `35a6e8c`:** the scanner no longer attempts to tokenize `2>&1` or any other unquoted redirection. It rejects the full run script with its observed identities, and TC-039 includes the reviewer-discovered `2>&1> /dev/null` chain. | NFR-003-AC-7, TC-039, `shell_tokens`, tl-rewrite#34 review |
+| FND-4417 | high | **FIXED after independent review of `23f1a60`:** double shell quotes do not suppress command-substitution grammar, so executable npm and redirection inside `$(...)` were treated as inert outer arguments. The closed grammar now rejects every unescaped `$` or backtick outside single quotes, while single-quoted and escaped spellings remain inert controls. | NFR-003-AC-7, NFR-003-AC-12, TC-039, `shell_tokens`, tl-rewrite#34 review |
+| FND-4418 | high | **FIXED from exact-head reviews of `89127ce` and `7672b5e`:** shell escaping and shell-comment removal ran before GitHub-expression recognition, so `\${{ ... }}` and `# ${{ ... }}` could inject executable text during GitHub's pre-shell expansion while remaining green locally. The scanner now rejects `${{ ... }}` anywhere in the run scalar, with single-quoted, unquoted-escaped, double-quoted-escaped, and shell-comment mutations. | NFR-003-AC-7, NFR-003-AC-12, TC-039, `shell_tokens`, tl-parse#30 review, tl-rewrite#34 review |
+| FND-4419 | medium | **FIXED after independent review of `7672b5e`:** the unquoted shell-expansion and single-quoted GitHub-expression clauses were not independently falsified because combined fixtures could fail for another reason. TC-039 now carries isolated mutations for each clause. | NFR-003-AC-7, TC-039, `shell_tokens`, tl-rewrite#34 review |
+| FND-4420 | medium | **FIXED after independent review of `7672b5e`:** this review's evidence prose still described dynamic package-argument refusal after the requirement and implementation had moved to whole-run rejection. The evidence now states the closed grammar and pre-shell GitHub-expression boundary. | NFR-003-AC-7, SR-044, tl-rewrite#34 review |

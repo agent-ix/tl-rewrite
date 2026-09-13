@@ -9,13 +9,15 @@
 //! A missing prerequisite is a failure here, never a skip. A gate that stands
 //! down when its dependency is absent reports the same green as one that ran.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use serde_json::Value;
+use serde_yaml_ng::Value as YamlValue;
 
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -49,6 +51,460 @@ fn run(program: &Path, arguments: &[&str]) -> (i32, String, String) {
     )
 }
 
+fn workflow_run_scripts(source: &str) -> Result<Vec<String>, Vec<String>> {
+    let document: YamlValue = serde_yaml_ng::from_str(source)
+        .map_err(|error| vec![format!("invalid workflow YAML: {error}")])?;
+    let mut scripts = Vec::new();
+    let mut errors = Vec::new();
+
+    let key = |name: &str| YamlValue::String(name.to_owned());
+    let Some(jobs) = document
+        .as_mapping()
+        .and_then(|root| root.get(key("jobs")))
+        .and_then(YamlValue::as_mapping)
+    else {
+        return Err(vec!["workflow has no jobs mapping".to_owned()]);
+    };
+    for (job_name, job) in jobs {
+        let Some(job) = job.as_mapping() else {
+            errors.push(format!("workflow job {job_name:?} is not a mapping"));
+            continue;
+        };
+        let Some(steps) = job.get(key("steps")) else {
+            continue;
+        };
+        let Some(steps) = steps.as_sequence() else {
+            errors.push(format!(
+                "workflow job {job_name:?} steps are not a sequence"
+            ));
+            continue;
+        };
+        for (index, step) in steps.iter().enumerate() {
+            let Some(step) = step.as_mapping() else {
+                errors.push(format!(
+                    "workflow job {job_name:?} step {index} is not a mapping"
+                ));
+                continue;
+            };
+            let Some(run) = step.get(key("run")) else {
+                continue;
+            };
+            match run.as_str() {
+                Some(script) => scripts.push(script.to_owned()),
+                None => errors.push(format!(
+                    "workflow job {job_name:?} step {index} run value is not a scalar string"
+                )),
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(scripts)
+    } else {
+        Err(errors)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ShellWord {
+    text: String,
+    literal: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum ShellToken {
+    Word(ShellWord),
+    Boundary,
+}
+
+fn shell_tokens(script: &str) -> Result<Vec<ShellToken>, String> {
+    let mut tokens = Vec::new();
+    let mut word = String::new();
+    let mut word_started = false;
+    let mut literal = true;
+    let mut quote = None;
+    let mut escaped = false;
+    let mut characters = script.chars().peekable();
+
+    let flush_word = |tokens: &mut Vec<ShellToken>,
+                      word: &mut String,
+                      word_started: &mut bool,
+                      literal: &mut bool| {
+        if *word_started {
+            tokens.push(ShellToken::Word(ShellWord {
+                text: std::mem::take(word),
+                literal: *literal,
+            }));
+            *word_started = false;
+            *literal = true;
+        }
+    };
+
+    // GitHub evaluates workflow expressions before the generated script
+    // reaches the shell. Shell comments, quotes, and backslash escaping
+    // therefore cannot make `${{ ... }}` literal at this boundary.
+    if script.contains("${{") {
+        return Err(format!(
+            "non-literal workflow expression is unsupported: {script:?}"
+        ));
+    }
+
+    while let Some(character) = characters.next() {
+        if escaped {
+            word_started = true;
+            if character != '\n' {
+                word.push(character);
+            }
+            escaped = false;
+            continue;
+        }
+
+        if quote == Some('\'') {
+            if character == '\'' {
+                quote = None;
+            } else {
+                word_started = true;
+                word.push(character);
+            }
+            continue;
+        }
+
+        if quote == Some('"') {
+            match character {
+                '"' => quote = None,
+                '\\' => escaped = true,
+                '$' | '`' => {
+                    return Err(format!(
+                        "non-literal shell expansion is unsupported: {script:?}"
+                    ));
+                }
+                _ => {
+                    word_started = true;
+                    word.push(character);
+                }
+            }
+            continue;
+        }
+
+        match character {
+            '\'' | '"' => {
+                word_started = true;
+                quote = Some(character);
+            }
+            '\\' => {
+                word_started = true;
+                escaped = true;
+            }
+            '$' => {
+                return Err(format!(
+                    "non-literal shell expansion is unsupported: {script:?}"
+                ));
+            }
+            '`' => {
+                return Err(format!(
+                    "non-literal shell expansion is unsupported: {script:?}"
+                ));
+            }
+            '<' | '>' => {
+                return Err(format!(
+                    "non-literal shell redirection is unsupported: {script:?}"
+                ));
+            }
+            '*' | '?' | '[' | ']' | '~' => {
+                word_started = true;
+                literal = false;
+                word.push(character);
+            }
+            ' ' | '\t' | '\r' => {
+                flush_word(&mut tokens, &mut word, &mut word_started, &mut literal);
+            }
+            '#' if !word_started => {
+                for comment_character in characters.by_ref() {
+                    if comment_character == '\n' {
+                        if !matches!(tokens.last(), Some(ShellToken::Boundary)) {
+                            tokens.push(ShellToken::Boundary);
+                        }
+                        break;
+                    }
+                }
+            }
+            '\n' | ';' | '|' | '&' => {
+                flush_word(&mut tokens, &mut word, &mut word_started, &mut literal);
+                if !matches!(tokens.last(), Some(ShellToken::Boundary)) {
+                    tokens.push(ShellToken::Boundary);
+                }
+                if matches!(character, '|' | '&') && characters.peek() == Some(&character) {
+                    characters.next();
+                }
+            }
+            '(' | '{' if !word_started => {
+                if !matches!(tokens.last(), Some(ShellToken::Boundary)) {
+                    tokens.push(ShellToken::Boundary);
+                }
+            }
+            ')' | '}' => {
+                flush_word(&mut tokens, &mut word, &mut word_started, &mut literal);
+                if !matches!(tokens.last(), Some(ShellToken::Boundary)) {
+                    tokens.push(ShellToken::Boundary);
+                }
+            }
+            _ => {
+                word_started = true;
+                word.push(character);
+            }
+        }
+    }
+    if escaped || quote.is_some() {
+        return Err(format!(
+            "shell script has an unterminated or unsupported token near {word:?}"
+        ));
+    }
+    flush_word(&mut tokens, &mut word, &mut word_started, &mut literal);
+    Ok(tokens)
+}
+
+const NPM_INSTALL_ALIASES: &[&str] = &[
+    "install", "add", "i", "in", "ins", "inst", "insta", "instal", "isnt", "isnta", "isntal",
+    "isntall",
+];
+
+fn is_npm_install_alias(word: &str) -> bool {
+    NPM_INSTALL_ALIASES.contains(&word)
+}
+
+fn is_shell_interpreter(word: &str) -> bool {
+    matches!(word.rsplit('/').next(), Some("sh" | "bash"))
+}
+
+fn is_npm_executable(word: &str) -> bool {
+    word.rsplit('/').next() == Some("npm")
+}
+
+fn is_shell_assignment(word: &ShellWord) -> bool {
+    if !word.literal {
+        return false;
+    }
+    let Some((name, _)) = word.text.split_once('=') else {
+        return false;
+    };
+    let mut characters = name.chars();
+    matches!(characters.next(), Some(first) if first == '_' || first.is_ascii_alphabetic())
+        && characters.all(|character| character == '_' || character.is_ascii_alphanumeric())
+}
+
+fn command_executable_index(words: &[&ShellWord]) -> Option<usize> {
+    let mut index = 0;
+    while let Some(word) = words.get(index) {
+        if is_shell_assignment(word) {
+            index += 1;
+        } else {
+            break;
+        }
+    }
+    if words
+        .get(index)
+        .is_some_and(|word| word.literal && word.text == "env")
+    {
+        index += 1;
+        while let Some(word) = words.get(index) {
+            if word.literal
+                && matches!(
+                    word.text.as_str(),
+                    "-u" | "--unset" | "-C" | "--chdir" | "-S" | "--split-string"
+                )
+            {
+                index += 2;
+            } else if word.literal && (word.text.starts_with('-') || is_shell_assignment(word)) {
+                index += 1;
+            } else {
+                break;
+            }
+        }
+    }
+    words.get(index).map(|_| index)
+}
+
+fn is_shell_command_option(word: &ShellWord) -> bool {
+    word.literal
+        && word.text.starts_with('-')
+        && !word.text.starts_with("--")
+        && word.text[1..].contains('c')
+}
+
+fn scan_ix_flow_packages(
+    script: &str,
+    depth: usize,
+    packages: &mut Vec<String>,
+    errors: &mut Vec<String>,
+) {
+    if depth > 8 {
+        errors.push("nested shell command depth exceeds 8".to_owned());
+        return;
+    }
+    let tokens = match shell_tokens(script) {
+        Ok(tokens) => tokens,
+        Err(error) => {
+            errors.push(error);
+            return;
+        }
+    };
+    for command in tokens.split(|token| *token == ShellToken::Boundary) {
+        let words: Vec<&ShellWord> = command
+            .iter()
+            .filter_map(|token| match token {
+                ShellToken::Word(word) => Some(word),
+                ShellToken::Boundary => None,
+            })
+            .collect();
+
+        let Some(executable_index) = command_executable_index(&words) else {
+            continue;
+        };
+        let executable = words[executable_index];
+        if executable.literal && is_shell_interpreter(&executable.text) {
+            let Some(command_option) = words[executable_index + 1..]
+                .iter()
+                .position(|word| is_shell_command_option(word))
+                .map(|offset| executable_index + 1 + offset)
+            else {
+                continue;
+            };
+            let nested = words[command_option + 1..]
+                .iter()
+                .find(|word| word.text != "--");
+            match nested {
+                Some(nested) if nested.literal => {
+                    scan_ix_flow_packages(&nested.text, depth + 1, packages, errors)
+                }
+                Some(nested) => errors.push(format!(
+                    "non-literal nested shell script is not allowed: {:?}",
+                    nested.text
+                )),
+                None => {
+                    errors.push("shell -c option has no statically classifiable script".to_owned())
+                }
+            }
+        }
+
+        if executable.literal && is_npm_executable(&executable.text) {
+            let Some((install_index, _)) = words[executable_index + 1..]
+                .iter()
+                .enumerate()
+                .find(|(_, word)| word.literal && is_npm_install_alias(&word.text))
+            else {
+                continue;
+            };
+            let install_index = executable_index + 1 + install_index;
+            let arguments = &words[install_index + 1..];
+            for (argument_index, argument) in arguments.iter().enumerate() {
+                if argument.text == "--" || argument.text.starts_with('-') {
+                    continue;
+                }
+                if !argument.literal {
+                    let expression = arguments[argument_index..]
+                        .iter()
+                        .map(|word| word.text.as_str())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    errors.push(format!(
+                        "non-literal npm package argument is not allowed: {:?}",
+                        expression
+                    ));
+                    break;
+                } else if argument.text.to_ascii_lowercase().contains("ix-flow") {
+                    packages.push(argument.text.clone());
+                }
+            }
+        }
+    }
+}
+
+fn workflow_ix_flow_packages(source: &str) -> (Vec<String>, Vec<String>) {
+    let scripts = match workflow_run_scripts(source) {
+        Ok(scripts) => scripts,
+        Err(errors) => return (Vec::new(), errors),
+    };
+    let mut packages = Vec::new();
+    let mut errors = Vec::new();
+
+    for script in scripts {
+        scan_ix_flow_packages(&script, 0, &mut packages, &mut errors);
+    }
+
+    (packages, errors)
+}
+
+fn workflow_trigger_names(source: &str) -> Result<Vec<String>, String> {
+    let document: YamlValue = serde_yaml_ng::from_str(source)
+        .map_err(|error| format!("invalid workflow YAML: {error}"))?;
+    let root = document
+        .as_mapping()
+        .ok_or_else(|| "workflow document is not a mapping".to_owned())?;
+    let on = root
+        .get(YamlValue::String("on".to_owned()))
+        .ok_or_else(|| "workflow has no on key".to_owned())?;
+    match on {
+        YamlValue::String(trigger) => Ok(vec![trigger.clone()]),
+        YamlValue::Sequence(triggers) => triggers
+            .iter()
+            .map(|trigger| {
+                trigger
+                    .as_str()
+                    .map(str::to_owned)
+                    .ok_or_else(|| "workflow on sequence contains a non-string trigger".to_owned())
+            })
+            .collect(),
+        YamlValue::Mapping(triggers) => triggers
+            .keys()
+            .map(|trigger| {
+                trigger
+                    .as_str()
+                    .map(str::to_owned)
+                    .ok_or_else(|| "workflow on mapping contains a non-string trigger".to_owned())
+            })
+            .collect(),
+        _ => Err("workflow on value is not a trigger, sequence, or mapping".to_owned()),
+    }
+}
+
+fn hosted_workflow_control_errors(source: &str) -> Vec<String> {
+    // These are authored expected literals, not values extracted from the
+    // workflow. Independent review of `.github/workflows/ci.yml` is the second
+    // control against a coordinated edit of this census and its expected side.
+    const EXPECTED_PACKAGE: &str = "@agent-ix/ix-flow@0.0.4";
+    const EXPECTED_TRIGGER: &str = "workflow_dispatch";
+
+    let (packages, mut errors) = workflow_ix_flow_packages(source);
+    if packages != [EXPECTED_PACKAGE] {
+        errors.push(format!(
+            "executable ix-flow packages must be exactly [{EXPECTED_PACKAGE:?}], observed {packages:?}"
+        ));
+    }
+    let triggers = match workflow_trigger_names(source) {
+        Ok(triggers) => triggers,
+        Err(error) => {
+            errors.push(error);
+            Vec::new()
+        }
+    };
+    if triggers != [EXPECTED_TRIGGER] {
+        errors.push(format!(
+            "hosted triggers must be exactly [{EXPECTED_TRIGGER:?}], observed {triggers:?}"
+        ));
+    }
+    errors
+}
+
+fn replace_first_install_invocation(source: &str, replacement: &str) -> String {
+    for alias in NPM_INSTALL_ALIASES {
+        let needle = format!("npm {alias} --global");
+        if source.contains(&needle) {
+            return source.replacen(&needle, replacement, 1);
+        }
+    }
+    panic!("workflow contains no supported npm install invocation")
+}
+
 fn json_gate(program: &Path, arguments: &[&str]) -> Value {
     let (code, stdout, stderr) = run(program, arguments);
     assert_eq!(code, 0, "{arguments:?} exited {code}\n{stdout}\n{stderr}");
@@ -65,7 +521,11 @@ fn head_revision() -> String {
     String::from_utf8_lossy(&output.stdout).trim().to_owned()
 }
 
-fn deleted_names_in<'a>(path: &Path, names: &'a [&'a str]) -> Vec<&'a str> {
+fn deleted_names_in<'a>(
+    _inputs: &AssuranceInputsGuard,
+    path: &Path,
+    names: &'a [&'a str],
+) -> Vec<&'a str> {
     // A file that cannot be read has not been scanned. Read bytes so a source
     // with a valid non-UTF-8 encoding cannot disappear from the census merely
     // because Rust strings require UTF-8.
@@ -98,6 +558,109 @@ fn git_files(root: &Path, arguments: &[&str]) -> Vec<String> {
         .filter(|value| !value.is_empty())
         .map(str::to_owned)
         .collect()
+}
+
+fn normalized_frontmatter_scalar(value: &str) -> &str {
+    let value = value.trim();
+    if value.len() >= 2 {
+        let first = value.as_bytes()[0];
+        let last = value.as_bytes()[value.len() - 1];
+        if (first == b'\'' && last == b'\'') || (first == b'"' && last == b'"') {
+            return &value[1..value.len() - 1];
+        }
+    }
+    value
+}
+
+fn review_id(contents: &str, path: &str) -> String {
+    let mut lines = contents.lines();
+    assert_eq!(
+        lines.next(),
+        Some("---"),
+        "tracked review {path} has no YAML frontmatter"
+    );
+    let mut id = None;
+    let mut artifact_type = None;
+    for line in lines {
+        if line == "---" {
+            break;
+        }
+        if let Some(value) = line.strip_prefix("id:") {
+            id = Some(normalized_frontmatter_scalar(value).to_owned());
+        }
+        if let Some(value) = line.strip_prefix("type:") {
+            artifact_type = Some(normalized_frontmatter_scalar(value).to_owned());
+        }
+    }
+    assert_eq!(
+        artifact_type.as_deref(),
+        Some("SpecReview"),
+        "tracked review {path} is not a SpecReview artifact"
+    );
+    id.unwrap_or_else(|| panic!("tracked review {path} has no frontmatter id"))
+}
+
+fn duplicate_review_ids(
+    reviews: impl IntoIterator<Item = (String, String)>,
+) -> BTreeMap<String, Vec<String>> {
+    let mut paths_by_id = BTreeMap::<String, Vec<String>>::new();
+    for (path, contents) in reviews {
+        paths_by_id
+            .entry(review_id(&contents, &path))
+            .or_default()
+            .push(path);
+    }
+    assert!(
+        !paths_by_id.is_empty(),
+        "tracked SpecReview census is empty; uniqueness would be vacuous"
+    );
+    paths_by_id
+        .into_iter()
+        .filter(|(_, paths)| paths.len() > 1)
+        .collect()
+}
+
+// Trace: TC-037, NFR-003-AC-6
+#[test]
+fn every_tracked_spec_review_id_is_unique() {
+    let reviews = git_files(&root(), &["ls-files", "-z", "spec/reviews"])
+        .into_iter()
+        .map(|relative| {
+            let source = fs::read_to_string(root().join(&relative))
+                .unwrap_or_else(|error| panic!("could not read {relative}: {error}"));
+            (relative, source)
+        });
+    let duplicates = duplicate_review_ids(reviews);
+    assert!(
+        duplicates.is_empty(),
+        "duplicate tracked SpecReview ids: {duplicates:?}"
+    );
+}
+
+// Trace: TC-037, NFR-003-AC-6
+#[test]
+fn quoted_review_identity_collides_with_its_plain_yaml_value() {
+    let duplicates = duplicate_review_ids([
+        (
+            "plain.md".to_owned(),
+            "---\nid: SR-091\ntype: SpecReview\n---\n".to_owned(),
+        ),
+        (
+            "quoted.md".to_owned(),
+            "---\nid: \"SR-091\"\ntype: SpecReview\n---\n".to_owned(),
+        ),
+    ]);
+    assert_eq!(
+        duplicates.get("SR-091"),
+        Some(&vec!["plain.md".to_owned(), "quoted.md".to_owned()])
+    );
+}
+
+// Trace: TC-037, NFR-003-AC-6
+#[test]
+#[should_panic(expected = "tracked SpecReview census is empty")]
+fn review_identity_census_refuses_an_empty_set() {
+    let _ = duplicate_review_ids(std::iter::empty::<(String, String)>());
 }
 
 fn census_paths<F>(root: &Path, denied: F) -> (Vec<String>, Vec<String>, BTreeSet<String>)
@@ -141,7 +704,12 @@ fn census_exemption(relative: &str) -> Option<CensusExemption> {
     None
 }
 
-fn census_matches<'a>(root: &Path, path: &Path, names: &'a [&'a str]) -> Vec<&'a str> {
+fn census_matches<'a>(
+    inputs: &AssuranceInputsGuard,
+    root: &Path,
+    path: &Path,
+    names: &'a [&'a str],
+) -> Vec<&'a str> {
     let relative = path
         .strip_prefix(root)
         .unwrap_or(path)
@@ -150,7 +718,7 @@ fn census_matches<'a>(root: &Path, path: &Path, names: &'a [&'a str]) -> Vec<&'a
     if census_exemption(&relative).is_some() {
         Vec::new()
     } else {
-        deleted_names_in(path, names)
+        deleted_names_in(inputs, path, names)
     }
 }
 
@@ -185,7 +753,138 @@ fn assert_probe_store_isolated(scratch_target: &Path, probe: &str) {
 /// binary, and every reader sees the same run rather than a different one.
 static CHAIN: OnceLock<Value> = OnceLock::new();
 
-fn chain_report() -> &'static Value {
+mod shared_inputs {
+    use std::sync::{Mutex, MutexGuard};
+
+    static LOCK: Mutex<()> = Mutex::new(());
+
+    pub(super) struct Guard {
+        _lock: MutexGuard<'static, ()>,
+    }
+
+    pub(super) fn lock() -> Guard {
+        // Poison records that a prior holder panicked; it does not prove that
+        // shared inputs were mutated. Most holders are read-only, and the one
+        // mutating probe restores its file before making assertions. Recovering
+        // lets later controls inspect the actual inputs and report any real
+        // residue instead of cascading behind a misleading lock error.
+        let lock = LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        Guard { _lock: lock }
+    }
+}
+
+type AssuranceInputsGuard = shared_inputs::Guard;
+
+fn assurance_inputs_guard() -> AssuranceInputsGuard {
+    shared_inputs::lock()
+}
+
+struct TrackedFileRestore {
+    path: PathBuf,
+    original: Vec<u8>,
+    restored: bool,
+    failure_reports: Option<Arc<Mutex<Vec<String>>>>,
+}
+
+impl TrackedFileRestore {
+    fn new(path: PathBuf) -> Self {
+        Self::with_failure_reports(path, None)
+    }
+
+    fn observed(path: PathBuf, failure_reports: Arc<Mutex<Vec<String>>>) -> Self {
+        Self::with_failure_reports(path, Some(failure_reports))
+    }
+
+    fn with_failure_reports(
+        path: PathBuf,
+        failure_reports: Option<Arc<Mutex<Vec<String>>>>,
+    ) -> Self {
+        let original = fs::read(&path)
+            .unwrap_or_else(|error| panic!("read tracked input {}: {error}", path.display()));
+        Self {
+            path,
+            original,
+            restored: false,
+            failure_reports,
+        }
+    }
+
+    fn original(&self) -> &[u8] {
+        &self.original
+    }
+
+    fn restore(&mut self) {
+        fs::write(&self.path, &self.original).unwrap_or_else(|error| {
+            panic!(
+                "restore tracked input {} after mutation: {error}",
+                self.path.display()
+            )
+        });
+        self.restored = true;
+    }
+
+    fn report_unwind_failure(&self, error: &std::io::Error) {
+        let message = format!(
+            "failed to restore tracked input {} while unwinding: {error}",
+            self.path.display()
+        );
+        if let Some(reports) = &self.failure_reports {
+            reports
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .push(message.clone());
+        }
+        let _ = writeln!(std::io::stderr().lock(), "{message}");
+    }
+}
+
+impl Drop for TrackedFileRestore {
+    fn drop(&mut self) {
+        if self.restored {
+            return;
+        }
+        if let Err(error) = fs::write(&self.path, &self.original) {
+            if std::thread::panicking() {
+                self.report_unwind_failure(&error);
+            } else {
+                panic!(
+                    "restore tracked input {} after mutation: {error}",
+                    self.path.display()
+                );
+            }
+        }
+    }
+}
+
+// Trace: TC-024, NFR-003-AC-2
+#[test]
+fn a_poisoned_shared_input_lock_does_not_mask_the_actual_inputs() {
+    let poisoned = std::panic::catch_unwind(|| {
+        let _inputs = assurance_inputs_guard();
+        panic!("poison the serialization control");
+    });
+    assert!(
+        poisoned.is_err(),
+        "the lock-poisoning control did not panic"
+    );
+
+    // Reacquisition is the property under test. Subsequent controls can now
+    // inspect the real inputs and report any residue by name.
+    let _recovered = assurance_inputs_guard();
+}
+
+fn clear_scratch_directory(directory: &Path, purpose: &str) {
+    match fs::remove_dir_all(directory) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => panic!(
+            "failed to clear {purpose} at {}: {error}",
+            directory.display()
+        ),
+    }
+}
+
+fn chain_report(_inputs: &AssuranceInputsGuard) -> &'static Value {
     CHAIN.get_or_init(|| {
         // The chain runs under the system interpreter: it only shells out to
         // quoin and never imports engineering-assurance.
@@ -223,6 +922,7 @@ fn retained_output_contains(directory: &Path, expected: &[u8]) -> bool {
 // Trace: TC-023, FR-006-AC-1
 #[test]
 fn every_shared_pin_is_classified_by_the_packaged_matrix() {
+    let _inputs = assurance_inputs_guard();
     let python = assurance_python();
     let report = json_gate(&python, &["scripts/check_shared_pins.py", "--json"]);
 
@@ -356,7 +1056,8 @@ fn digest_pinned_artifacts() -> BTreeSet<String> {
 // Trace: TC-024, FR-006-AC-2, NFR-003-AC-1, SUITE-004, SUITE-005, SUITE-006, SUITE-007
 #[test]
 fn the_chain_reaches_quoin_without_quoin_or_quire_executing_a_producer() {
-    let report = chain_report();
+    let inputs = assurance_inputs_guard();
+    let report = chain_report(&inputs);
     assert_eq!(report["matched"], true, "{report:#}");
 
     for group in ["scenarios", "controls", "adapter_probes"] {
@@ -452,12 +1153,10 @@ fn the_chain_reaches_quoin_without_quoin_or_quire_executing_a_producer() {
 /// shims at all — because an empty work log and an absent shim are the same
 /// observation until something proves the shim answered.
 fn producer_shims(directory: &Path, names: &[&str]) -> (PathBuf, PathBuf) {
-    let _ = fs::remove_dir_all(directory);
-    fs::create_dir_all(directory).unwrap();
+    clear_scratch_directory(directory, "producer shims");
+    fs::create_dir_all(directory).expect("create producer shims directory");
     let log = directory.join("invocations.log");
     let versions = directory.join("versions.log");
-    let _ = fs::remove_file(&log);
-    let _ = fs::remove_file(&versions);
     for name in names {
         let path = directory.join(name);
         fs::write(
@@ -504,6 +1203,7 @@ fn run_chain_with_path(shims: &Path) -> std::process::Output {
 // Trace: TC-024, FR-006-AC-2, NFR-003-AC-2
 #[test]
 fn the_chain_never_executes_a_producer_and_the_probe_can_prove_it() {
+    let inputs = assurance_inputs_guard();
     // Two runs, because one proves nothing.
     //
     // Run A replaces every producer — cargo, rustup, rustc — with a stub that
@@ -575,7 +1275,7 @@ fn the_chain_never_executes_a_producer_and_the_probe_can_prove_it() {
     // either, because a discarded output moves no byte. The driver therefore
     // records every command it executes and refuses anything outside quoin and
     // the declared version observations.
-    let report = chain_report();
+    let report = chain_report(&inputs);
     assert!(
         report["command_audit_violations"]
             .as_array()
@@ -623,12 +1323,15 @@ fn the_chain_never_executes_a_producer_and_the_probe_can_prove_it() {
          only read; a driver that can produce its own inputs can produce a green run \
          out of nothing"
     );
+    fs::remove_dir_all(&producers).expect("remove producer shim scratch directory");
+    fs::remove_dir_all(&tools).expect("remove tool shim scratch directory");
 }
 
 // Trace: TC-036, FR-007-AC-6
 #[test]
 fn contextual_native_result_crosses_the_existing_quoin_intake() {
-    let chain = chain_report();
+    let inputs = assurance_inputs_guard();
+    let chain = chain_report(&inputs);
     assert_eq!(
         chain["attested_results"]["PROOF-normalization-sweep"], "passed",
         "the existing Quoin intake did not attest the normalization producer: {chain:#}"
@@ -691,7 +1394,8 @@ fn assurance_input_digests() -> Vec<(String, String)> {
 // Trace: TC-025, FR-006-AC-3, SUITE-002, SUITE-003
 #[test]
 fn the_sealed_records_impact_snapshot_is_the_quire_export() {
-    let report = chain_report();
+    let inputs = assurance_inputs_guard();
+    let report = chain_report(&inputs);
     let export = root().join(report["quire_export"].as_str().expect("quire_export"));
     let bytes =
         fs::read(&export).unwrap_or_else(|error| panic!("{} is absent: {error}", export.display()));
@@ -717,8 +1421,8 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     let parsed: Value = serde_json::from_slice(&bytes).expect("the Quire export is JSON");
     let text = String::from_utf8_lossy(&bytes);
     for requirement in [
-        "FR-001", "FR-002", "FR-003", "FR-004", "FR-005", "FR-006", "FR-007", "NFR-001", "NFR-002",
-        "NFR-003", "StR-001", "StR-002", "StR-003",
+        "FR-001", "FR-002", "FR-003", "FR-004", "FR-005", "FR-006", "FR-007", "FR-008", "NFR-001",
+        "NFR-002", "NFR-003", "StR-001", "StR-002", "StR-003",
     ] {
         assert!(
             text.contains(requirement),
@@ -735,23 +1439,40 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
-    // 83: the prior 68 plus 15 contextual-report rows. The earlier 68 was the
-    // audited post-deletion value. It was 72 before issue #13, which removed exactly four
-    // rows: FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4 and TC-026. Each was a claim
-    // about retained evidence that no longer exists, and each went with its test
-    // rather than being left to report unbacked.
+    // 99: issue #35 added FR-008-AC-1 through FR-008-AC-5 and TC-041 through
+    // TC-045. The Quire released in the tl-release toolchain that `make ci`
+    // uses measures main at 89 (51 criteria plus 38 test-case rows), so this is
+    // 89 plus those 10 rows. The same #35 change renamed the matrix's
+    // `Coverage Status` headers to `Status`; measured at this head, the count is
+    // 99 under either spelling, so the rename moves no row. The prior pin of 96
+    // was 7 above the released Quire's measurement of main, and a differently
+    // installed Quire module set measures a different total, so the history
+    // below records what earlier pins claimed and is superseded by this
+    // measurement rather than reconciled with it. Main's Functional Requirement
+    // Coverage table also has 7 rows, but that match is not a confirmed cause.
+    // Superseded history. 96: the prior 94 plus FR-002-AC-4 and TC-040, which bind semantic
+    // identity independently of diagnostic source spans. The prior 94 was the
+    // prior 89 plus the five atomic NFR-003 criteria split from the
+    // original bundled AC-7 by issue #33. TC-039 backs AC-7 through AC-12. The
+    // prior 89 was 85 plus FR-006-AC-8, the original NFR-003-AC-7, TC-038, and
+    // TC-039. The
+    // earlier 85 was the 83 contextual-report rows plus NFR-003-AC-6 and TC-037's
+    // review-identity control. The contextual 83 was the audited post-deletion
+    // 68 plus 15 context-bound report rows. Issue #13 had reduced 72 to 68 by
+    // removing exactly FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4, and TC-026 with
+    // the retained-evidence claims they owned.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 83, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 99, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 83,
+        totals["backed"], 99,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );
     // The field that actually moves. An adversarial review measured that
     // repointing one matrix row at nonexistent test cases leaves `totals.backed`
     // at its full count while `unbacked_rows` gains an entry, so the totals alone
-    // are not a check. That was measured at 72/72 and the count is 83/83 now;
-    // the figure is left out so it does not go stale again.
+    // are not a check. That was measured at 72/72; the figure is left out so it
+    // does not become a second stale copy of the exact population above.
     assert!(
         parsed["unbacked_rows"].as_array().unwrap().is_empty(),
         "the Quire export names a matrix row backed by nothing: {}",
@@ -778,6 +1499,7 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
 // Trace: TC-027, FR-006-AC-5, NFR-003-AC-3
 #[test]
 fn all_twelve_verification_outcomes_are_demonstrated_and_paired_with_controls() {
+    let inputs = assurance_inputs_guard();
     // The twelve states this migration must keep distinguishable, and the gate
     // that owns each. A state nobody demonstrates is a state nobody would notice
     // the loss of.
@@ -800,7 +1522,7 @@ fn all_twelve_verification_outcomes_are_demonstrated_and_paired_with_controls() 
         ("tampered", "chain"),
     ];
 
-    let report = chain_report();
+    let report = chain_report(&inputs);
 
     // Only MEASURED outcomes count: the chain's `states_demonstrated` is built
     // from cases that ran and matched, never from a label.
@@ -872,7 +1594,8 @@ fn all_twelve_verification_outcomes_are_demonstrated_and_paired_with_controls() 
 // Trace: TC-028, FR-006-AC-6, FR-004-AC-1, StR-002-VC-2
 #[test]
 fn every_counterexample_is_a_replayed_witness_and_never_a_boolean() {
-    let report = chain_report();
+    let inputs = assurance_inputs_guard();
+    let report = chain_report(&inputs);
 
     // The count comes from the counterexample corpus, so a producer that stopped
     // finding counterexamples cannot also move the number it is checked against.
@@ -987,12 +1710,8 @@ fn every_counterexample_is_a_replayed_witness_and_never_a_boolean() {
 // Trace: TC-029, FR-006-AC-7, SUITE-001
 #[test]
 fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() {
+    let inputs = assurance_inputs_guard();
     let root = root();
-    let declaration: Value = serde_json::from_slice(
-        &fs::read(root.join("assurance/change-assurance.json"))
-            .expect("read change-assurance declaration for census controls"),
-    )
-    .expect("change-assurance declaration is JSON");
 
     // The generic machinery is gone, by name.
     for removed in [
@@ -1086,9 +1805,9 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // `reintroduced_reader.yaml` was invisible too.
     //
     // Everything tracked is scanned except these exact lock and licence files.
-    // This predicate is separate from the declaration's authorial control: a
-    // one-line widening of the filter must change the observed set and fail the
-    // equality instead of silently buying itself room under the coarse floor.
+    // FR-006-AC-7 owns this test-domain control; it is intentionally not copied
+    // into the sealed change-assurance record, whose shared schema has no
+    // control-metadata field.
     let denied = |path: &str| {
         matches!(
             path,
@@ -1157,14 +1876,14 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     const CONTROL_DIR: &str = "scripts/.census-control";
     const CONTROL: &str = "scripts/.census-control/probe.py";
     let control = root.join(CONTROL);
-    let _ = fs::remove_dir_all(root.join(CONTROL_DIR));
+    clear_scratch_directory(&root.join(CONTROL_DIR), "census control directory");
     fs::create_dir_all(root.join(CONTROL_DIR)).expect("create control directory");
     fs::write(&control, "# census untracked positive control\n").expect("write control");
 
     let (tracked_all, tracked, mut scanned) = census_paths(&root, denied);
 
     // Removed before the assertion so a failure cannot leave the tree dirty.
-    let _ = fs::remove_dir_all(root.join(CONTROL_DIR));
+    fs::remove_dir_all(root.join(CONTROL_DIR)).expect("remove census control directory");
     assert!(
         scanned.contains(CONTROL),
         "the census did not pick up an untracked file that existed while it \
@@ -1179,20 +1898,21 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         .filter(|entry| denied(entry))
         .cloned()
         .collect();
-    let expected_denied: BTreeSet<String> = declaration["census_controls"]["denied_paths"]
-        .as_array()
-        .expect("census_controls.denied_paths is an array")
-        .iter()
-        .map(|value| {
-            value
-                .as_str()
-                .expect("every census denied path is a string")
-                .to_owned()
-        })
-        .collect();
+    // Keep this reviewed identity set independent from the executable predicate
+    // above. A one-line predicate widening must change the observed side without
+    // changing the expected side.
+    let expected_denied: BTreeSet<String> = [
+        "Cargo.lock",
+        "LICENSE-APACHE",
+        "LICENSE-MIT",
+        "corpus/west-v1/LICENSE",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect();
     assert_eq!(
         observed_denied, expected_denied,
-        "the executable census deny-list differs from the change declaration"
+        "the executable census deny-list differs from its reviewed ground truth"
     );
     // Areas come from the UNFILTERED list. Computing them from the filtered one
     // meant a new tracked directory whose files were all filtered out would
@@ -1246,22 +1966,6 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         "tl-rewrite-evidence-manifest-v1.schema.json",
         "tl-rewrite-evidence-input-v1.schema.json",
     ];
-    let expected_deleted_references: Vec<&str> = declaration["census_controls"]
-        ["deleted_reference_needles"]
-        .as_array()
-        .expect("census_controls.deleted_reference_needles is an array")
-        .iter()
-        .map(|value| {
-            value
-                .as_str()
-                .expect("every deleted-reference needle is a string")
-        })
-        .collect();
-    assert_eq!(
-        DELETED_REFERENCES.as_slice(),
-        expected_deleted_references,
-        "the executable deleted-reference needles differ from the change declaration"
-    );
 
     // Exercise the production Git enumerator in a real fixture repository. A
     // preferred GNUmakefile containing only the phony declaration keeps the
@@ -1332,11 +2036,11 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         "could not isolate the census fixture from global Git excludes"
     );
     let (_, _, fixture_scanned) = census_paths(&fixture, |_| false);
-    let make_matches = census_matches(&fixture, &make_probe, &DELETED_REFERENCES);
+    let make_matches = census_matches(&inputs, &fixture, &make_probe, &DELETED_REFERENCES);
 
     let non_repository =
         std::env::temp_dir().join(format!("tl-rewrite-census-nonrepo-{}", std::process::id()));
-    let _ = fs::remove_dir_all(&non_repository);
+    clear_scratch_directory(&non_repository, "non-repository census control");
     fs::create_dir_all(&non_repository).expect("create non-repository control");
     let unenumerable = std::panic::catch_unwind(|| {
         let _ = git_files(&non_repository, &["ls-files", "-z"]);
@@ -1364,22 +2068,37 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     );
 
     // The same exemption-plus-scanner function used by the repository loop must
-    // find every forbidden name after a non-UTF-8 byte. The declaration's
-    // separately reviewed control means deleting one executable needle is red.
+    // find every forbidden name before a non-UTF-8 byte. This literal is an
+    // independent hostile input and expected result, not a rendering of the
+    // executable scanner array. Deleting one executable needle therefore leaves
+    // its hostile byte sequence present and its expected match missing.
+    const DELETED_REFERENCE_PROBE: &str = "check-failure-propagation\n\
+check-tool-identities\n\
+ci-for-evidence\n\
+verify-evidence\n\
+evidence-tool\n\
+legacy_evidence_view\n\
+legacy-compat\n\
+PROOF-legacy-compatibility\n\
+compat-view\n\
+COMPAT_RESULT\n\
+tl-rewrite-evidence-manifest-v1.schema.json\n\
+tl-rewrite-evidence-input-v1.schema.json";
     let non_utf8_probe = root.join("target/removal-census-non-utf8-probe.py");
-    let mut probe_bytes = expected_deleted_references.join("\n").into_bytes();
+    let mut probe_bytes = DELETED_REFERENCE_PROBE.as_bytes().to_vec();
     probe_bytes.push(0xff);
     fs::write(&non_utf8_probe, probe_bytes).expect("write the non-UTF-8 census probe");
-    let probe_matches = census_matches(&root, &non_utf8_probe, &DELETED_REFERENCES);
+    let probe_matches = census_matches(&inputs, &root, &non_utf8_probe, &DELETED_REFERENCES);
     fs::remove_file(&non_utf8_probe).expect("remove the non-UTF-8 census probe");
+    let expected_probe_matches: Vec<&str> = DELETED_REFERENCE_PROBE.lines().collect();
     assert_eq!(
-        probe_matches, expected_deleted_references,
+        probe_matches, expected_probe_matches,
         "the raw-byte census did not exercise every forbidden name"
     );
 
     let missing_probe = root.join("target/removal-census-missing-probe.py");
     let unreadable = std::panic::catch_unwind(|| {
-        let _ = census_matches(&root, &missing_probe, &DELETED_REFERENCES);
+        let _ = census_matches(&inputs, &root, &missing_probe, &DELETED_REFERENCES);
     })
     .expect_err("an unreadable census path did not fail closed");
     let unreadable = panic_message(unreadable);
@@ -1463,7 +2182,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // Counted over TRACKED files only; the scan below covers more.
     let inspected = tracked.len();
     for path in &sources {
-        let deleted_names = census_matches(&root, path, &DELETED_REFERENCES);
+        let deleted_names = census_matches(&inputs, &root, path, &DELETED_REFERENCES);
         // Three files name the deleted machinery on purpose: this test, which
         // asserts its absence; assurance/pins.json, which records what was
         // measured before the deletion; and the change-assurance declaration,
@@ -1497,15 +2216,17 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **112** scanned tracked files — 116 tracked
-    // in total, minus the 4 the
+    // Population at this review head: **165** scanned tracked files. Issue #35
+    // added 7 files to the reviewed 158: FR-008, the five PLAN-006 bundle files,
+    // and `tests/future_lowering_parity.rs`. The 165 are 169 tracked in total,
+    // minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
     // version of this comment enumerated four exclusions for a count of five and
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 12 root, 64 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // By area: 12 root, 116 `spec`, 11 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
@@ -1514,8 +2235,8 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 112,
-        "the source census population changed from the reviewed 112 tracked files \
+        inspected, 165,
+        "the source census population changed from the reviewed 165 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
@@ -1621,6 +2342,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
 // Trace: TC-027, FR-006-AC-5, NFR-003-AC-3
 #[test]
 fn a_control_naming_a_scenario_that_does_not_exist_is_refused() {
+    let _inputs = assurance_inputs_guard();
     // NFR-003-AC-3 claims this guard is checked. The driver is copied and one
     // `pairs_with` — and only that one — is renamed. Renaming the scenario as
     // well would leave the pairing consistent and prove nothing.
@@ -1753,28 +2475,43 @@ fn a_control_naming_a_scenario_that_does_not_exist_is_refused() {
     fs::remove_dir_all(&scratch).expect("remove the isolated dangling-scenario scratch tree");
 }
 
-// Trace: TC-023, FR-006-AC-1
-#[test]
-fn the_mirror_scan_refuses_a_registry_reference_in_a_real_file() {
+fn run_mirror_file_scan(
+    _inputs: &AssuranceInputsGuard,
+    python: &Path,
+) -> (i32, String, String, Vec<u8>) {
     // The structural branch of `mirror_references` (pins.json) already has a
     // control. The file-scan branch needs its own: without one it is
     // indistinguishable from a loop over files that never match.
-    let python = assurance_python();
+    let requirements = root().join("requirements-assurance.txt");
+    let mut restoration = TrackedFileRestore::new(requirements.clone());
+    let original = restoration.original().to_vec();
+    fs::write(
+        &requirements,
+        [original.as_slice(), b"\n--registry=https://npm.ix/\n"].concat(),
+    )
+    .expect("write mirror-reference probe input");
     let (code, stdout, stderr) = run(
-        &python,
+        python,
         &[
             "-c",
             "import json,sys,pathlib;sys.path.insert(0,'scripts');\
              import check_shared_pins as m;\
-             original=pathlib.Path('requirements-assurance.txt').read_text();\
-             pathlib.Path('requirements-assurance.txt').write_text(\
-             original+'\\n--registry=https://npm.ix/\\n');\
              pins=json.load(open('assurance/pins.json'));\
              found=m.mirror_references(pins);\
-             pathlib.Path('requirements-assurance.txt').write_text(original);\
              print(json.dumps(found))",
         ],
     );
+    restoration.restore();
+    (code, stdout, stderr, original)
+}
+
+// Trace: TC-023, TC-038, FR-006-AC-1, FR-006-AC-8
+#[test]
+fn the_mirror_scan_refuses_a_registry_reference_in_a_real_file() {
+    let inputs = assurance_inputs_guard();
+    let python = assurance_python();
+    let requirements = root().join("requirements-assurance.txt");
+    let (code, stdout, stderr, original) = run_mirror_file_scan(&inputs, &python);
     assert_eq!(code, 0, "the mirror file-scan probe failed: {stderr}");
     let offenders: Vec<String> = serde_json::from_str(stdout.trim()).unwrap();
     assert!(
@@ -1785,17 +2522,459 @@ fn the_mirror_scan_refuses_a_registry_reference_in_a_real_file() {
          file-scan branch matches nothing. Detected: {offenders:?}"
     );
 
-    // And the file must be restored, or this test has dirtied the tree.
-    let restored = fs::read_to_string(root().join("requirements-assurance.txt")).unwrap();
+    assert_eq!(
+        fs::read(&requirements).expect("re-read restored requirements-assurance input"),
+        original,
+        "the mirror-reference probe left requirements-assurance.txt changed"
+    );
+}
+
+// Trace: TC-038, FR-006-AC-8
+#[test]
+fn a_spawn_failure_restores_the_exact_tracked_input_while_unwinding() {
+    let inputs = assurance_inputs_guard();
+    let requirements = root().join("requirements-assurance.txt");
+    let original = fs::read(&requirements).expect("read requirements-assurance input");
+    let unwind = std::panic::catch_unwind(|| {
+        let _ = run_mirror_file_scan(
+            &inputs,
+            Path::new("/definitely/missing/tl-rewrite-tc038-python"),
+        );
+    })
+    .expect_err("the forced spawn failure did not unwind");
+    let message = panic_message(unwind);
     assert!(
-        !restored.contains("npm.ix/"),
-        "the probe left a mirror reference in requirements-assurance.txt"
+        message.contains("failed to run /definitely/missing/tl-rewrite-tc038-python"),
+        "the forced spawn failed for the wrong reason: {message}"
+    );
+    assert_eq!(
+        fs::read(&requirements).expect("re-read tracked input after forced unwind"),
+        original,
+        "the unwind path left requirements-assurance.txt changed"
+    );
+}
+
+// Trace: TC-038, FR-006-AC-8
+#[test]
+fn restoration_failure_is_reported_without_replacing_the_original_panic() {
+    let _inputs = assurance_inputs_guard();
+    let scratch = root().join("target/tracked-restore-failure-probe");
+    clear_scratch_directory(&scratch, "tracked restoration-failure probe");
+    fs::create_dir_all(&scratch).expect("create tracked restoration-failure probe");
+    let tracked = scratch.join("tracked-input.txt");
+    fs::write(&tracked, b"original bytes\n").expect("write scratch tracked input");
+    let reports = Arc::new(Mutex::new(Vec::new()));
+    let observed_reports = Arc::clone(&reports);
+    let unwind = std::panic::catch_unwind(move || {
+        let _restoration = TrackedFileRestore::observed(tracked.clone(), observed_reports);
+        fs::write(&tracked, b"mutated bytes\n").expect("mutate scratch tracked input");
+        fs::remove_dir_all(&scratch).expect("force tracked restoration failure");
+        panic!("original TC-038 unwind");
+    })
+    .expect_err("the restoration-failure control did not unwind");
+    assert_eq!(
+        panic_message(unwind),
+        "original TC-038 unwind",
+        "restoration failure replaced the original panic"
+    );
+    let reports = reports
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    assert_eq!(reports.len(), 1, "restoration failure reports: {reports:?}");
+    assert!(
+        reports[0].contains("failed to restore tracked input")
+            && reports[0].contains("while unwinding"),
+        "the restoration failure was not reported: {reports:?}"
+    );
+}
+
+// Trace: TC-039, NFR-003-AC-7, NFR-003-AC-8, NFR-003-AC-9, NFR-003-AC-10,
+// NFR-003-AC-11, NFR-003-AC-12
+#[test]
+fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
+    let workflow = fs::read_to_string(root().join(".github/workflows/ci.yml"))
+        .expect("read hosted CI workflow");
+    let errors = hosted_workflow_control_errors(&workflow);
+    assert!(
+        errors.is_empty(),
+        "hosted workflow control errors: {errors:?}"
+    );
+
+    let comment_only =
+        format!("{workflow}\n# npm install --global ix-flow@99.99.99 is explanatory only\n");
+    assert!(
+        hosted_workflow_control_errors(&comment_only).is_empty(),
+        "a comment-only package spelling became executable"
+    );
+
+    let metadata_only = workflow.replacen(
+        "name: Install specification tools and modules",
+        "name: ix-flow is inert step metadata",
+        1,
+    );
+    assert!(
+        hosted_workflow_control_errors(&metadata_only).is_empty(),
+        "a metadata-only package spelling became executable"
+    );
+
+    let quoted_run_key = workflow.replacen("        run: |", "        \"run\": |", 1);
+    assert!(
+        hosted_workflow_control_errors(&quoted_run_key).is_empty(),
+        "a quoted YAML run key hid its executable script"
+    );
+
+    let escaped_run_key = workflow.replacen("        run: |", "        \"r\\u0075n\": |", 1);
+    assert!(
+        hosted_workflow_control_errors(&escaped_run_key).is_empty(),
+        "a YAML-decoded run key hid its executable script"
+    );
+
+    let flow_run_step = workflow.replacen(
+        "      - name: Check library and integration tests\n        run: cargo check --locked --all-targets --all-features",
+        "      - { name: Check library and integration tests, run: cargo check --locked --all-targets --all-features }",
+        1,
+    );
+    assert!(
+        hosted_workflow_control_errors(&flow_run_step).is_empty(),
+        "a flow-mapping run step hid its executable script"
+    );
+
+    let multiline_metadata = workflow.replacen(
+        "name: Install specification tools and modules",
+        "name: |\n          inert run: npm add ix-flow@9.9.9 metadata",
+        1,
+    );
+    assert!(
+        hosted_workflow_control_errors(&multiline_metadata).is_empty(),
+        "multiline step metadata became an executable run script"
+    );
+
+    let defaults_metadata = workflow.replacen(
+        "\njobs:\n",
+        "\ndefaults:\n  run:\n    shell: bash\n\njobs:\n",
+        1,
+    );
+    assert!(
+        hosted_workflow_control_errors(&defaults_metadata).is_empty(),
+        "defaults.run metadata became an executable step script"
+    );
+
+    let word_internal_hash = replace_first_install_invocation(
+        &workflow,
+        "echo marker#not-a-comment; npm add --global github:agent-ix/ix-flow#v9.9.9; npm install --global",
+    );
+    let hash_errors = hosted_workflow_control_errors(&word_internal_hash);
+    assert!(
+        hash_errors
+            .iter()
+            .any(|error| error.contains("github:agent-ix/ix-flow#v9.9.9")),
+        "a word-internal shell hash hid an executable npm-add package: {hash_errors:?}"
+    );
+
+    let empty_word_hash = replace_first_install_invocation(
+        &workflow,
+        "true \"\"#not-a-comment && npm add --global github:agent-ix/ix-flow#empty-word; npm install --global",
+    );
+    let empty_hash_errors = hosted_workflow_control_errors(&empty_word_hash);
+    assert!(
+        empty_hash_errors
+            .iter()
+            .any(|error| error.contains("github:agent-ix/ix-flow#empty-word")),
+        "an empty quoted shell word reopened the word-internal hash bypass: {empty_hash_errors:?}"
+    );
+
+    let nested_shell = replace_first_install_invocation(
+        &workflow,
+        "bash -c 'npm in --global ix-flow@npm:@agent-ix/ix-flow@9.9.9'; npm install --global",
+    );
+    let nested_errors = hosted_workflow_control_errors(&nested_shell);
+    assert!(
+        nested_errors
+            .iter()
+            .any(|error| error.contains("ix-flow@npm:@agent-ix/ix-flow@9.9.9")),
+        "a nested shell invocation hid an alternate npm alias install: {nested_errors:?}"
+    );
+
+    let grouped_path_install = replace_first_install_invocation(
+        &workflow,
+        "( /usr/bin/npm in --global github:agent-ix/ix-flow#grouped ); npm install --global",
+    );
+    let grouped_errors = hosted_workflow_control_errors(&grouped_path_install);
+    assert!(
+        grouped_errors
+            .iter()
+            .any(|error| error.contains("github:agent-ix/ix-flow#grouped")),
+        "a grouped path-qualified npm command hid an alternate install: {grouped_errors:?}"
+    );
+
+    let redirected_path_install = replace_first_install_invocation(
+        &workflow,
+        ">/tmp/reviewer-log /usr/bin/npm add --global github:agent-ix/ix-flow#redirected-attached; > /tmp/reviewer-log-2 /usr/bin/npm in --global github:agent-ix/ix-flow#redirected-separate; 2>&1 /usr/bin/npm inst --global github:agent-ix/ix-flow#redirected-fd; 2>&1> /dev/null /usr/bin/npm insta --global github:agent-ix/ix-flow#redirected-chained; npm install --global",
+    );
+    let redirected_errors = hosted_workflow_control_errors(&redirected_path_install);
+    assert!(
+        redirected_errors
+            .iter()
+            .any(|error| error.contains("non-literal shell redirection")
+                && error.contains("github:agent-ix/ix-flow#redirected-attached")
+                && error.contains("github:agent-ix/ix-flow#redirected-separate")
+                && error.contains("github:agent-ix/ix-flow#redirected-fd")
+                && error.contains("github:agent-ix/ix-flow#redirected-chained")),
+        "an unquoted shell redirection was partially scanned: {redirected_errors:?}"
+    );
+
+    let command_substitution = replace_first_install_invocation(
+        &workflow,
+        "printf '%s\\n' \"$(2>&1> /dev/null /usr/bin/npm add --global github:agent-ix/ix-flow#substitution)\"; npm install --global",
+    );
+    let substitution_errors = hosted_workflow_control_errors(&command_substitution);
+    assert!(
+        substitution_errors.iter().any(|error| error
+            .contains("non-literal shell expansion")
+            && error.contains("github:agent-ix/ix-flow#substitution")),
+        "a double-quoted command substitution hid an executable npm command: {substitution_errors:?}"
+    );
+
+    let backtick_substitution = replace_first_install_invocation(
+        &workflow,
+        "printf '%s\\n' `/usr/bin/npm add --global github:agent-ix/ix-flow#backtick`; npm install --global",
+    );
+    let backtick_errors = hosted_workflow_control_errors(&backtick_substitution);
+    assert!(
+        backtick_errors
+            .iter()
+            .any(|error| error.contains("non-literal shell expansion")
+                && error.contains("github:agent-ix/ix-flow#backtick")),
+        "a backtick command substitution hid an executable npm command: {backtick_errors:?}"
+    );
+
+    let inert_substitution_spellings = replace_first_install_invocation(
+        &workflow,
+        "printf '%s\\n' '$(npm add github:agent-ix/ix-flow#single-quoted)' '`npm add github:agent-ix/ix-flow#single-backtick`' \"\\$(npm add github:agent-ix/ix-flow#escaped-dollar)\" \"\\`npm add github:agent-ix/ix-flow#escaped-backtick\\`\"; npm install --global",
+    );
+    assert!(
+        hosted_workflow_control_errors(&inert_substitution_spellings).is_empty(),
+        "quoted or escaped substitution spellings became executable"
+    );
+
+    for (label, replacement) in [
+        (
+            "single-quoted",
+            "printf '%s\\n' '${{ inputs.script }}'; npm install --global",
+        ),
+        (
+            "shell-escaped",
+            "printf '%s\\n' \\${{ inputs.script }}; npm install --global",
+        ),
+        (
+            "double-quoted shell-escaped",
+            "printf '%s\\n' \"\\${{ inputs.script }}\"; npm install --global",
+        ),
+    ] {
+        let expression = replace_first_install_invocation(&workflow, replacement);
+        let errors = hosted_workflow_control_errors(&expression);
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("non-literal workflow expression")),
+            "{label} GitHub workflow expression stayed green: {errors:?}"
+        );
+    }
+
+    let comment_expression =
+        replace_first_install_invocation(&workflow, "npm install --global; # ${{ inputs.script }}");
+    let comment_errors = hosted_workflow_control_errors(&comment_expression);
+    assert!(
+        comment_errors
+            .iter()
+            .any(|error| error.contains("non-literal workflow expression")),
+        "a GitHub workflow expression in a shell comment stayed green: {comment_errors:?}"
+    );
+
+    let unquoted_variable = replace_first_install_invocation(
+        &workflow,
+        "printf '%s\\n' $IX_FLOW_INSTALL; npm install --global",
+    );
+    let variable_errors = hosted_workflow_control_errors(&unquoted_variable);
+    assert!(
+        variable_errors
+            .iter()
+            .any(|error| error.contains("non-literal shell expansion")),
+        "the unquoted shell-variable guard was not independently exercised: {variable_errors:?}"
+    );
+
+    let preceding_shell = replace_first_install_invocation(
+        &workflow,
+        "bash --version; /usr/bin/npm add --global github:agent-ix/ix-flow#after-shell; npm install --global",
+    );
+    let preceding_shell_errors = hosted_workflow_control_errors(&preceding_shell);
+    assert!(
+        preceding_shell_errors
+            .iter()
+            .any(|error| error.contains("github:agent-ix/ix-flow#after-shell")),
+        "a non--c shell invocation suppressed later commands: {preceding_shell_errors:?}"
+    );
+
+    let long_shell_option = replace_first_install_invocation(
+        &workflow,
+        "bash --norc -c 'npm in --global github:agent-ix/ix-flow#nested-long'; npm install --global",
+    );
+    let long_option_errors = hosted_workflow_control_errors(&long_shell_option);
+    assert!(
+        long_option_errors
+            .iter()
+            .any(|error| error.contains("github:agent-ix/ix-flow#nested-long")),
+        "a long shell option obscured the actual -c script: {long_option_errors:?}"
+    );
+
+    let inert_arguments = replace_first_install_invocation(
+        &workflow,
+        "printf '%s\\n' npm add github:agent-ix/ix-flow#inert bash -c npm in ix-flow@9.9.9; npm install --global",
+    );
+    assert!(
+        hosted_workflow_control_errors(&inert_arguments).is_empty(),
+        "npm- or shell-shaped inert command arguments entered the executable population"
+    );
+
+    let shell_comment = replace_first_install_invocation(
+        &workflow,
+        "# npm add --global github:agent-ix/ix-flow#comment-only\n          npm install --global",
+    );
+    assert!(
+        hosted_workflow_control_errors(&shell_comment).is_empty(),
+        "a shell comment inside a literal run block became executable"
+    );
+
+    for alias in NPM_INSTALL_ALIASES {
+        let alias_workflow =
+            replace_first_install_invocation(&workflow, &format!("npm {alias} --global"));
+        assert!(
+            hosted_workflow_control_errors(&alias_workflow).is_empty(),
+            "documented npm install alias {alias:?} changed the package population"
+        );
+    }
+
+    let prefixed_install =
+        replace_first_install_invocation(&workflow, "npm --prefix /tmp install --global");
+    assert!(
+        hosted_workflow_control_errors(&prefixed_install).is_empty(),
+        "an npm global option before install hid the executable package population"
+    );
+
+    for (label, replacement) in [
+        ("unscoped", "ix-flow@0.0.4"),
+        ("unversioned", "@agent-ix/ix-flow"),
+        ("npm alias", "ix-flow@npm:@agent-ix/ix-flow@0.0.4"),
+        ("GitHub shorthand", "github:agent-ix/ix-flow#v0.2.3"),
+        (
+            "mixed-case GitHub shorthand",
+            "github:agent-ix/IX-FLOW#v0.2.3",
+        ),
+        (
+            "git URL",
+            "git+https://github.com/agent-ix/ix-flow.git#v0.2.3",
+        ),
+        (
+            "registry tarball URL",
+            "https://registry.npmjs.org/@agent-ix/ix-flow/-/ix-flow-0.0.4.tgz",
+        ),
+        ("file", "file:../ix-flow"),
+        ("tarball path", "../ix-flow-0.0.4.tgz"),
+        ("workspace", "workspace:ix-flow"),
+        ("link", "link:../ix-flow"),
+    ] {
+        let mutated = workflow.replacen("@agent-ix/ix-flow@0.0.4", replacement, 1);
+        let errors = hosted_workflow_control_errors(&mutated);
+        assert!(
+            !errors.is_empty(),
+            "a {label} ix-flow package specification was accepted"
+        );
+        assert!(
+            errors.iter().any(|error| error.contains(replacement)),
+            "the {label} refusal did not name the observed specification {replacement:?}: {errors:?}"
+        );
+    }
+
+    let alias_duplicate = workflow.replacen(
+        "'@agent-ix/ix-flow@0.0.4'",
+        "'@agent-ix/ix-flow@0.0.4' 'ix-flow@npm:@agent-ix/ix-flow@0.0.4'",
+        1,
+    );
+    assert!(
+        !hosted_workflow_control_errors(&alias_duplicate).is_empty(),
+        "an executable alias-form duplicate was accepted"
+    );
+    let unversioned_duplicate = workflow.replacen(
+        "'@agent-ix/ix-flow@0.0.4'",
+        "'@agent-ix/ix-flow@0.0.4' '@agent-ix/ix-flow'",
+        1,
+    );
+    assert!(
+        !hosted_workflow_control_errors(&unversioned_duplicate).is_empty(),
+        "an executable unversioned duplicate was accepted"
+    );
+
+    for expression in [
+        "$IX_FLOW_PACKAGE",
+        "$(ix-flow-package)",
+        "${{ env.IX_FLOW_PACKAGE }}",
+        "'${{ env.IX_FLOW_PACKAGE }}'",
+        "\"${{ env.IX_FLOW_PACKAGE }}\"",
+        "<(printf ix-flow-package)",
+    ] {
+        let dynamic = workflow.replacen("'@agent-ix/ix-flow@0.0.4'", expression, 1);
+        let errors = hosted_workflow_control_errors(&dynamic);
+        let marker = if expression.contains("IX_FLOW_PACKAGE") {
+            "IX_FLOW_PACKAGE"
+        } else {
+            "ix-flow-package"
+        };
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("non-literal") && error.contains(marker)),
+            "a dynamic package argument did not fail closed and name its expression {expression:?}: {errors:?}"
+        );
+    }
+
+    let automatic = workflow.replacen(
+        "  workflow_dispatch:\n",
+        "  workflow_dispatch:\n  push:\n",
+        1,
+    );
+    assert!(
+        !hosted_workflow_control_errors(&automatic).is_empty(),
+        "an automatic hosted trigger was accepted"
+    );
+    let inline_automatic = workflow.replacen(
+        "  workflow_dispatch:\n",
+        "  workflow_dispatch:\n  pull_request: {}\n",
+        1,
+    );
+    assert!(
+        !hosted_workflow_control_errors(&inline_automatic).is_empty(),
+        "an inline-map automatic hosted trigger was accepted"
+    );
+
+    let folded_script = workflow.replacen("        run: |", "        run: >", 1);
+    assert!(
+        hosted_workflow_control_errors(&folded_script).is_empty(),
+        "a semantically equivalent folded run script changed the executable package population"
+    );
+
+    let (code, stdout, stderr) = run(Path::new("ix-flow"), &["--version"]);
+    assert_eq!(code, 0, "ix-flow --version failed: {stderr}");
+    assert_eq!(
+        stdout.trim(),
+        "0.0.4",
+        "the released local ix-flow executable is not the pinned version"
     );
 }
 
 // Trace: TC-030, NFR-002-AC-2, NFR-003-AC-5
 #[test]
 fn the_published_revision_constants_are_the_resolved_revisions() {
+    let _inputs = assurance_inputs_guard();
     let report = json_gate(
         Path::new("python3"),
         &["scripts/check_provenance.py", "--json"],
@@ -1820,8 +2999,78 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
     // test that touched the field compared the constant to itself, so nothing
     // could see it. This restores the stale value in a scratch copy and requires
     // the census to report a failing row.
+    let library = fs::read_to_string(root().join("src/lib.rs")).unwrap();
+    let manifest = fs::read_to_string(root().join("Cargo.toml")).unwrap();
+    let current = library
+        .lines()
+        .find(|line| line.contains("TL_MLTL_REVISION"))
+        .and_then(|line| line.split('"').nth(1))
+        .expect("TL_MLTL_REVISION is a quoted source identity");
+    let stale = library.replacen(current, &"0".repeat(current.len()), 1);
+    assert_ne!(stale, library, "the probe's mutation did not apply");
+    provenance_probe_refuses(
+        "a wire constant naming a revision the build never used",
+        &[("src/lib.rs", stale)],
+        "dependency:tl-mltl",
+    );
+
+    // Issue #35 locks a second tl-syntax revision for the test-only lowering
+    // lane. Pointing the production pin and the wire constant at that
+    // development revision leaves both present in Cargo.lock, which a check that
+    // only asks "is the pin locked somewhere" accepts, while tl-mltl still
+    // compiles the other revision.
+    let production = library
+        .lines()
+        .find(|line| line.contains("TL_SYNTAX_REVISION"))
+        .and_then(|line| line.split('"').nth(1))
+        .expect("TL_SYNTAX_REVISION is a quoted source identity");
+    let development = manifest
+        .lines()
+        .find(|line| line.starts_with("tl-syntax-lowering = "))
+        .and_then(|line| line.split("rev = \"").nth(1))
+        .and_then(|rest| rest.split('"').next())
+        .expect("the renamed development tl-syntax is pinned by revision");
+    assert_ne!(
+        production, development,
+        "the two tl-syntax revisions are one revision"
+    );
+    let moved_library = library.replacen(production, development, 1);
+    let moved_manifest = manifest.replacen(production, development, 1);
+    assert_ne!(
+        moved_library, library,
+        "the probe's library mutation did not apply"
+    );
+    assert_ne!(
+        moved_manifest, manifest,
+        "the probe's manifest mutation did not apply"
+    );
+    provenance_probe_refuses(
+        "a production pin naming a revision only a dev-dependency locks",
+        &[
+            ("src/lib.rs", moved_library),
+            ("Cargo.toml", moved_manifest),
+        ],
+        "dependency:tl-syntax",
+    );
+
+    // A second locked revision that no manifest entry declares is refused too.
+    let undeclared = manifest
+        .lines()
+        .filter(|line| !line.starts_with("tl-syntax-lowering = "))
+        .collect::<Vec<_>>()
+        .join("\n");
+    provenance_probe_refuses(
+        "a locked tl-syntax revision no dependency declares",
+        &[("Cargo.toml", undeclared)],
+        "dependency:tl-syntax",
+    );
+}
+
+/// Runs the provenance check over the repository with `replaced` files
+/// substituted, and requires it to exit 1 naming `symbol`.
+fn provenance_probe_refuses(what: &str, replaced: &[(&str, String)], symbol: &str) {
     let scratch = root().join("target/provenance-probe");
-    let _ = fs::remove_dir_all(&scratch);
+    clear_scratch_directory(&scratch, "provenance probe scratch");
     fs::create_dir_all(scratch.join("src")).unwrap();
     fs::create_dir_all(scratch.join("scripts")).unwrap();
     for entry in fs::read_dir(root()).expect("repository root") {
@@ -1831,7 +3080,12 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
             .and_then(|v| v.to_str())
             .unwrap_or("")
             .to_owned();
-        if name == "src" || name == "scripts" || name == ".git" || name == "target" {
+        if name == "src"
+            || name == "scripts"
+            || name == ".git"
+            || name == "target"
+            || replaced.iter().any(|(relative, _)| *relative == name)
+        {
             continue;
         }
         std::os::unix::fs::symlink(&path, scratch.join(&name))
@@ -1842,15 +3096,15 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
         scratch.join("scripts/check_provenance.py"),
     )
     .unwrap();
-    let library = fs::read_to_string(root().join("src/lib.rs")).unwrap();
-    let current = library
-        .lines()
-        .find(|line| line.contains("TL_MLTL_REVISION"))
-        .and_then(|line| line.split('"').nth(1))
-        .expect("TL_MLTL_REVISION is a quoted source identity");
-    let stale = library.replacen(current, &"0".repeat(current.len()), 1);
-    assert_ne!(stale, library, "the probe's mutation did not apply");
-    fs::write(scratch.join("src/lib.rs"), stale).unwrap();
+    if !replaced
+        .iter()
+        .any(|(relative, _)| *relative == "src/lib.rs")
+    {
+        fs::copy(root().join("src/lib.rs"), scratch.join("src/lib.rs")).unwrap();
+    }
+    for (relative, bytes) in replaced {
+        fs::write(scratch.join(relative), bytes).unwrap();
+    }
 
     let output = Command::new("python3")
         .args(["scripts/check_provenance.py"])
@@ -1860,12 +3114,15 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
     assert_eq!(
         output.status.code(),
         Some(1),
-        "a wire constant naming a revision the build never used was not detected:\n{}\n{}",
+        "{what} was not detected:\n{}\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        String::from_utf8_lossy(&output.stdout).contains("dependency:tl-mltl"),
-        "the refusal did not name the disagreeing dependency"
+        stdout
+            .lines()
+            .any(|line| line.starts_with(&format!("{symbol}: fail"))),
+        "the refusal of {what} did not fail {symbol}:\n{stdout}"
     );
 }

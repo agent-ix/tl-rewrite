@@ -141,7 +141,7 @@ proptest! {
         prop_assert_eq!(conformance.status, ConformanceStatus::Equivalent);
     }
 
-    // Trace: TC-037, FR-001-AC-2, FR-004-AC-1, NFR-001-AC-1
+    // Trace: TC-046, FR-001-AC-2, FR-004-AC-1, NFR-001-AC-1
     #[test]
     fn reflexive_boolean_rule_family_normalizes_and_matches_the_oracle(kind in 0_u8..4) {
         let (rule_id, input) = reflexive_boolean_fixture(kind);
