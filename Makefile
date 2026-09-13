@@ -120,6 +120,7 @@ test: assurance-inputs
 .PHONY: check-corpus
 check-corpus:
 	$(PYTHON) scripts/check_provenance.py
+	sha256sum --check corpus/past-history/SHA256SUMS
 
 .PHONY: conformance
 conformance:
