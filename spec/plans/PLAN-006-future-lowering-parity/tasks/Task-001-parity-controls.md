@@ -33,8 +33,11 @@ Add the dev-only lowering lane and the direct-versus-lowered rewrite controls.
   `FutureLoweringRequest::lower()` plus a byte-exact formula v1 wire crossing.
 - [x] Compare complete rewrite, budgeted, contextual, and conformance reports.
 - [x] Compare clean-ascii/v2 parses by span-insensitive identity.
-- [x] Scan `src/` and the production dependency table.
-- [x] Add nine lowering mutants and require each to fail parity.
+- [x] Scan `src/`, `examples/`, and every production dependency section.
+- [x] Add twelve lowering mutants and require each to fail parity.
+- [x] Require `scripts/check_provenance.py` to tie the production tl-syntax pin
+  to tl-mltl's locked revision and refuse undeclared locked revisions, with
+  TC-030 probes for both.
 
 ## Deliverables
 

@@ -42,33 +42,37 @@ lowering mutants. Production source and public APIs stay unchanged.
   production pin cannot move alone.
 - `tests/future_lowering_parity.rs`: builders, the formula v1 wire crossing,
   the parity comparator, the source scanner, and the mutants.
+- `scripts/check_provenance.py`: with two locked tl-syntax revisions, the
+  production pin must be the one tl-mltl compiles and every other locked
+  revision must be a declared dev-dependency (TC-030 probes both).
 
 ## Test Plan
 
 ### Integration Tests
 
-- [x] **TC-041:** 18 cases over W/M, four intervals, operand shapes, negation,
-  and both nesting orders.
+- [x] **TC-041:** 16 cases over W/M, four intervals, operand shapes, negation,
+  and both nesting orders, plus a `[u32::MAX,u32::MAX]` W and M pair.
 - [x] **TC-042:** four budget kinds, online-prefix refusal, complete and
   incomplete catalogs.
-- [x] **TC-043:** four v2 sources, lowering records, span-free identities.
-- [x] **TC-044:** node-kind, rule-family, token, and manifest scan with
-  synthetic controls.
-- [x] **TC-045:** nine mutants, classified as semantic, shape, profile, or span.
+- [x] **TC-043:** five v2 sources, lowering records, span-free identities, and
+  an associativity control.
+- [x] **TC-044:** node-kind, rule-family, catalog, token, and every production
+  dependency section, over `src/` and `examples/`, with synthetic controls.
+- [x] **TC-045:** twelve mutants, classified as semantic, shape, profile, or span.
 
 ### Verification
 
 - [x] Hand-mutate the direct builder (Or to And) and confirm TC-041, TC-042,
   TC-043, and TC-045 go red.
-- [ ] Strict Quire validation and coverage and the complete `make ci` gate.
-- [ ] PR-time `rust-review` and `gap-analysis`, with findings fixed.
+- [x] Strict Quire validation and coverage and the complete `make ci` gate.
+- [x] PR-time `rust-review` and `gap-analysis`, with findings fixed.
 
 ## Remaining Work
 
 ### Track A: Critical Path (serial)
 
 - **A1 = Task-001** Lowering lane and parity controls — done.
-- **Gate = Task-002** Gate, PR, review, and fixes — pass: exact-head `make ci`
+- **Gate = Task-002** Gate, PR, review, and fixes — done: exact-head `make ci`
   exit 0 and no unresolved finding.
 
 ## Parallel Execution Summary
@@ -82,7 +86,7 @@ Task-001 controls -> Task-002 gate, PR, reviews
 | Task | Track | Owns (references) | Verified by (verifies) | Status |
 |---|---|---|---|---|
 | Task-001 | A | FR-008 | TC-041, TC-042, TC-043, TC-044, TC-045 | done |
-| Task-002 | A | FR-008 | TC-041, TC-042, TC-043, TC-044, TC-045 | in_progress |
+| Task-002 | A | FR-008 | TC-041, TC-042, TC-043, TC-044, TC-045 | done |
 
 ## Coordination Rules
 

@@ -26,7 +26,10 @@ PGM-01 governs compatibility, provenance, evidence, human authority, and
 qualification boundaries. Formula/profile identities come from the exact
 tl-syntax revision; semantic comparison comes from the exact tl-mltl revision
 that `Cargo.toml`, `Cargo.lock` and `src/lib.rs` all resolve, which
-`scripts/check_provenance.py` requires to agree on every run.
+`scripts/check_provenance.py` requires to agree on every run. Since issue #35 a
+renamed dev-dependency locks a second tl-syntax revision for test-only lowering
+controls; the check requires the production pin to be the revision tl-mltl
+compiles and every other locked revision to be one a dev-dependency declares.
 
 That revision used to be named by retained evidence instead. It is not any more:
 issue #13 deleted the retained records under the authority of
@@ -53,7 +56,9 @@ which is the defect `TC-030` exists to catch.
 
 ### Out of Scope
 
-- Text parsing, a second formula AST, or a general-purpose optimizer.
+- Text parsing in crate code, a second formula AST, or a general-purpose
+  optimizer. Test-only controls may parse through a pinned tl-parse
+  dev-dependency.
 - Derived temporal operators (W, M, or others) as nodes, rules, or evaluator
   branches; they exist only as tl-syntax lowering to primitive nodes.
 - Signal-schema ownership, contract-IR translation, or provenance inference.

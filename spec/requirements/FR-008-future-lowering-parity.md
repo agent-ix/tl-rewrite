@@ -5,6 +5,10 @@ type: FR
 relationships:
   - target: ix://agent-ix/tl-rewrite/StR-002
     type: implements
+  - target: ix://agent-ix/tl-rewrite/FR-002
+    type: depends_on
+  - target: ix://agent-ix/tl-rewrite/FR-004
+    type: depends_on
   - target: ix://agent-ix/tl-syntax/FR-008
     type: depends_on
   - target: ix://agent-ix/tl-syntax/FR-010
@@ -56,11 +60,11 @@ its own.
 
 | ID | Criteria | Verification |
 |---|---|---|
-| FR-008-AC-1 | For W and M over `[0,0]`, `[0,3]`, `[2,5]` and `[1,4]` intervals, distinct and shared operands, constant operands, negation, and both nesting orders, the rewrite report and the bounded conformance report of a lowered graph equal those of the direct primitive graph. | Test (TC-041) |
-| FR-008-AC-2 | Lowered and direct graphs give equal reports under each exhausted budget kind, the online-prefix profile refusal, and complete and incomplete signal catalogs, so profile, resource, and refusal identities are preserved. | Test (TC-042) |
-| FR-008-AC-3 | A clean-ascii/v2 parse of W/M text lowers to the direct graph's semantic view, names the expected lowering records, and gives span-insensitive rewrite and conformance identities equal to the direct graph's. | Test (TC-043) |
-| FR-008-AC-4 | Inspection of `src/` finds only the 12 canonical node kinds, only canonical rule families, and no derived-operator, lowering, or text front-end token, and the lowering crates are absent from production dependencies; the scanner flags synthetic violations. | Test (TC-044) |
-| FR-008-AC-5 | Lowering mutants that swap Until/Release, Or/And or Globally/Future, retarget or widen the unary node, change the profile, reorder generated nodes, add a node, or attribute spans each fail parity; semantic mutants reach a bounded counterexample, shape mutants change the input identity, and the span mutant keeps it. | Test (TC-045) |
+| FR-008-AC-1 | For W and M over `[0,0]`, `[0,3]`, `[2,5]`, `[1,4]` and `[u32::MAX,u32::MAX]` intervals, distinct and shared operands, constant operands, negation, and both nesting orders, the lowered graph is identical to the direct primitive graph, and its rewrite report and bounded conformance report are therefore equal to the direct graph's. | Test (TC-041) |
+| FR-008-AC-2 | The lowered graph is identical to the direct graph under each exhausted budget kind, the online-prefix profile refusal, and complete and incomplete signal catalogs, and the reports are equal, so profile, resource, and refusal identities are preserved. | Test (TC-042) |
+| FR-008-AC-3 | A clean-ascii/v2 parse of W/M text, including a nested W-over-M source, lowers to the direct graph's semantic view, names the expected lowering records, gives span-insensitive rewrite and conformance identities equal to the direct graph's, and an unparenthesized W/M chain does not equal the right-associated direct graph. | Test (TC-043) |
+| FR-008-AC-4 | Inspection of `src/` and `examples/` finds only the 12 canonical node kinds, only canonical rule families (confirmed against `catalog()`), and no derived-operator, lowering, Quire-language, FRETish, or text front-end token, and the lowering crates are absent from every production dependency section; the scanner flags each synthetic violation and passes a clean control. | Test (TC-044) |
+| FR-008-AC-5 | Lowering mutants that swap Until/Release, Or/And, Globally/Future, or the U/R operands, retarget, widen, narrow, or drop the unary node, change the profile, reorder generated nodes, add a node, or attribute spans each fail parity; semantic mutants reach a bounded counterexample, shape mutants change the input identity, and the span mutant keeps it. | Test (TC-045) |
 
 ## Dependencies
 

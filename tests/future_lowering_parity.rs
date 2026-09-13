@@ -8,7 +8,7 @@
 
 mod common;
 
-use std::{fs, path::PathBuf};
+use std::{fs, path::Path};
 
 use common::document;
 use tl_rewrite::{
@@ -64,17 +64,24 @@ fn derived(kind: Kind, start: u32, end: u32, left: Box<Expr>, right: Box<Expr>) 
 /// A wrong lowering, applied to the lowered side only.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Mutation {
-    None,
+    /// The correct lowering.
+    Identity,
     /// Until and Release exchanged.
     SwapUntilRelease,
     /// Or and And exchanged.
     SwapOrAnd,
     /// Globally and Future exchanged.
     SwapGloballyFuture,
+    /// The binary node's operands exchanged.
+    SwapOperands,
     /// The Globally/Future node quantifies the right operand.
     UnaryOverRight,
     /// The unary node's inclusive end bound is one past the binary node's.
     WidenedEndpoint,
+    /// The unary node's start bound is one later than the binary node's.
+    NarrowedStart,
+    /// The root joins the binary node with itself, dropping the unary side.
+    DroppedUnary,
     /// The lowered document claims the online-prefix profile.
     ChangedProfile,
     /// The unary node is generated before the binary node: same semantics, other graph.
@@ -85,24 +92,69 @@ enum Mutation {
     SpanAttribution,
 }
 
-/// Mutants that change the formula's meaning on at least one corpus case.
-const SEMANTIC_MUTATIONS: [Mutation; 5] = [
+/// What a mutant is expected to disturb.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum MutationClass {
+    /// Nothing: the reference lowering.
+    Identity,
+    /// The formula's meaning, on at least one corpus case.
+    Semantic,
+    /// The semantic profile, which the engine refuses.
+    Profile,
+    /// The graph or resource identity, with the meaning kept.
+    Shape,
+    /// Only diagnostic span attribution.
+    Span,
+}
+
+impl Mutation {
+    /// Exhaustive, so a new variant cannot compile until it is classified.
+    const fn class(self) -> MutationClass {
+        match self {
+            Self::Identity => MutationClass::Identity,
+            Self::SwapUntilRelease
+            | Self::SwapOrAnd
+            | Self::SwapGloballyFuture
+            | Self::SwapOperands
+            | Self::UnaryOverRight
+            | Self::WidenedEndpoint
+            | Self::NarrowedStart
+            | Self::DroppedUnary => MutationClass::Semantic,
+            Self::ChangedProfile => MutationClass::Profile,
+            Self::ReorderedGenerated | Self::ExtraCharge => MutationClass::Shape,
+            Self::SpanAttribution => MutationClass::Span,
+        }
+    }
+
+    /// Exhaustive position in [`ALL_MUTATIONS`], checked by TC-045.
+    const fn index(self) -> usize {
+        match self {
+            Self::Identity => usize::MAX,
+            Self::SwapUntilRelease => 0,
+            Self::SwapOrAnd => 1,
+            Self::SwapGloballyFuture => 2,
+            Self::SwapOperands => 3,
+            Self::UnaryOverRight => 4,
+            Self::WidenedEndpoint => 5,
+            Self::NarrowedStart => 6,
+            Self::DroppedUnary => 7,
+            Self::ChangedProfile => 8,
+            Self::ReorderedGenerated => 9,
+            Self::ExtraCharge => 10,
+            Self::SpanAttribution => 11,
+        }
+    }
+}
+
+const ALL_MUTATIONS: [Mutation; 12] = [
     Mutation::SwapUntilRelease,
     Mutation::SwapOrAnd,
     Mutation::SwapGloballyFuture,
+    Mutation::SwapOperands,
     Mutation::UnaryOverRight,
     Mutation::WidenedEndpoint,
-];
-
-/// Mutants that keep the meaning but change the graph or resource identity.
-const SHAPE_MUTATIONS: [Mutation; 2] = [Mutation::ReorderedGenerated, Mutation::ExtraCharge];
-
-const ALL_MUTATIONS: [Mutation; 9] = [
-    Mutation::SwapUntilRelease,
-    Mutation::SwapOrAnd,
-    Mutation::SwapGloballyFuture,
-    Mutation::UnaryOverRight,
-    Mutation::WidenedEndpoint,
+    Mutation::NarrowedStart,
+    Mutation::DroppedUnary,
     Mutation::ChangedProfile,
     Mutation::ReorderedGenerated,
     Mutation::ExtraCharge,
@@ -115,6 +167,10 @@ fn interval(start: u32, end: u32) -> Interval {
 
 fn node_id(index: usize) -> NodeId {
     NodeId(u32::try_from(index).unwrap())
+}
+
+fn lowering_node_id(index: usize) -> lowering::NodeId {
+    lowering::NodeId(node_id(index).0)
 }
 
 /// Builds the primitive graph by hand in the production `tl_syntax` model.
@@ -209,7 +265,27 @@ fn mutate(nodes: &mut [lowering::Node; 3], mutation: Mutation) {
 
     let [binary, unary, root] = nodes;
     match mutation {
-        Mutation::None | Mutation::ChangedProfile | Mutation::ExtraCharge => {}
+        Mutation::Identity | Mutation::ChangedProfile | Mutation::ExtraCharge => {}
+        Mutation::SwapOperands => match &mut binary.kind {
+            K::Until { left, right, .. } | K::Release { left, right, .. } => {
+                core::mem::swap(left, right);
+            }
+            other => panic!("unexpected lowered binary node {other:?}"),
+        },
+        // A singleton interval has no later start; the mutant is then the identity.
+        Mutation::NarrowedStart => match &mut unary.kind {
+            K::Globally { interval, .. } | K::Future { interval, .. } => {
+                if interval.start() < interval.end() {
+                    *interval =
+                        lowering::Interval::new(interval.start() + 1, interval.end()).unwrap();
+                }
+            }
+            other => panic!("unexpected lowered unary node {other:?}"),
+        },
+        Mutation::DroppedUnary => match &mut root.kind {
+            K::Or { left, right } | K::And { left, right } => *right = *left,
+            other => panic!("unexpected lowered root node {other:?}"),
+        },
         Mutation::SwapUntilRelease => {
             binary.kind = match binary.kind {
                 K::Until {
@@ -334,7 +410,7 @@ fn lowered(expr: &Expr, profile: SemanticProfile, mutation: Mutation) -> Formula
             }
         };
         nodes.push(lowering::Node::new(kind));
-        lowering::NodeId(u32::try_from(nodes.len() - 1).unwrap())
+        lowering_node_id(nodes.len() - 1)
     }
 
     fn lower(
@@ -346,8 +422,8 @@ fn lowered(expr: &Expr, profile: SemanticProfile, mutation: Mutation) -> Formula
         mutation: Mutation,
         nodes: &mut Vec<lowering::Node>,
     ) -> lowering::NodeId {
-        let root = node_id_u32(nodes.len() - 1);
-        let formula = lowering::Formula::new(profile, lowering::NodeId(root), nodes).unwrap();
+        let formula =
+            lowering::Formula::new(profile, lowering_node_id(nodes.len() - 1), nodes).unwrap();
         let expansion = lowering::FutureLoweringRequest {
             request_identity: lowering::FUTURE_LOWERING_REQUEST_V1.as_bytes(),
             operator_profile: lowering::FUTURE_OPERATORS_V1.as_bytes(),
@@ -370,15 +446,8 @@ fn lowered(expr: &Expr, profile: SemanticProfile, mutation: Mutation) -> Formula
         let mut generated = *expansion.nodes();
         mutate(&mut generated, mutation);
         nodes.extend(generated);
-        assert_eq!(
-            expansion.root(),
-            lowering::NodeId(node_id_u32(nodes.len() - 1))
-        );
+        assert_eq!(expansion.root(), lowering_node_id(nodes.len() - 1));
         expansion.root()
-    }
-
-    fn node_id_u32(index: usize) -> u32 {
-        u32::try_from(index).unwrap()
     }
 
     let wire_profile = if mutation == Mutation::ChangedProfile {
@@ -394,7 +463,7 @@ fn lowered(expr: &Expr, profile: SemanticProfile, mutation: Mutation) -> Formula
             left: root,
             right: root,
         }));
-        root = lowering::NodeId(node_id_u32(nodes.len() - 1));
+        root = lowering_node_id(nodes.len() - 1);
     }
     let source = lowering::FormulaDocument::new(wire_profile, root, nodes).unwrap();
     wire(&source)
@@ -527,37 +596,8 @@ fn outcomes(input: &FormulaDocument, propositions: &[u32]) -> Outcomes {
     }
 }
 
-/// The parity comparator the mutation controls must be able to fail.
-fn parity(
-    direct: &FormulaDocument,
-    lowered: &FormulaDocument,
-    propositions: &[u32],
-) -> Result<(), String> {
-    if direct != lowered {
-        return Err("the lowered graph differs from the direct graph".to_owned());
-    }
-    let direct = outcomes(direct, propositions);
-    let lowered = outcomes(lowered, propositions);
-    if direct.default != lowered.default {
-        return Err(format!(
-            "rewrite reports differ: {:?} / {:?}",
-            direct.default.status, lowered.default.status
-        ));
-    }
-    if direct.budgeted != lowered.budgeted {
-        return Err("budgeted rewrite reports differ".to_owned());
-    }
-    if direct.bound != lowered.bound || direct.unbound != lowered.unbound {
-        return Err("contextual rewrite reports differ".to_owned());
-    }
-    if direct.conformance != lowered.conformance {
-        return Err("conformance reports differ".to_owned());
-    }
-    Ok(())
-}
-
-/// Like [`parity`] but without the up-front graph comparison, so a mutant must
-/// be caught by the engine outcomes alone.
+/// Compares engine outcomes only. It never compares the graphs themselves, so
+/// a mutant must be caught by what the engine reports.
 fn outcome_parity(
     direct: &FormulaDocument,
     lowered: &FormulaDocument,
@@ -627,17 +667,25 @@ fn cases() -> Vec<Case> {
 fn lowered_graphs_rewrite_exactly_like_direct_primitive_graphs() {
     let mut statuses = Vec::new();
     for case in cases() {
-        let direct = direct(&case.expr, SemanticProfile::ClosedTraceV1);
-        let lowered = lowered(&case.expr, SemanticProfile::ClosedTraceV1, Mutation::None);
+        let hand = direct(&case.expr, SemanticProfile::ClosedTraceV1);
+        let generated = lowered(
+            &case.expr,
+            SemanticProfile::ClosedTraceV1,
+            Mutation::Identity,
+        );
+        // The discriminating evidence: the lowering decodes into the production
+        // 12-kind model as the same graph, spans included. Equal reports then
+        // follow from deterministic rewriting and are checked as well.
+        assert_eq!(generated, hand, "{}", case.name);
         assert_eq!(
-            parity(&direct, &lowered, case.propositions),
+            outcome_parity(&hand, &generated, case.propositions),
             Ok(()),
             "{}",
             case.name
         );
 
         let report = rewrite(
-            &direct,
+            &hand,
             FORMULA_ID,
             RewriteOptions::default(),
             SOURCE_REVISION,
@@ -647,21 +695,46 @@ fn lowered_graphs_rewrite_exactly_like_direct_primitive_graphs() {
             "{}",
             case.name
         );
-        if let Some(output) = report.output.as_ref() {
-            let conformance =
-                check_equivalence(&direct, output, FORMULA_ID, ConformanceOptions::default());
-            assert_eq!(
-                conformance.status,
-                ConformanceStatus::Equivalent,
-                "{}",
-                case.name
-            );
-        }
+        let Some(output) = report.output.as_ref() else {
+            panic!("{}: {:?} carries no output", case.name, report.status);
+        };
+        let conformance =
+            check_equivalence(&hand, output, FORMULA_ID, ConformanceOptions::default());
+        assert_eq!(
+            conformance.status,
+            ConformanceStatus::Equivalent,
+            "{}",
+            case.name
+        );
         statuses.push(report.status);
     }
     // The corpus exercises both a no-op and a rewriting outcome.
     assert!(statuses.contains(&RewriteStatus::Unchanged));
     assert!(statuses.contains(&RewriteStatus::Normalized));
+
+    // The widest representable interval. Exhaustive conformance is out of reach at
+    // this horizon, so graph and rewrite-report parity are compared.
+    for kind in [Kind::W, Kind::M] {
+        let expr = derived(kind, u32::MAX, u32::MAX, prop(0), prop(1));
+        let hand = direct(&expr, SemanticProfile::ClosedTraceV1);
+        let generated = lowered(&expr, SemanticProfile::ClosedTraceV1, Mutation::Identity);
+        assert_eq!(generated, hand, "{kind:?}[u32::MAX,u32::MAX]");
+        assert_eq!(
+            rewrite(
+                &generated,
+                FORMULA_ID,
+                RewriteOptions::default(),
+                SOURCE_REVISION
+            ),
+            rewrite(
+                &hand,
+                FORMULA_ID,
+                RewriteOptions::default(),
+                SOURCE_REVISION
+            ),
+            "{kind:?}[u32::MAX,u32::MAX]"
+        );
+    }
 }
 
 // Trace: TC-042, FR-008-AC-2
@@ -670,10 +743,15 @@ fn lowered_graphs_preserve_profile_resource_and_refusal_identities() {
     let mut exhausted = Vec::new();
     let mut unresolved = 0;
     for case in cases() {
-        let direct = direct(&case.expr, SemanticProfile::ClosedTraceV1);
-        let lowered = lowered(&case.expr, SemanticProfile::ClosedTraceV1, Mutation::None);
-        let expected = outcomes(&direct, case.propositions);
-        let observed = outcomes(&lowered, case.propositions);
+        let hand = direct(&case.expr, SemanticProfile::ClosedTraceV1);
+        let generated = lowered(
+            &case.expr,
+            SemanticProfile::ClosedTraceV1,
+            Mutation::Identity,
+        );
+        assert_eq!(generated, hand, "{}", case.name);
+        let expected = outcomes(&hand, case.propositions);
+        let observed = outcomes(&generated, case.propositions);
         assert_eq!(observed, expected, "{}", case.name);
 
         for report in &observed.budgeted {
@@ -697,16 +775,21 @@ fn lowered_graphs_preserve_profile_resource_and_refusal_identities() {
         );
 
         // Online-prefix input is refused identically on both paths.
-        let direct = self::direct(&case.expr, SemanticProfile::OnlinePrefixV1);
-        let lowered = self::lowered(&case.expr, SemanticProfile::OnlinePrefixV1, Mutation::None);
+        let hand = direct(&case.expr, SemanticProfile::OnlinePrefixV1);
+        let generated = lowered(
+            &case.expr,
+            SemanticProfile::OnlinePrefixV1,
+            Mutation::Identity,
+        );
+        assert_eq!(generated, hand, "{}", case.name);
         let expected = rewrite(
-            &direct,
+            &hand,
             FORMULA_ID,
             RewriteOptions::default(),
             SOURCE_REVISION,
         );
         let observed = rewrite(
-            &lowered,
+            &generated,
             FORMULA_ID,
             RewriteOptions::default(),
             SOURCE_REVISION,
@@ -765,8 +848,23 @@ fn clean_ascii_v2_parses_rewrite_like_direct_primitive_graphs() {
             ],
             &[0, 1, 2][..],
         ),
+        (
+            "p2 W[0,2] (p0 M[0,1] p1)",
+            derived(
+                Kind::W,
+                0,
+                2,
+                prop(2),
+                derived(Kind::M, 0, 1, prop(0), prop(1)),
+            ),
+            vec![
+                (DerivedOperator::StrongRelease, 3, 5),
+                (DerivedOperator::WeakUntil, 6, 8),
+            ],
+            &[2, 0, 1][..],
+        ),
     ];
-    for (source, expr, lowerings, propositions) in parsed {
+    let parse = |source: &str| {
         let report = parse_clean_ascii_v2(
             source,
             LoweringProfile::ClosedTraceV1,
@@ -777,6 +875,10 @@ fn clean_ascii_v2_parses_rewrite_like_direct_primitive_graphs() {
             "{source}: {:?}",
             report.diagnostics
         );
+        report
+    };
+    for (source, expr, lowerings, propositions) in parsed {
+        let report = parse(source);
         assert_eq!(
             report
                 .lowerings
@@ -787,15 +889,15 @@ fn clean_ascii_v2_parses_rewrite_like_direct_primitive_graphs() {
             "{source}"
         );
         let parsed = wire(report.document.as_ref().unwrap());
-        let direct = direct(&expr, SemanticProfile::ClosedTraceV1);
+        let hand = direct(&expr, SemanticProfile::ClosedTraceV1);
         // The parser attaches diagnostic spans; the semantic graph is the same.
         assert!(
             parsed.nodes().iter().all(|node| node.span.is_some()),
             "{source}"
         );
-        assert_eq!(parsed.semantic_view(), direct.semantic_view(), "{source}");
+        assert_eq!(parsed.semantic_view(), hand.semantic_view(), "{source}");
 
-        let expected = outcomes(&direct, propositions);
+        let expected = outcomes(&hand, propositions);
         let observed = outcomes(&parsed, propositions);
         for (expected, observed) in [
             (&expected.default, &observed.default),
@@ -820,6 +922,23 @@ fn clean_ascii_v2_parses_rewrite_like_direct_primitive_graphs() {
         };
         assert_eq!(conformance(&observed), conformance(&expected), "{source}");
     }
+
+    // Associativity control: the unparenthesized chain is left-associative, so the
+    // right-associated graph must not match it, while its parenthesized spelling does.
+    let right_associated = direct(
+        &derived(
+            Kind::W,
+            0,
+            1,
+            prop(0),
+            derived(Kind::M, 1, 2, prop(1), prop(2)),
+        ),
+        SemanticProfile::ClosedTraceV1,
+    );
+    let chain = wire(parse("p0 W[0,1] p1 M[1,2] p2").document.as_ref().unwrap());
+    assert_ne!(chain.semantic_view(), right_associated.semantic_view());
+    let grouped = wire(parse("p0 W[0,1] (p1 M[1,2] p2)").document.as_ref().unwrap());
+    assert_eq!(grouped.semantic_view(), right_associated.semantic_view());
 }
 
 /// The span-insensitive identity of a rewrite report (FR-002-AC-4).
@@ -869,10 +988,14 @@ const CANONICAL_RULE_FAMILIES: [&str; 9] = [
     "release",
 ];
 
-/// Spellings that would name a derived operator, its lowering, or a text front end.
-const FORBIDDEN_TOKENS: [&str; 12] = [
+/// Spellings that would name a derived operator, its lowering, or a text front
+/// end (Quire language, FRETish, clean-ascii). Matched case-insensitively.
+/// A bare "quire" is not listed because it occurs inside "requirement".
+const FORBIDDEN_TOKENS: [&str; 22] = [
     "weak",
     "strong",
+    "unless",
+    "desugar",
     "lowering",
     "futurekind",
     "future_kind",
@@ -880,10 +1003,21 @@ const FORBIDDEN_TOKENS: [&str; 12] = [
     "future-operators",
     "derived operator",
     "derived_operator",
+    "derived-operator",
+    "derivedoperator",
     "tl_parse",
+    "tl-parse",
     "clean-ascii",
+    "clean_ascii",
     "fretish",
+    "quire_language",
+    "quire-language",
+    "quire language",
+    "quire::",
 ];
+
+/// The rule-id prefixes the catalog uses for primitive families.
+const RULE_PREFIXES: [&str; 3] = ["bool", "neg", "temporal"];
 
 /// Reports every derived-operator branch the source text could hold.
 fn derived_branch_violations(path: &str, text: &str) -> Vec<String> {
@@ -899,6 +1033,10 @@ fn derived_branch_violations(path: &str, text: &str) -> Vec<String> {
             violations.push(format!("{path}: derived operator spelling {spelling}"));
         }
     }
+    // An alias would hide variants from the `NodeKind::` check below.
+    if text.contains("NodeKind as") {
+        violations.push(format!("{path}: aliased NodeKind"));
+    }
     for (index, _) in text.match_indices("NodeKind::") {
         let variant = text[index + "NodeKind::".len()..]
             .chars()
@@ -908,24 +1046,25 @@ fn derived_branch_violations(path: &str, text: &str) -> Vec<String> {
             violations.push(format!("{path}: non-canonical NodeKind::{variant}"));
         }
     }
-    for literal in text.split('"').skip(1).step_by(2) {
-        let mut segments = literal.split('.');
-        let (Some(prefix), Some(family), Some(_)) =
-            (segments.next(), segments.next(), segments.next())
-        else {
-            continue;
-        };
-        if ["bool", "neg", "temporal"].contains(&prefix)
-            && !CANONICAL_RULE_FAMILIES.contains(&family)
-        {
-            violations.push(format!("{path}: non-canonical rule family {literal:?}"));
+    // Each rule-shaped literal is read from its own opening quote, so a stray
+    // quote elsewhere cannot shift which spans are treated as literals.
+    for prefix in RULE_PREFIXES {
+        let opening = format!("\"{prefix}.");
+        for (index, _) in text.match_indices(&opening) {
+            let literal = text[index + 1..].split('"').next().unwrap_or_default();
+            let family = literal.split('.').nth(1).unwrap_or_default();
+            if !CANONICAL_RULE_FAMILIES.contains(&family) {
+                violations.push(format!("{path}: non-canonical rule family {literal:?}"));
+            }
         }
     }
     violations
 }
 
+/// Every `.rs` file under `src/` and `examples/`, the engine and the producers
+/// that feed the gates.
 fn crate_sources() -> Vec<(String, String)> {
-    fn walk(directory: &PathBuf, files: &mut Vec<(String, String)>) {
+    fn walk(directory: &Path, files: &mut Vec<(String, String)>) {
         let mut entries = fs::read_dir(directory)
             .unwrap()
             .map(|entry| entry.unwrap().path())
@@ -942,22 +1081,53 @@ fn crate_sources() -> Vec<(String, String)> {
     }
 
     let mut files = Vec::new();
-    walk(
-        &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src"),
-        &mut files,
-    );
+    for directory in ["src", "examples"] {
+        walk(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join(directory),
+            &mut files,
+        );
+    }
     files
+}
+
+/// The manifest's non-dev dependency sections, each as its header and body.
+fn production_dependency_sections(manifest: &str) -> Vec<String> {
+    let mut sections = Vec::new();
+    let mut current: Option<String> = None;
+    for line in manifest.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('[') {
+            sections.extend(current.take());
+            let header = trimmed.to_ascii_lowercase();
+            let production = (header.contains("dependencies") || header.contains("dependency"))
+                && !header.contains("dev-dependencies")
+                && !header.contains("dev_dependencies");
+            if production {
+                current = Some(format!("{trimmed}\n"));
+            }
+        } else if let Some(section) = current.as_mut() {
+            section.push_str(line);
+            section.push('\n');
+        }
+    }
+    sections.extend(current);
+    sections
 }
 
 // Trace: TC-044, FR-008-AC-4
 #[test]
 fn engine_source_has_no_derived_operator_branch() {
     let sources = crate_sources();
-    assert!(
-        sources.len() >= 5,
-        "src/ scan found {} files",
-        sources.len()
-    );
+    for directory in ["/src/", "/examples/"] {
+        assert!(
+            sources
+                .iter()
+                .filter(|(path, _)| path.contains(directory))
+                .count()
+                >= 3,
+            "the {directory} scan is nearly empty"
+        );
+    }
     let violations = sources
         .iter()
         .flat_map(|(path, text)| derived_branch_violations(path, text))
@@ -976,75 +1146,159 @@ fn engine_source_has_no_derived_operator_branch() {
         assert!(all.contains(&format!(".{family}.")), "{family}");
     }
 
-    // The lowering lane is reachable from tests only.
+    // The executable catalog names only primitive families. `west.*` rules are
+    // the retained, excluded nested Until/Release rewrites.
+    for rule in tl_rewrite::catalog().rules {
+        let mut segments = rule.id.split('.');
+        let (prefix, family) = (segments.next().unwrap(), segments.next().unwrap());
+        match prefix {
+            "west" => assert!(
+                ["nested-until-right", "nested-release-right"].contains(&family),
+                "{}",
+                rule.id
+            ),
+            _ => {
+                assert!(RULE_PREFIXES.contains(&prefix), "{}", rule.id);
+                assert!(CANONICAL_RULE_FAMILIES.contains(&family), "{}", rule.id);
+            }
+        }
+    }
+
+    // The lowering lane is reachable from tests only: no non-dev dependency
+    // section, in any table form, names it, and the production tl-syntax pin is
+    // the revision the crate publishes.
     let manifest =
-        fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml")).unwrap();
-    let production = manifest
-        .split("\n[dependencies]\n")
-        .nth(1)
-        .and_then(|rest| rest.split("\n[").next())
-        .unwrap();
-    assert!(production.contains("tl-syntax = "));
+        fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml")).unwrap();
+    let production = production_dependency_sections(&manifest);
+    let joined = production.concat();
+    assert!(
+        joined.contains(&format!("rev = \"{}\"", tl_rewrite::TL_SYNTAX_REVISION)),
+        "{joined}"
+    );
     for lane in [
         "tl-parse",
         "tl-syntax-lowering",
         "8dc18eec5af227f484170362c9e8894b8531a27d",
+        "9ca856b4c040fc2c3329b6defd26a1c9b57de748",
     ] {
-        assert!(
-            !production.contains(lane),
-            "production dependency on {lane}"
-        );
+        assert!(!joined.contains(lane), "production dependency on {lane}");
     }
+    let synthetic_manifest = "[package]\nname = \"x\"\n\n[dependencies]\ntl-syntax = \"1\"\n\n\
+        [dev-dependencies]\ntl-parse = \"1\"\n\n[dependencies.tl-syntax-lowering]\nrev = \"a\"\n\n\
+        [target.'cfg(unix)'.dependencies]\nfoo = \"1\"\n\n[build-dependencies]\nbar = \"1\"\n";
+    let sections = production_dependency_sections(synthetic_manifest);
+    assert_eq!(sections.len(), 4, "{sections:?}");
+    assert!(!sections.concat().contains("tl-parse"));
+    assert!(sections.concat().contains("tl-syntax-lowering"));
 
-    // The scanner itself flags each class of derived branch.
-    for synthetic in [
-        "NodeKind::WeakUntil { .. } => {}",
-        "match kind { \"W\" => until() }",
-        "const RULE: &str = \"temporal.strong-release.lower\";",
-        "fn lower_future_kind() {}",
-        "use tl_parse::parse;",
-        "let rule = \"neg.weakuntil.dual\";",
+    // The scanner itself flags each class of derived branch. Each synthetic input
+    // is caught by exactly the named check, so no check is covered only by another.
+    for (synthetic, expected) in [
+        (
+            "NodeKind::Next { .. } => {}",
+            "synthetic.rs: non-canonical NodeKind::Next",
+        ),
+        (
+            "use tl_syntax::NodeKind as K;",
+            "synthetic.rs: aliased NodeKind",
+        ),
+        (
+            "match kind { \"W\" => until() }",
+            "synthetic.rs: derived operator spelling \"W\"",
+        ),
+        (
+            "let quote = '\"'; const RULE: &str = \"temporal.next.dual\";",
+            "synthetic.rs: non-canonical rule family \"temporal.next.dual\"",
+        ),
+        (
+            "let rule = \"neg.xor.dual\";",
+            "synthetic.rs: non-canonical rule family \"neg.xor.dual\"",
+        ),
+        (
+            "fn lower_future_kind() {}",
+            "synthetic.rs: forbidden token \"future_kind\"",
+        ),
+        (
+            "use tl_parse::parse;",
+            "synthetic.rs: forbidden token \"tl_parse\"",
+        ),
+        (
+            "enum DerivedOperator {}",
+            "synthetic.rs: forbidden token \"derivedoperator\"",
+        ),
+        (
+            "fn read_quire_language() {}",
+            "synthetic.rs: forbidden token \"quire_language\"",
+        ),
+        (
+            "mod fretish_front_end {}",
+            "synthetic.rs: forbidden token \"fretish\"",
+        ),
+        (
+            "fn desugar_unless() {}",
+            "synthetic.rs: forbidden token \"unless\"",
+        ),
     ] {
+        let violations = derived_branch_violations("synthetic.rs", synthetic);
         assert!(
-            !derived_branch_violations("synthetic.rs", synthetic).is_empty(),
-            "{synthetic}"
+            violations.iter().any(|violation| violation == expected),
+            "{synthetic}: {violations:?}"
         );
     }
-    assert!(derived_branch_violations(
-        "synthetic.rs",
-        "NodeKind::Until { .. } => \"temporal.until.singleton\""
-    )
-    .is_empty());
+    assert_eq!(
+        derived_branch_violations(
+            "synthetic.rs",
+            "NodeKind::Until { .. } => \"temporal.until.singleton\" // requirement"
+        ),
+        Vec::<String>::new()
+    );
 }
 
 // Trace: TC-045, FR-008-AC-5
 #[test]
 fn wrong_lowering_and_identity_mutants_fail_parity() {
+    // The mutant list is the enum, in order, with nothing left out.
+    for (position, mutation) in ALL_MUTATIONS.into_iter().enumerate() {
+        assert_eq!(mutation.index(), position, "{mutation:?}");
+        assert_ne!(mutation.class(), MutationClass::Identity, "{mutation:?}");
+    }
+    assert_eq!(Mutation::Identity.class(), MutationClass::Identity);
+
     let cases = cases();
     for mutation in ALL_MUTATIONS {
+        let class = mutation.class();
+        let mut changed = false;
         let mut mismatched = false;
         for case in &cases {
-            let direct = direct(&case.expr, SemanticProfile::ClosedTraceV1);
+            let hand = direct(&case.expr, SemanticProfile::ClosedTraceV1);
             let mutant = lowered(&case.expr, SemanticProfile::ClosedTraceV1, mutation);
-            if mutant == direct {
-                // Quantifying the right operand is the identity when both operands are one node.
-                assert_eq!(
-                    (mutation, case.name),
-                    (Mutation::UnaryOverRight, "shared operand")
+            if mutant == hand {
+                // Where both operands are one node, retargeting or exchanging them is
+                // the identity; a singleton interval has no later start.
+                let expected_identity = match mutation {
+                    Mutation::UnaryOverRight | Mutation::SwapOperands => {
+                        case.name == "shared operand"
+                    }
+                    Mutation::NarrowedStart => {
+                        ["distinct propositions", "negated derived expression"].contains(&case.name)
+                    }
+                    _ => false,
+                };
+                assert!(
+                    expected_identity,
+                    "{mutation:?} is the identity on {}",
+                    case.name
                 );
                 continue;
             }
+            changed = true;
+            // The comparator sees engine outcomes only, never the graphs.
             assert!(
-                parity(&direct, &mutant, case.propositions).is_err(),
-                "{mutation:?} survived the parity comparator on {}",
-                case.name
-            );
-            assert!(
-                outcome_parity(&direct, &mutant, case.propositions).is_err(),
+                outcome_parity(&hand, &mutant, case.propositions).is_err(),
                 "{mutation:?} survived the engine outcomes on {}",
                 case.name
             );
-            if mutation == Mutation::ChangedProfile {
+            if class == MutationClass::Profile {
                 let report = rewrite(
                     &mutant,
                     FORMULA_ID,
@@ -1055,11 +1309,11 @@ fn wrong_lowering_and_identity_mutants_fail_parity() {
                 continue;
             }
             let conformance =
-                check_equivalence(&direct, &mutant, FORMULA_ID, ConformanceOptions::default());
+                check_equivalence(&hand, &mutant, FORMULA_ID, ConformanceOptions::default());
             if conformance.status == ConformanceStatus::Mismatch {
                 mismatched = true;
             }
-            if SEMANTIC_MUTATIONS.contains(&mutation) {
+            if class == MutationClass::Semantic {
                 continue;
             }
             // Same semantics: only the identity and resource checks catch these.
@@ -1068,8 +1322,8 @@ fn wrong_lowering_and_identity_mutants_fail_parity() {
                 ConformanceStatus::Equivalent,
                 "{mutation:?}"
             );
-            let direct_report = rewrite(
-                &direct,
+            let hand_report = rewrite(
+                &hand,
                 FORMULA_ID,
                 RewriteOptions::default(),
                 SOURCE_REVISION,
@@ -1080,21 +1334,28 @@ fn wrong_lowering_and_identity_mutants_fail_parity() {
                 RewriteOptions::default(),
                 SOURCE_REVISION,
             );
-            if SHAPE_MUTATIONS.contains(&mutation) {
-                assert_ne!(mutant_report.input_sha256, direct_report.input_sha256);
-            } else {
-                // Diagnostic spans never enter formula identity (FR-002-AC-4), but the
-                // span-bearing report still differs, so attribution drift is observable.
-                assert_eq!(mutation, Mutation::SpanAttribution);
-                assert_eq!(mutant_report.input_sha256, direct_report.input_sha256);
-                assert_eq!(mutant_report.output_sha256, direct_report.output_sha256);
-                assert_ne!(mutant_report, direct_report);
+            match class {
+                MutationClass::Shape => {
+                    assert_ne!(mutant_report.input_sha256, hand_report.input_sha256);
+                }
+                MutationClass::Span => {
+                    // Diagnostic spans never enter formula identity (FR-002-AC-4), but
+                    // the span-bearing report still differs, so attribution drift is
+                    // observable.
+                    assert_eq!(mutant_report.input_sha256, hand_report.input_sha256);
+                    assert_eq!(mutant_report.output_sha256, hand_report.output_sha256);
+                    assert_ne!(mutant_report, hand_report);
+                }
+                MutationClass::Identity | MutationClass::Semantic | MutationClass::Profile => {
+                    unreachable!("{mutation:?}")
+                }
             }
             if mutation == Mutation::ExtraCharge {
-                assert_ne!(mutant_report.work_units, direct_report.work_units);
+                assert_ne!(mutant_report.work_units, hand_report.work_units);
             }
         }
-        if SEMANTIC_MUTATIONS.contains(&mutation) {
+        assert!(changed, "{mutation:?} never changed a corpus graph");
+        if class == MutationClass::Semantic {
             assert!(
                 mismatched,
                 "{mutation:?} never changed semantics over the corpus"
@@ -1102,10 +1363,14 @@ fn wrong_lowering_and_identity_mutants_fail_parity() {
         }
     }
 
-    // The unmutated lowering passes the same comparators.
+    // The reference lowering passes the same comparator.
     for case in &cases {
-        let direct = direct(&case.expr, SemanticProfile::ClosedTraceV1);
-        let lowered = lowered(&case.expr, SemanticProfile::ClosedTraceV1, Mutation::None);
-        assert_eq!(outcome_parity(&direct, &lowered, case.propositions), Ok(()));
+        let hand = direct(&case.expr, SemanticProfile::ClosedTraceV1);
+        let generated = lowered(
+            &case.expr,
+            SemanticProfile::ClosedTraceV1,
+            Mutation::Identity,
+        );
+        assert_eq!(outcome_parity(&hand, &generated, case.propositions), Ok(()));
     }
 }

@@ -2,7 +2,7 @@
 id: Task-002
 title: "Validate and review the candidate"
 type: Task
-status: in_progress
+status: done
 track: A
 priority: P0
 relationships:
@@ -10,6 +10,14 @@ relationships:
     type: depends_on
   - target: ix://agent-ix/tl-rewrite/FR-008
     type: references
+  - target: ix://agent-ix/tl-rewrite/TC-041
+    type: verifies
+  - target: ix://agent-ix/tl-rewrite/TC-042
+    type: verifies
+  - target: ix://agent-ix/tl-rewrite/TC-043
+    type: verifies
+  - target: ix://agent-ix/tl-rewrite/TC-044
+    type: verifies
   - target: ix://agent-ix/tl-rewrite/TC-045
     type: verifies
 ---
@@ -22,10 +30,10 @@ reviews, fix their findings, and rerun the gate at the exact pushed head.
 
 ## Subtasks
 
-- [ ] Run strict Quire validation and coverage and the complete `make ci` gate.
-- [ ] Open the pull request referencing #35.
-- [ ] Run `rust-review` and `gap-analysis` and fix every verified finding.
-- [ ] Rerun the gate at the exact head and record the result on the PR.
+- [x] Run strict Quire validation and coverage and the complete `make ci` gate.
+- [x] Open the pull request referencing #35.
+- [x] Run `rust-review` and `gap-analysis` and fix every verified finding.
+- [x] Rerun the gate at the exact head and record the result on the PR.
 
 ## Deliverables
 
