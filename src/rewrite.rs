@@ -2,11 +2,13 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{de::Error as _, Deserialize, Serialize};
 use tl_syntax::{
-    Formula, FormulaBindingError, FormulaDocument, Node, NodeId, NodeKind,
+    Formula, FormulaBindingError, FormulaDocument, FormulaSchemaVersion, Node, NodeId, NodeKind,
     RequirementContextDocument, SemanticProfile, SignalCatalog, SignalCatalogDocument, SourceSpan,
 };
 
-use crate::{catalog, hash::sha256_bytes, hash::sha256_json, TL_SYNTAX_REVISION};
+use crate::{
+    catalog::catalog_for_profile, hash::sha256_bytes, hash::sha256_json, TL_SYNTAX_REVISION,
+};
 
 /// Stable rewrite traversal strategy.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -468,13 +470,18 @@ fn operands(kind: NodeKind) -> [Option<NodeId>; 2] {
     match kind {
         NodeKind::Not { operand }
         | NodeKind::Future { operand, .. }
-        | NodeKind::Globally { operand, .. } => [Some(operand), None],
+        | NodeKind::Globally { operand, .. }
+        | NodeKind::Once { operand, .. }
+        | NodeKind::Historically { operand, .. }
+        | NodeKind::StrongPrevious { operand } => [Some(operand), None],
         NodeKind::And { left, right }
         | NodeKind::Or { left, right }
         | NodeKind::Implies { left, right }
         | NodeKind::Equivalent { left, right }
         | NodeKind::Until { left, right, .. }
-        | NodeKind::Release { left, right, .. } => [Some(left), Some(right)],
+        | NodeKind::Release { left, right, .. }
+        | NodeKind::Since { left, right, .. }
+        | NodeKind::Triggered { left, right, .. } => [Some(left), Some(right)],
         NodeKind::False | NodeKind::True | NodeKind::Proposition { .. } => [None, None],
     }
 }
@@ -556,12 +563,18 @@ fn compact_document(input: &FormulaDocument) -> Option<FormulaDocument> {
         };
         mapped[index] = id;
     }
-    FormulaDocument::new(
-        input.semantic_profile(),
-        mapped[input.root().0 as usize],
-        nodes,
-    )
-    .ok()
+    rebuild_document(input, mapped[input.root().0 as usize], nodes).ok()
+}
+
+fn rebuild_document(
+    input: &FormulaDocument,
+    root: NodeId,
+    nodes: Vec<Node>,
+) -> Result<FormulaDocument, tl_syntax::FormulaError> {
+    match input.schema_version() {
+        FormulaSchemaVersion::V1 => FormulaDocument::new(input.semantic_profile(), root, nodes),
+        FormulaSchemaVersion::V2 => FormulaDocument::new_v2(input.semantic_profile(), root, nodes),
+    }
 }
 
 fn remap(kind: NodeKind, mapped: &[NodeId]) -> NodeKind {
@@ -611,6 +624,35 @@ fn remap(kind: NodeKind, mapped: &[NodeId]) -> NodeKind {
             left,
             right,
         } => NodeKind::Release {
+            interval,
+            left: id(left),
+            right: id(right),
+        },
+        NodeKind::Once { interval, operand } => NodeKind::Once {
+            interval,
+            operand: id(operand),
+        },
+        NodeKind::Historically { interval, operand } => NodeKind::Historically {
+            interval,
+            operand: id(operand),
+        },
+        NodeKind::StrongPrevious { operand } => NodeKind::StrongPrevious {
+            operand: id(operand),
+        },
+        NodeKind::Since {
+            interval,
+            left,
+            right,
+        } => NodeKind::Since {
+            interval,
+            left: id(left),
+            right: id(right),
+        },
+        NodeKind::Triggered {
+            interval,
+            left,
+            right,
+        } => NodeKind::Triggered {
             interval,
             left: id(left),
             right: id(right),
@@ -708,6 +750,30 @@ fn apply_not(
             )?;
             Ok(Some(("neg.release.dual", 1, output)))
         }
+        NodeKind::Since {
+            interval,
+            left,
+            right,
+        } => match (state.kind(left), state.kind(right)) {
+            (
+                NodeKind::Not {
+                    operand: inner_left,
+                },
+                NodeKind::Not {
+                    operand: inner_right,
+                },
+            ) => applied_kind(
+                state,
+                "past.triggered.fold-dual",
+                NodeKind::Triggered {
+                    interval,
+                    left: inner_left,
+                    right: inner_right,
+                },
+                span,
+            ),
+            _ => Ok(None),
+        },
         _ => Ok(None),
     }
 }
@@ -867,6 +933,14 @@ fn apply_first(
             },
             span,
         ),
+        NodeKind::Once { interval, operand } if interval.start() == 1 && interval.end() == 1 => {
+            applied_kind(
+                state,
+                "past.once.strong-previous",
+                NodeKind::StrongPrevious { operand },
+                span,
+            )
+        }
         _ => Ok(None),
     }
 }
@@ -960,7 +1034,7 @@ fn build_pass(
             intermediate_sha256: rolling.clone(),
         });
     }
-    let document = FormulaDocument::new(input.semantic_profile(), root, state.nodes.clone())
+    let document = rebuild_document(input, root, state.nodes.clone())
         .map_err(|_| Abort::Budget(BudgetKind::Nodes))?;
     let compacted = compact_document(&document).ok_or(Abort::Budget(BudgetKind::Nodes))?;
     if compacted.nodes().len() > state.budgets.max_nodes as usize {
@@ -983,7 +1057,7 @@ fn report_base(
     options: RewriteOptions,
     source_revision: String,
 ) -> RewriteReport {
-    let catalog_sha256 = catalog().catalog_sha256;
+    let catalog_sha256 = catalog_for_profile(input.semantic_profile()).catalog_sha256;
     let request_sha256 = sha256_json(&(
         input.semantic_view(),
         &formula_id,
@@ -1025,7 +1099,7 @@ fn contextual_report_base(
     signal_catalog: &SignalCatalogDocument,
     requirement_context: Option<RequirementContextDocument>,
 ) -> RewriteReport {
-    let catalog_sha256 = catalog().catalog_sha256;
+    let catalog_sha256 = catalog_for_profile(input.semantic_profile()).catalog_sha256;
     let signal_catalog_sha256 = sha256_json(signal_catalog);
     let request_sha256 = sha256_json(&(
         "tl-rewrite.contextual-request/v2",
@@ -1171,10 +1245,13 @@ where
         &mut String,
     ) -> Result<FormulaDocument, Abort>,
 {
-    if input.semantic_profile() != SemanticProfile::ClosedTraceV1 {
+    if !matches!(
+        input.semantic_profile(),
+        SemanticProfile::ClosedTraceV1 | SemanticProfile::OriginCompleteHistoryV1
+    ) {
         report.status = RewriteStatus::UnsupportedProfile;
         report.detail = Some(
-            "the v1 rule catalog is enabled only for mltl.closed-trace/v1; online-prefix evidence remains pending"
+            "rewrite catalogs are enabled only for mltl.closed-trace/v1 and mltl.origin-complete-history/v1; online-prefix inputs are refused"
                 .to_owned(),
         );
         return report;

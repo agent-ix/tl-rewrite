@@ -17,22 +17,22 @@ path = "src/lib.rs"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
-tl-mltl = { git = "https://github.com/agent-ix/tl-mltl.git", rev = "4bff3871ea0d157afd8de8b8c18c7954f0a7d184" }
-tl-syntax = { git = "https://github.com/agent-ix/tl-syntax.git", rev = "26b801d4a68ebfe720062cfdb3c66b070ab60e92", default-features = false, features = ["alloc", "serde"] }
+tl-mltl = { git = "https://github.com/agent-ix/tl-mltl.git", rev = "b346cd0902794633e862f644a5575fc9776c34fb" }
+tl-syntax = { git = "https://github.com/agent-ix/tl-syntax.git", rev = "e70f2379a752117c79603bc399a86c26feed7716", default-features = false, features = ["alloc", "serde"] }
 
 [dev-dependencies]
 proptest = "=1.5.0"
 serde_yaml_ng = "0.10"
 tempfile = "=3.10.1"
-tl-parse = { git = "https://github.com/agent-ix/tl-parse.git", rev = "a5c9de3ba75af6a3b5937130ddfb9f131e8e5860" }
-# Test-only W/M lowering lane (FR-008, agent-ix/tl-rewrite#35). These carry the
-# tl-syntax future-operator lowering and the tl-parse clean-ascii/v2 parser. The
-# rename is required because Cargo cannot hold two revisions of one package under
-# one name; crate code cannot reach either because dev-dependencies are not in
-# scope for `src/`. Lowered graphs cross into the production tl-syntax type only
-# through the formula v1 wire document. The production tl-syntax pin stays where
-# tl-mltl's is until tl-mltl consumes the lowering revision, and
-# scripts/check_provenance.py enforces that split.
+tl-parse = { git = "https://github.com/agent-ix/tl-parse.git", rev = "f82b0c724675c0f774415aa696c360959da30481" }
+# Test-only W/M lowering lane (FR-008, agent-ix/tl-rewrite#35). These preserve
+# the exact historical dependencies against which the future-lowering parity
+# corpus was authored. The rename is required because Cargo cannot hold two
+# revisions of one package under one name; crate code cannot reach either
+# because dev-dependencies are not in scope for `src/`. Lowered graphs cross
+# into the current production tl-syntax type only through formula-v1 wire bytes.
+# scripts/check_provenance.py enforces that every additional locked revision is
+# explicitly declared here and cannot masquerade as the production dependency.
 tl-parse-derived = { package = "tl-parse", git = "https://github.com/agent-ix/tl-parse.git", rev = "9ca856b4c040fc2c3329b6defd26a1c9b57de748" }
 tl-syntax-lowering = { package = "tl-syntax", git = "https://github.com/agent-ix/tl-syntax.git", rev = "8dc18eec5af227f484170362c9e8894b8531a27d", default-features = false, features = ["alloc", "serde"] }
 

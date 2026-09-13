@@ -43,4 +43,4 @@ exercise every budget and checked-cardinality boundary.
 
 ## Dependencies
 
-Constrains FR-001 through FR-005 and FR-007.
+Constrains FR-001 through FR-005 and FR-007 through FR-009.

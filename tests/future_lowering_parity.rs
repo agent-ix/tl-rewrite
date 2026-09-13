@@ -257,6 +257,9 @@ fn lowering_profile(profile: SemanticProfile) -> lowering::SemanticProfile {
     match profile {
         SemanticProfile::ClosedTraceV1 => lowering::SemanticProfile::ClosedTraceV1,
         SemanticProfile::OnlinePrefixV1 => lowering::SemanticProfile::OnlinePrefixV1,
+        SemanticProfile::OriginCompleteHistoryV1 => {
+            panic!("past-time profiles are outside the future-lowering parity corpus")
+        }
     }
 }
 
@@ -961,7 +964,7 @@ fn span_free(report: &RewriteReport) -> serde_json::Value {
     value
 }
 
-const CANONICAL_NODE_KINDS: [&str; 12] = [
+const CANONICAL_NODE_KINDS: [&str; 17] = [
     "False",
     "True",
     "Proposition",
@@ -974,9 +977,14 @@ const CANONICAL_NODE_KINDS: [&str; 12] = [
     "Globally",
     "Until",
     "Release",
+    "Once",
+    "Historically",
+    "StrongPrevious",
+    "Since",
+    "Triggered",
 ];
 
-const CANONICAL_RULE_FAMILIES: [&str; 9] = [
+const CANONICAL_RULE_FAMILIES: [&str; 11] = [
     "not",
     "and",
     "or",
@@ -986,14 +994,18 @@ const CANONICAL_RULE_FAMILIES: [&str; 9] = [
     "globally",
     "until",
     "release",
+    "once",
+    "triggered",
 ];
 
 /// Spellings that would name a derived operator, its lowering, or a text front
 /// end (Quire language, FRETish, clean-ascii). Matched case-insensitively.
 /// A bare "quire" is not listed because it occurs inside "requirement".
-const FORBIDDEN_TOKENS: [&str; 22] = [
+const FORBIDDEN_TOKENS: [&str; 24] = [
     "weak",
-    "strong",
+    "strong release",
+    "strong_release",
+    "strongrelease",
     "unless",
     "desugar",
     "lowering",
@@ -1017,7 +1029,7 @@ const FORBIDDEN_TOKENS: [&str; 22] = [
 ];
 
 /// The rule-id prefixes the catalog uses for primitive families.
-const RULE_PREFIXES: [&str; 3] = ["bool", "neg", "temporal"];
+const RULE_PREFIXES: [&str; 4] = ["bool", "neg", "temporal", "past"];
 
 /// Reports every derived-operator branch the source text could hold.
 fn derived_branch_violations(path: &str, text: &str) -> Vec<String> {

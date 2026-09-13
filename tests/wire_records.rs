@@ -61,7 +61,7 @@ fn versioned_records_round_trip_and_reject_unknown_fields() {
     assert!(serde_json::from_value::<ConformanceReport>(add_unknown(conformance_value)).is_err());
 }
 
-// Trace: TC-035, FR-002-AC-4, FR-007-AC-5
+// Trace: TC-035, TC-046, FR-002-AC-4, FR-007-AC-5, FR-009-AC-1, FR-009-AC-6
 #[test]
 fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
     let input = document(
@@ -83,20 +83,21 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
     let rewrite_bytes = serde_json::to_vec(&rewrite_report).unwrap();
     let replay_bytes = serde_json::to_vec(&replay_report).unwrap();
     let conformance_bytes = serde_json::to_vec(&conformance).unwrap();
-    // These are the frozen v0.1 bytes after the one pre-release semantic-
-    // identity correction required by FR-002-AC-4. The v1 schemas did not
-    // change; diagnostic spans no longer contribute to formula digests.
+    // These are the candidate bytes after the reviewed formula-v2/past-profile
+    // dependency advance. The v1 schemas and status meanings did not change;
+    // diagnostic spans still do not contribute to formula digests, while the
+    // exact compiled syntax/evaluator revisions remain truthful report fields.
     assert_eq!(
-        digest(&rewrite_bytes),
-        "1645c0ec6d22a866146ee9ee240fcb22364beea659f1fb49dfd3e45cfa92f784"
-    );
-    assert_eq!(
-        digest(&replay_bytes),
-        "9c66888b5d9e5413a6ee6cdf5ff491666cd471991d999e0edd65fc2c898b198c"
-    );
-    assert_eq!(
-        digest(&conformance_bytes),
-        "20de1baa30fcde19d1c547f21caa502c2cac957f43c191b523e40f24b585a080"
+        [
+            digest(&rewrite_bytes),
+            digest(&replay_bytes),
+            digest(&conformance_bytes),
+        ],
+        [
+            "87446e26a20b0018289d7821e2c5c448e136eb2bbbb05a8aac1362de0f435283",
+            "242d31428e94daa6869ffdf262d9b962cc02ab69decc93cded0dc42ddeaa98fc",
+            "1b02034f0c433adc7e5f7ce221776fe9a13d5a5b83ec53302ee44d1db1804c60",
+        ]
     );
     assert_eq!(rewrite_report.schema_version, "tl-rewrite.report/v1");
     assert_eq!(replay_report.schema_version, "tl-rewrite.replay/v1");
