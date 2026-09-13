@@ -16,14 +16,14 @@ relationships:
 
 PLAN-001 is not complete: six of seven tasks are marked done and the
 human-owned source-release decision remains not started. Quire reports every
-matrix row backed, but TC-046's randomized Boolean selector does not guarantee
-that its four-member family population executes in one run. This review did not
-opt into the optional semantic intent-to-test-to-code pass.
+matrix row backed, and TC-046 now deterministically executes its complete
+four-member Boolean family population. This review did not opt into the optional
+semantic intent-to-test-to-code pass.
 
 ## Verdict
 
-**FAIL** — PLAN-001 has an incomplete task and TC-046 does not fully substantiate
-the matrix's complete family-grounding claim.
+**FAIL** — PLAN-001 has an incomplete human-owned task. The implemented
+property-grounding slice has no remaining completion gap.
 
 ## Assurance Context
 
@@ -42,7 +42,11 @@ the matrix's complete family-grounding claim.
 | ID | Severity | Summary | Refs |
 | --- | --- | --- | --- |
 | FND-5101 | high | PLAN-001 Task-007 is `not_started` and explicitly human-owned, so the plan cannot pass completion analysis. | PLAN-001; Task-007 |
-| FND-5102 | medium | TC-046 samples the four reflexive Boolean families in 32 randomized cases and does not guarantee all four execute, while the matrix marks the family-grounding row implemented. | `tests/property.rs:117-158`; TM-001 TC-046; SR-048 FND-4804; SR-050 FND-5004 |
+
+## Remediation history
+
+FND-5102 was fixed at `f672605`: TC-046 uses a closed family enum, executes
+every member, and asserts its unique rule-identity population.
 
 ## Coverage
 
@@ -58,6 +62,5 @@ the matrix's complete family-grounding claim.
 
 ## Disposition
 
-Keep PLAN-001 open for Task-007. Keep PR #29 conditional until the four Boolean
-families are deterministically covered or the matrix/claim is narrowed to
-sampling. The separate fuzz-retention boundary remains recorded in SR-049.
+Keep PLAN-001 open for Task-007. The bounded property increment in PR #29 is
+mergeable. The separate fuzz-retention boundary remains recorded in SR-049.
