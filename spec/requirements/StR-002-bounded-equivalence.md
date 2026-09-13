@@ -34,4 +34,5 @@ Bounded enumeration is conclusive only for the stated formula pair and finite do
 
 ## Traceability
 
-This need is realized by FR-002 and FR-004 and verified by TM-001.
+This need is realized by FR-002, FR-004, FR-008, and FR-009 and verified by
+TM-001.

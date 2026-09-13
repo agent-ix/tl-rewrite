@@ -90,6 +90,10 @@ fn profiles() -> Vec<String> {
     vec!["mltl.closed-trace/v1".to_owned()]
 }
 
+fn past_profiles() -> Vec<String> {
+    vec!["mltl.origin-complete-history/v1".to_owned()]
+}
+
 fn derived(
     id: &str,
     class: RuleClass,
@@ -197,6 +201,54 @@ fn definitions() -> Vec<RuleDefinition> {
     rules
 }
 
+fn past_definitions() -> Vec<RuleDefinition> {
+    let mut rules = definitions()
+        .into_iter()
+        .filter(|rule| {
+            rule.id.starts_with("bool")
+                && rule.id.as_bytes().get(4).is_some_and(|byte| *byte == b'.')
+        })
+        .map(|mut rule| {
+            rule.semantic_profiles = past_profiles();
+            rule
+        })
+        .collect::<Vec<_>>();
+    rules.push(RuleDefinition {
+        id: "past.once.strong-previous".to_owned(),
+        revision: 1,
+        class: RuleClass::Normalization,
+        disposition: RuleDisposition::Enabled,
+        semantic_profiles: past_profiles(),
+        precondition: "operator is Once with exact interval [1,1]".to_owned(),
+        provenance: Provenance {
+            kind: ProvenanceKind::StatedDerivation,
+            uri: "ix://agent-ix/tl-syntax/FR-011".to_owned(),
+            locator: "FR-011-AC-5".to_owned(),
+            statement:
+                "Strong Previous is the primitive node with exactly the Once[1,1] truth relation"
+                    .to_owned(),
+        },
+        exclusion_reason: None,
+    });
+    rules.push(RuleDefinition {
+        id: "past.triggered.fold-dual".to_owned(),
+        revision: 1,
+        class: RuleClass::Normalization,
+        disposition: RuleDisposition::Enabled,
+        semantic_profiles: past_profiles(),
+        precondition: "operator is not((not p) Since[a,b] (not q))".to_owned(),
+        provenance: Provenance {
+            kind: ProvenanceKind::StatedDerivation,
+            uri: "ix://agent-ix/tl-syntax/FR-011".to_owned(),
+            locator: "FR-011-AC-3".to_owned(),
+            statement: "Triggered is the primitive node exactly equal to the Boolean dual of Since"
+                .to_owned(),
+        },
+        exclusion_reason: None,
+    });
+    rules
+}
+
 /// Returns the immutable v1 catalog in exact engine priority order.
 ///
 /// Implements: FR-001
@@ -207,5 +259,28 @@ pub fn catalog() -> CatalogDocument {
         catalog_version: "tl-rewrite-rules/v1".to_owned(),
         catalog_sha256: sha256_json(&rules),
         rules,
+    }
+}
+
+/// Returns the immutable origin-history catalog in exact engine priority order.
+///
+/// The legacy future catalog remains byte-stable. This separate catalog reuses
+/// only its profile-independent reviewed Boolean rules and adds the two
+/// primitive folds stated explicitly by the origin-history specification.
+pub fn past_catalog() -> CatalogDocument {
+    let rules = past_definitions();
+    CatalogDocument {
+        schema_version: "tl-rewrite.past-catalog/v1".to_owned(),
+        catalog_version: "tl-rewrite-past-rules/v1".to_owned(),
+        catalog_sha256: sha256_json(&rules),
+        rules,
+    }
+}
+
+pub(crate) fn catalog_for_profile(profile: tl_syntax::SemanticProfile) -> CatalogDocument {
+    if profile == tl_syntax::SemanticProfile::OriginCompleteHistoryV1 {
+        past_catalog()
+    } else {
+        catalog()
     }
 }

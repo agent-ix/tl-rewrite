@@ -8,7 +8,7 @@ use tl_syntax::{
 };
 
 use crate::{
-    catalog,
+    catalog::catalog_for_profile,
     hash::sha256_json,
     rewrite::{binding_check, BindingCheck},
     TL_MLTL_REVISION, TL_SYNTAX_REVISION, WEST_REVISION,
@@ -316,7 +316,7 @@ fn report_base(
     comparison_id: String,
     options: ConformanceOptions,
 ) -> ConformanceReport {
-    let rule_catalog = catalog();
+    let rule_catalog = catalog_for_profile(original.semantic_profile());
     ConformanceReport {
         schema_version: "tl-rewrite.conformance/v1".to_owned(),
         comparison_id,
@@ -473,7 +473,7 @@ pub fn check_equivalence_with_context(
 ) -> ConformanceReport {
     let comparison_id = comparison_id.into();
     let mut report = report_base(original, rewritten, comparison_id.clone(), options);
-    let rule_catalog = catalog();
+    let rule_catalog = catalog_for_profile(original.semantic_profile());
     report.schema_version = "tl-rewrite.conformance/v2".to_owned();
     report.signal_catalog_sha256 = Some(sha256_json(signal_catalog));
     report.request_sha256 = Some(sha256_json(&(

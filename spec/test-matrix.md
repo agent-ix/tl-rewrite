@@ -21,21 +21,22 @@ relationships:
 | FR-006 | FR-006-AC-1 through FR-006-AC-3, FR-006-AC-5 through FR-006-AC-8 | TC-023, TC-024, TC-025, TC-027, TC-028, TC-029, TC-038 | ✅ implemented |
 | FR-007 | FR-007-AC-1 through FR-007-AC-6 | TC-031 through TC-036, TC-040 | ✅ covered |
 | FR-008 | FR-008-AC-1 through FR-008-AC-5 | TC-041 through TC-045 | ✅ covered |
+| FR-009 | FR-009-AC-1 through FR-009-AC-6 | TC-046 through TC-052 | ✅ covered |
 
 ## Stakeholder Requirement Coverage
 
 | Stakeholder Req | Trace to US/FR | Test/Validation | Status |
 |---|---|---|---|
-| StR-001 | FR-001, FR-003, FR-005 | TC-001, TC-009, TC-010, TC-019 | ✅ covered |
-| StR-002 | FR-002, FR-004, FR-006, FR-008 | TC-005, TC-006, TC-013, TC-016, TC-028, TC-041, TC-042 | ✅ covered |
+| StR-001 | FR-001, FR-003, FR-005, FR-009 | TC-001, TC-009, TC-010, TC-019, TC-046, TC-049 | ✅ covered |
+| StR-002 | FR-002, FR-004, FR-006, FR-008, FR-009 | TC-005, TC-006, TC-013, TC-016, TC-028, TC-041, TC-042, TC-047, TC-052 | ✅ covered |
 | StR-003 | FR-007 | TC-031 through TC-034 | ✅ covered |
 
 ## Non-Functional Requirement Coverage
 
 | Non-Functional Req | Verification Method | Evidence/Test Cases | Status |
 |---|---|---|---|
-| NFR-001 | deterministic and resource-bound tests | TC-004 through TC-008, TC-015, TC-017, TC-021, TC-031, TC-035 | ✅ covered |
-| NFR-002 | catalog, corpus, context, and provenance inspection | TC-001, TC-002, TC-016, TC-019, TC-030, TC-031, TC-034, TC-036 | ✅ covered |
+| NFR-001 | deterministic and resource-bound tests | TC-004 through TC-008, TC-015, TC-017, TC-021, TC-031, TC-035, TC-047, TC-049, TC-050 | ✅ covered |
+| NFR-002 | catalog, corpus, context, and provenance inspection | TC-001, TC-002, TC-016, TC-019, TC-030, TC-031, TC-034, TC-036, TC-046, TC-052 | ✅ covered |
 | NFR-003 | producer-boundary, outcome-distinguishability, identity, and mutation probes | TC-024, TC-027, TC-030, TC-037, TC-039 | ✅ implemented |
 
 ## Test Case Summary
@@ -85,3 +86,10 @@ relationships:
 | TC-043 | Match clean-ascii/v2 W/M parses to direct graphs by semantic view, lowering records, span-insensitive rewrite identities, and associativity | Integration | P0 | FR-008-AC-3 | ✅ implemented |
 | TC-044 | Inspect crate source, examples, the catalog, and every production dependency section for any derived-operator branch, with synthetic scanner controls | Integration | P0 | FR-008-AC-4 | ✅ implemented |
 | TC-045 | Fail parity for every wrong-lowering, profile, shape, resource, and span-attribution mutant | Integration | P0 | FR-008-AC-5 | ✅ implemented |
+| TC-046 | Bind the exact past catalog and prove the existing future catalog remains byte-identical while report bytes name the advanced dependencies | Snapshot | P0 | FR-009-AC-1, FR-009-AC-6 | ✅ implemented |
+| TC-047 | Traverse O/H/Y/S/T, preserve formula-v2/profile/source identity, apply only the two reviewed past folds, and leave every other past shape unchanged | Unit | P0 | FR-009-AC-2 | ✅ implemented |
+| TC-048 | Exercise all 24 reused Boolean rules and compare original/output past verdicts for every Boolean valuation under event and fixed-sample clocks | Property | P0 | FR-009-AC-3 | ✅ implemented |
+| TC-049 | Round-trip and replay context-free/contextual past reports and reject every independently changed identity input | Integration | P0 | FR-009-AC-4 | ✅ implemented |
+| TC-050 | Refuse unsupported/invalid profiles and exhausted work without partial output, while leaving unproved transformations unchanged | Unit | P0 | FR-009-AC-5 | ✅ implemented |
+| TC-051 | Keep future bounded conformance explicitly non-conclusive for the past profile and bind that refusal to the past catalog | Unit | P0 | FR-009-AC-5 | ✅ implemented |
+| TC-052 | Compare both admitted past folds across generated histories, intervals, both clocks, and every anchor using the pinned origin-complete evaluator | Property | P0 | FR-009-AC-6 | ✅ implemented |

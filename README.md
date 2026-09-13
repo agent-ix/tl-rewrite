@@ -10,11 +10,22 @@ make ci
 make spec
 ```
 
-The library consumes validated `tl-syntax.formula/v1` documents pinned to
-revision `26b801d4a68ebfe720062cfdb3c66b070ab60e92`. Its v1 catalog enables 38 closed-trace rules with stable
-identity, revision, profile, precondition, and derivation metadata. Two
+The library consumes validated `tl-syntax.formula/v1` and
+`tl-syntax.formula/v2` documents pinned to revision
+`e70f2379a752117c79603bc399a86c26feed7716`. Its immutable future catalog
+enables 38 closed-trace rules with stable identity, revision, profile,
+precondition, and derivation metadata. Two
 growth-sensitive nested Until/Release transformations from WEST paper Theorem 3
 are retained as primary-source catalog entries but deliberately excluded.
+
+The separate `past_catalog` admits `mltl.origin-complete-history/v1`, reuses
+only the reviewed profile-independent Boolean rules, and adds exactly two
+specification-stated canonical folds: `O[1,1] p` to strong Previous, and the
+expanded Boolean dual of Since to primitive Triggered. All other past-time
+transformations remain unchanged. Rewrites preserve formula-v2, semantic
+profile, caller formula identity, source revision, source spans, and replay
+bindings; online, mixed, unknown, and structurally invalid inputs are refused
+without a partial output.
 
 `rewrite` applies the immutable catalog in bottom-up first-match order under
 explicit iteration, node, application, and deterministic logical-work budgets.
@@ -22,7 +33,10 @@ Only a fixed point carries a normalized formula. `replay` detects substituted
 inputs, catalog/options, steps, intermediates, or output. `check_equivalence`
 enumerates every valuation in a horizon-complete bounded closed-trace domain
 and delegates verdicts to pinned `tl-mltl` revision
-`4bff3871ea0d157afd8de8b8c18c7954f0a7d184`.
+`b346cd0902794633e862f644a5575fc9776c34fb`. This future-only conformance API
+continues to return a typed non-conclusive refusal for past profiles. Past-fold
+tests instead compare the original and rewritten graphs with the pinned
+origin-complete evaluator over event-position and exact fixed-sample histories.
 
 The supported `mltl.closed-trace/v1` profile uses false padding for missing
 proposition observations, while Boolean constants remain time-independent at

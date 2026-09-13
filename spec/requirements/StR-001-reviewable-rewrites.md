@@ -34,4 +34,5 @@ Inputs have passed the exact tl-syntax structural contract.
 
 ## Traceability
 
-This need is realized by FR-001, FR-003, and FR-005 and verified by TM-001.
+This need is realized by FR-001, FR-003, FR-005, and FR-009 and verified by
+TM-001.

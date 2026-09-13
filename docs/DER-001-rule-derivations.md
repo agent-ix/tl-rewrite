@@ -11,10 +11,14 @@ status: active
 These derivations use the exact `tl-syntax` operator vocabulary and the
 `tl-mltl` semantics pinned by this repository. Intervals are
 non-empty inclusive integer ranges because `tl-syntax::Interval` requires
-`start <= end`. Boolean operations use strong Kleene values for open prefixes;
-the identities are enabled only for `mltl.closed-trace/v1` in this catalog.
-Online-prefix execution remains excluded until a dedicated prefix-equivalence
-population is retained, even where the same algebra is expected to hold.
+`start <= end`. Boolean operations use strong Kleene values for open prefixes.
+The immutable legacy `catalog()` enables these derivations only for
+`mltl.closed-trace/v1`. The separate `past_catalog()` reuses B01–B24 for
+`mltl.origin-complete-history/v1`, whose anchored evaluator applies the same
+total Boolean operations recursively to its origin-extended proposition
+values. Online-prefix execution remains excluded until a dedicated
+prefix-equivalence population is retained, even where the same algebra is
+expected to hold.
 
 ## Boolean identities (B01–B24)
 
@@ -23,6 +27,12 @@ truth operations in `tl-mltl`. Direct truth-table enumeration establishes
 constant elimination, idempotence, double-negation elimination, implication as
 `not p or q`, reflexive implication/equivalence, and equivalence with a Boolean
 constant. No distributive or absorption rule is enabled in v1.
+
+The past catalog changes only the supported profile metadata on these Boolean
+entries; their identities, revisions, priority, preconditions, and derivations
+remain the same. Its tests exercise all 24 entries against the pinned past
+evaluator under both admitted clock models. Past temporal folds use their own
+FR-011 provenance and are not claimed by this document.
 
 ## Negation duals (N01–N04)
 

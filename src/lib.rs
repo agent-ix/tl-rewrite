@@ -12,7 +12,7 @@ mod hash;
 mod rewrite;
 
 pub use catalog::{
-    catalog, CatalogDocument, Provenance, ProvenanceKind, RuleClass, RuleDefinition,
+    catalog, past_catalog, CatalogDocument, Provenance, ProvenanceKind, RuleClass, RuleDefinition,
     RuleDisposition,
 };
 pub use equivalence::{
@@ -26,10 +26,10 @@ pub use rewrite::{
 };
 
 /// Exact tl-syntax source revision consumed by this candidate.
-pub const TL_SYNTAX_REVISION: &str = "26b801d4a68ebfe720062cfdb3c66b070ab60e92";
+pub const TL_SYNTAX_REVISION: &str = "e70f2379a752117c79603bc399a86c26feed7716";
 
 /// Exact tl-mltl reference source revision consumed by this candidate.
-pub const TL_MLTL_REVISION: &str = "4bff3871ea0d157afd8de8b8c18c7954f0a7d184";
+pub const TL_MLTL_REVISION: &str = "b346cd0902794633e862f644a5575fc9776c34fb";
 
 /// Exact canonical WEST source revision from which permitted fixtures were selected.
 pub const WEST_REVISION: &str = "21cd99ab2e6095a099dd179029cfdeb54268ad3f";
