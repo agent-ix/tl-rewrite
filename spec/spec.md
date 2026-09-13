@@ -26,7 +26,10 @@ PGM-01 governs compatibility, provenance, evidence, human authority, and
 qualification boundaries. Formula/profile identities come from the exact
 tl-syntax revision; semantic comparison comes from the exact tl-mltl revision
 that `Cargo.toml`, `Cargo.lock` and `src/lib.rs` all resolve, which
-`scripts/check_provenance.py` requires to agree on every run.
+`scripts/check_provenance.py` requires to agree on every run. Since issue #35 a
+renamed dev-dependency locks a second tl-syntax revision for test-only lowering
+controls; the check requires the production pin to be the revision tl-mltl
+compiles and every other locked revision to be one a dev-dependency declares.
 
 That revision used to be named by retained evidence instead. It is not any more:
 issue #13 deleted the retained records under the authority of
@@ -48,10 +51,16 @@ which is the defect `TC-030` exists to catch.
 - Exhaustive bounded closed-trace comparison and a pinned WEST fixture subset.
 - Context-bound native rewrite, replay, and conformance report versions using
   the shared tl-syntax signal and requirement-context types.
+- Test-only controls that show tl-syntax W/M lowering reaches the engine as the
+  same primitive graph a caller builds by hand.
 
 ### Out of Scope
 
-- Text parsing, a second formula AST, or a general-purpose optimizer.
+- Text parsing in crate code, a second formula AST, or a general-purpose
+  optimizer. Test-only controls may parse through a pinned tl-parse
+  dev-dependency.
+- Derived temporal operators (W, M, or others) as nodes, rules, or evaluator
+  branches; they exist only as tl-syntax lowering to primitive nodes.
 - Signal-schema ownership, contract-IR translation, or provenance inference.
 - Unbounded equality saturation or wall-clock performance claims.
 - Production monitoring, proof-system certification, or automatic release.
@@ -70,7 +79,8 @@ trace domain and invokes tl-mltl without embedding a second evaluator.
 
 FR-001 owns the rule catalog, FR-002 bounded execution, FR-003 trace/replay,
 FR-004 equivalence and WEST evidence, FR-005 the versioned interchange boundary,
-FR-006 the shared assurance intake path, and FR-007 context-bound native reports.
+FR-006 the shared assurance intake path, FR-007 context-bound native reports, and
+FR-008 direct-versus-lowered parity for tl-syntax W/M lowering.
 NFR-001 constrains
 determinism/resources, NFR-002 constrains provenance and qualification claims,
 and NFR-003 owns the qualification controls.
@@ -83,6 +93,7 @@ requirement owns an evidence boundary this repository no longer has.
 
 - [tl-rewrite epic](https://github.com/agent-ix/tl-rewrite/issues/6).
 - [Context-bound rewrite child](https://github.com/agent-ix/tl-rewrite/issues/21).
+- [W/M lowering parity child](https://github.com/agent-ix/tl-rewrite/issues/35).
 - [WEST research artifacts](https://temporallogic.org/research/WEST/).
 - [WEST canonical repository](https://github.com/zwang271/WEST).
 - [PGM-01](https://github.com/agent-ix/quire-contract-ir/blob/main/spec/program/PGM-01-governance.md).

@@ -1421,8 +1421,8 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     let parsed: Value = serde_json::from_slice(&bytes).expect("the Quire export is JSON");
     let text = String::from_utf8_lossy(&bytes);
     for requirement in [
-        "FR-001", "FR-002", "FR-003", "FR-004", "FR-005", "FR-006", "FR-007", "NFR-001", "NFR-002",
-        "NFR-003", "StR-001", "StR-002", "StR-003",
+        "FR-001", "FR-002", "FR-003", "FR-004", "FR-005", "FR-006", "FR-007", "FR-008", "NFR-001",
+        "NFR-002", "NFR-003", "StR-001", "StR-002", "StR-003",
     ] {
         assert!(
             text.contains(requirement),
@@ -1439,7 +1439,18 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
-    // 96: the prior 94 plus FR-002-AC-4 and TC-040, which bind semantic
+    // 99: issue #35 added FR-008-AC-1 through FR-008-AC-5 and TC-041 through
+    // TC-045. The Quire released in the tl-release toolchain that `make ci`
+    // uses measures main at 89 (51 criteria plus 38 test-case rows), so this is
+    // 89 plus those 10 rows. The same #35 change renamed the matrix's
+    // `Coverage Status` headers to `Status`; measured at this head, the count is
+    // 99 under either spelling, so the rename moves no row. The prior pin of 96
+    // was 7 above the released Quire's measurement of main, and a differently
+    // installed Quire module set measures a different total, so the history
+    // below records what earlier pins claimed and is superseded by this
+    // measurement rather than reconciled with it. Main's Functional Requirement
+    // Coverage table also has 7 rows, but that match is not a confirmed cause.
+    // Superseded history. 96: the prior 94 plus FR-002-AC-4 and TC-040, which bind semantic
     // identity independently of diagnostic source spans. The prior 94 was the
     // prior 89 plus the five atomic NFR-003 criteria split from the
     // original bundled AC-7 by issue #33. TC-039 backs AC-7 through AC-12. The
@@ -1451,9 +1462,9 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // removing exactly FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4, and TC-026 with
     // the retained-evidence claims they owned.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 96, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 99, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 96,
+        totals["backed"], 99,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );
@@ -2205,15 +2216,17 @@ tl-rewrite-evidence-input-v1.schema.json";
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **158** scanned tracked files — 162 tracked
-    // in total, minus the 4 the
+    // Population at this review head: **165** scanned tracked files. Issue #35
+    // added 7 files to the reviewed 158: FR-008, the five PLAN-006 bundle files,
+    // and `tests/future_lowering_parity.rs`. The 165 are 169 tracked in total,
+    // minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
     // version of this comment enumerated four exclusions for a count of five and
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 12 root, 110 `spec`, 10 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // By area: 12 root, 116 `spec`, 11 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
@@ -2222,8 +2235,8 @@ tl-rewrite-evidence-input-v1.schema.json";
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 158,
-        "the source census population changed from the reviewed 158 tracked files \
+        inspected, 165,
+        "the source census population changed from the reviewed 165 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
@@ -2986,6 +2999,76 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
     // test that touched the field compared the constant to itself, so nothing
     // could see it. This restores the stale value in a scratch copy and requires
     // the census to report a failing row.
+    let library = fs::read_to_string(root().join("src/lib.rs")).unwrap();
+    let manifest = fs::read_to_string(root().join("Cargo.toml")).unwrap();
+    let current = library
+        .lines()
+        .find(|line| line.contains("TL_MLTL_REVISION"))
+        .and_then(|line| line.split('"').nth(1))
+        .expect("TL_MLTL_REVISION is a quoted source identity");
+    let stale = library.replacen(current, &"0".repeat(current.len()), 1);
+    assert_ne!(stale, library, "the probe's mutation did not apply");
+    provenance_probe_refuses(
+        "a wire constant naming a revision the build never used",
+        &[("src/lib.rs", stale)],
+        "dependency:tl-mltl",
+    );
+
+    // Issue #35 locks a second tl-syntax revision for the test-only lowering
+    // lane. Pointing the production pin and the wire constant at that
+    // development revision leaves both present in Cargo.lock, which a check that
+    // only asks "is the pin locked somewhere" accepts, while tl-mltl still
+    // compiles the other revision.
+    let production = library
+        .lines()
+        .find(|line| line.contains("TL_SYNTAX_REVISION"))
+        .and_then(|line| line.split('"').nth(1))
+        .expect("TL_SYNTAX_REVISION is a quoted source identity");
+    let development = manifest
+        .lines()
+        .find(|line| line.starts_with("tl-syntax-lowering = "))
+        .and_then(|line| line.split("rev = \"").nth(1))
+        .and_then(|rest| rest.split('"').next())
+        .expect("the renamed development tl-syntax is pinned by revision");
+    assert_ne!(
+        production, development,
+        "the two tl-syntax revisions are one revision"
+    );
+    let moved_library = library.replacen(production, development, 1);
+    let moved_manifest = manifest.replacen(production, development, 1);
+    assert_ne!(
+        moved_library, library,
+        "the probe's library mutation did not apply"
+    );
+    assert_ne!(
+        moved_manifest, manifest,
+        "the probe's manifest mutation did not apply"
+    );
+    provenance_probe_refuses(
+        "a production pin naming a revision only a dev-dependency locks",
+        &[
+            ("src/lib.rs", moved_library),
+            ("Cargo.toml", moved_manifest),
+        ],
+        "dependency:tl-syntax",
+    );
+
+    // A second locked revision that no manifest entry declares is refused too.
+    let undeclared = manifest
+        .lines()
+        .filter(|line| !line.starts_with("tl-syntax-lowering = "))
+        .collect::<Vec<_>>()
+        .join("\n");
+    provenance_probe_refuses(
+        "a locked tl-syntax revision no dependency declares",
+        &[("Cargo.toml", undeclared)],
+        "dependency:tl-syntax",
+    );
+}
+
+/// Runs the provenance check over the repository with `replaced` files
+/// substituted, and requires it to exit 1 naming `symbol`.
+fn provenance_probe_refuses(what: &str, replaced: &[(&str, String)], symbol: &str) {
     let scratch = root().join("target/provenance-probe");
     clear_scratch_directory(&scratch, "provenance probe scratch");
     fs::create_dir_all(scratch.join("src")).unwrap();
@@ -2997,7 +3080,12 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
             .and_then(|v| v.to_str())
             .unwrap_or("")
             .to_owned();
-        if name == "src" || name == "scripts" || name == ".git" || name == "target" {
+        if name == "src"
+            || name == "scripts"
+            || name == ".git"
+            || name == "target"
+            || replaced.iter().any(|(relative, _)| *relative == name)
+        {
             continue;
         }
         std::os::unix::fs::symlink(&path, scratch.join(&name))
@@ -3008,15 +3096,15 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
         scratch.join("scripts/check_provenance.py"),
     )
     .unwrap();
-    let library = fs::read_to_string(root().join("src/lib.rs")).unwrap();
-    let current = library
-        .lines()
-        .find(|line| line.contains("TL_MLTL_REVISION"))
-        .and_then(|line| line.split('"').nth(1))
-        .expect("TL_MLTL_REVISION is a quoted source identity");
-    let stale = library.replacen(current, &"0".repeat(current.len()), 1);
-    assert_ne!(stale, library, "the probe's mutation did not apply");
-    fs::write(scratch.join("src/lib.rs"), stale).unwrap();
+    if !replaced
+        .iter()
+        .any(|(relative, _)| *relative == "src/lib.rs")
+    {
+        fs::copy(root().join("src/lib.rs"), scratch.join("src/lib.rs")).unwrap();
+    }
+    for (relative, bytes) in replaced {
+        fs::write(scratch.join(relative), bytes).unwrap();
+    }
 
     let output = Command::new("python3")
         .args(["scripts/check_provenance.py"])
@@ -3026,12 +3114,15 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
     assert_eq!(
         output.status.code(),
         Some(1),
-        "a wire constant naming a revision the build never used was not detected:\n{}\n{}",
+        "{what} was not detected:\n{}\n{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+    let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        String::from_utf8_lossy(&output.stdout).contains("dependency:tl-mltl"),
-        "the refusal did not name the disagreeing dependency"
+        stdout
+            .lines()
+            .any(|line| line.starts_with(&format!("{symbol}: fail"))),
+        "the refusal of {what} did not fail {symbol}:\n{stdout}"
     );
 }
