@@ -1,5 +1,7 @@
 mod common;
 
+use std::collections::BTreeSet;
+
 use common::{document, proposition};
 use proptest::prelude::*;
 use tl_rewrite::{
@@ -80,30 +82,44 @@ fn bounded_interval() -> impl Strategy<Value = Interval> {
     })
 }
 
-fn reflexive_boolean_fixture(kind: u8) -> (&'static str, tl_syntax::FormulaDocument) {
-    let root = match kind {
-        0 => NodeKind::And {
+#[derive(Clone, Copy)]
+enum ReflexiveBooleanFamily {
+    And,
+    Or,
+    Implies,
+    Equivalent,
+}
+
+impl ReflexiveBooleanFamily {
+    const ALL: [Self; 4] = [Self::And, Self::Or, Self::Implies, Self::Equivalent];
+}
+
+fn reflexive_boolean_fixture(
+    family: ReflexiveBooleanFamily,
+) -> (&'static str, tl_syntax::FormulaDocument) {
+    let root = match family {
+        ReflexiveBooleanFamily::And => NodeKind::And {
             left: NodeId(0),
             right: NodeId(1),
         },
-        1 => NodeKind::Or {
+        ReflexiveBooleanFamily::Or => NodeKind::Or {
             left: NodeId(0),
             right: NodeId(1),
         },
-        2 => NodeKind::Implies {
+        ReflexiveBooleanFamily::Implies => NodeKind::Implies {
             left: NodeId(0),
             right: NodeId(1),
         },
-        _ => NodeKind::Equivalent {
+        ReflexiveBooleanFamily::Equivalent => NodeKind::Equivalent {
             left: NodeId(0),
             right: NodeId(1),
         },
     };
-    let rule = match kind {
-        0 => "bool.and.idempotent",
-        1 => "bool.or.idempotent",
-        2 => "bool.implies.reflexive",
-        _ => "bool.equivalent.reflexive",
+    let rule = match family {
+        ReflexiveBooleanFamily::And => "bool.and.idempotent",
+        ReflexiveBooleanFamily::Or => "bool.or.idempotent",
+        ReflexiveBooleanFamily::Implies => "bool.implies.reflexive",
+        ReflexiveBooleanFamily::Equivalent => "bool.equivalent.reflexive",
     };
     (
         rule,
@@ -140,20 +156,25 @@ proptest! {
         );
         prop_assert_eq!(conformance.status, ConformanceStatus::Equivalent);
     }
+}
 
-    // Trace: TC-046, FR-001-AC-2, FR-004-AC-1, NFR-001-AC-1
-    #[test]
-    fn reflexive_boolean_rule_family_normalizes_and_matches_the_oracle(kind in 0_u8..4) {
-        let (rule_id, input) = reflexive_boolean_fixture(kind);
+// Trace: TC-046, FR-001-AC-2, FR-004-AC-1, NFR-001-AC-1
+#[test]
+fn reflexive_boolean_rule_family_normalizes_and_matches_the_oracle() {
+    let mut exercised = BTreeSet::new();
+    for family in ReflexiveBooleanFamily::ALL {
+        let (rule_id, input) = reflexive_boolean_fixture(family);
+        assert!(exercised.insert(rule_id), "duplicate family for {rule_id}");
         let rewritten = rewrite(&input, rule_id, RewriteOptions::default(), "source");
-        prop_assert_eq!(rewritten.status, RewriteStatus::Normalized);
-        prop_assert!(rewritten.steps.iter().any(|step| step.rule_id == rule_id));
+        assert_eq!(rewritten.status, RewriteStatus::Normalized);
+        assert!(rewritten.steps.iter().any(|step| step.rule_id == rule_id));
         let conformance = check_equivalence(
             &input,
             rewritten.output.as_ref().unwrap(),
             rule_id,
             ConformanceOptions::default(),
         );
-        prop_assert_eq!(conformance.status, ConformanceStatus::Equivalent);
+        assert_eq!(conformance.status, ConformanceStatus::Equivalent);
     }
+    assert_eq!(exercised.len(), ReflexiveBooleanFamily::ALL.len());
 }
