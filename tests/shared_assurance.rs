@@ -1439,6 +1439,7 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
+    // 100: issue #27 adds TC-046 for the bounded property baseline. The prior
     // 99: issue #35 added FR-008-AC-1 through FR-008-AC-5 and TC-041 through
     // TC-045. The Quire released in the tl-release toolchain that `make ci`
     // uses measures main at 89 (51 criteria plus 38 test-case rows), so this is
@@ -1462,9 +1463,9 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // removing exactly FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4, and TC-026 with
     // the retained-evidence claims they owned.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 99, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 100, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 99,
+        totals["backed"], 100,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );
@@ -2216,9 +2217,12 @@ tl-rewrite-evidence-input-v1.schema.json";
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **165** scanned tracked files. Issue #35
+    // Population at this review head: **168** scanned tracked files. Issue #27
+    // adds the three SR-048 through SR-050 review artifacts to `spec`; the
+    // implementation and matrix changes add no new path. The prior **165**:
+    // issue #35
     // added 7 files to the reviewed 158: FR-008, the five PLAN-006 bundle files,
-    // and `tests/future_lowering_parity.rs`. The 165 are 169 tracked in total,
+    // and `tests/future_lowering_parity.rs`. The 168 are 172 tracked in total,
     // minus the 4 the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
     // `corpus/west-v1/LICENSE`). All four are named here, because the previous
@@ -2226,7 +2230,7 @@ tl-rewrite-evidence-input-v1.schema.json";
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 12 root, 116 `spec`, 11 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
+    // By area: 12 root, 119 `spec`, 11 `tests`, 6 `corpus`, 5 `scripts`, 5 `src`,
     // 3 `assurance`, 3 `examples`, 2 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
@@ -2235,8 +2239,8 @@ tl-rewrite-evidence-input-v1.schema.json";
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 165,
-        "the source census population changed from the reviewed 165 tracked files \
+        inspected, 168,
+        "the source census population changed from the reviewed 168 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
