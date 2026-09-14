@@ -2,7 +2,7 @@
 name = "tl-rewrite"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.98"
 description = "Deterministic semantics-preserving rewrites for Mission-time Linear Temporal Logic."
 authors = ["Peter Krenesky <kreneskyp@gmail.com>"]
 license = "MIT OR Apache-2.0"
@@ -14,17 +14,18 @@ name = "tl_rewrite"
 path = "src/lib.rs"
 
 [dependencies]
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-sha2 = "0.10"
-tl-mltl = { git = "https://github.com/agent-ix/tl-mltl.git", rev = "b346cd0902794633e862f644a5575fc9776c34fb" }
-tl-syntax = { git = "https://github.com/agent-ix/tl-syntax.git", rev = "e70f2379a752117c79603bc399a86c26feed7716", default-features = false, features = ["alloc", "serde"] }
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.151"
+sha2 = "=0.10.9"
+tl-mltl = { version = "=0.1.0", git = "https://github.com/agent-ix/tl-mltl.git", rev = "22862189ac4eb515ab84928faec25b2eac47d835" }
+tl-syntax = { version = "=0.1.0", git = "https://github.com/agent-ix/tl-syntax.git", rev = "842d82553f045eb69a7f38745756d968254fc25e", default-features = false, features = ["alloc", "serde"] }
 
 [dev-dependencies]
+quire-observation = { version = "=0.1.0", git = "https://github.com/agent-ix/quire-observation", rev = "9ac80e93f4b68a2c7d5a337f9a448ad10de798fc" }
 proptest = "=1.5.0"
 serde_yaml_ng = "0.10"
 tempfile = "=3.10.1"
-tl-parse = { git = "https://github.com/agent-ix/tl-parse.git", rev = "f82b0c724675c0f774415aa696c360959da30481" }
+tl-parse = { version = "=0.1.0", git = "https://github.com/agent-ix/tl-parse.git", rev = "2bc030dae8fdb30c9ddc967434c6c9902a3905dc" }
 # Test-only W/M lowering lane (FR-008, agent-ix/tl-rewrite#35). These preserve
 # the exact historical dependencies against which the future-lowering parity
 # corpus was authored. The rename is required because Cargo cannot hold two
@@ -33,8 +34,8 @@ tl-parse = { git = "https://github.com/agent-ix/tl-parse.git", rev = "f82b0c7246
 # into the current production tl-syntax type only through formula-v1 wire bytes.
 # scripts/check_provenance.py enforces that every additional locked revision is
 # explicitly declared here and cannot masquerade as the production dependency.
-tl-parse-derived = { package = "tl-parse", git = "https://github.com/agent-ix/tl-parse.git", rev = "9ca856b4c040fc2c3329b6defd26a1c9b57de748" }
-tl-syntax-lowering = { package = "tl-syntax", git = "https://github.com/agent-ix/tl-syntax.git", rev = "8dc18eec5af227f484170362c9e8894b8531a27d", default-features = false, features = ["alloc", "serde"] }
+tl-parse-derived = { version = "=0.1.0", package = "tl-parse", git = "https://github.com/agent-ix/tl-parse.git", rev = "9ca856b4c040fc2c3329b6defd26a1c9b57de748" }
+tl-syntax-lowering = { version = "=0.1.0", package = "tl-syntax", git = "https://github.com/agent-ix/tl-syntax.git", rev = "8dc18eec5af227f484170362c9e8894b8531a27d", default-features = false, features = ["alloc", "serde"] }
 
 [profile.release]
 lto = "thin"

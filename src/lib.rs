@@ -6,30 +6,34 @@
 
 #![forbid(unsafe_code)]
 
-mod catalog;
-mod equivalence;
+pub mod catalog;
+pub mod engine;
+pub mod equivalence;
 mod hash;
-mod rewrite;
+pub mod replay;
+pub mod report;
 
 pub use catalog::{
     catalog, past_catalog, CatalogDocument, Provenance, ProvenanceKind, RuleClass, RuleDefinition,
     RuleDisposition,
 };
+pub use engine::{rewrite, rewrite_with_context};
 pub use equivalence::{
-    check_equivalence, check_equivalence_with_context, ConformanceOptions, ConformanceReason,
-    ConformanceReport, ConformanceStatus,
+    check_equivalence, check_equivalence_with_context, check_past_equivalence, ConformanceOptions,
+    ConformanceReason, ConformanceReport, ConformanceStatus, PastConformanceReason,
+    PastConformanceReport,
 };
-pub use rewrite::{
-    replay, replay_with_context, rewrite, rewrite_with_context, BindingFailure, BindingLocus,
-    BudgetKind, ReplayReport, ReplayStatus, RewriteBudgets, RewriteOptions, RewriteReport,
-    RewriteStatus, RewriteStep, RewriteStrategy,
+pub use replay::{replay, replay_with_context, ReplayReport, ReplayStatus};
+pub use report::{
+    BindingFailure, BindingLocus, BudgetKind, RecordLimits, RecordReadError, RecordReadErrorCode,
+    RewriteBudgets, RewriteOptions, RewriteReport, RewriteStatus, RewriteStep, RewriteStrategy,
 };
 
 /// Exact tl-syntax source revision consumed by this candidate.
-pub const TL_SYNTAX_REVISION: &str = "e70f2379a752117c79603bc399a86c26feed7716";
+pub const TL_SYNTAX_REVISION: &str = "842d82553f045eb69a7f38745756d968254fc25e";
 
 /// Exact tl-mltl reference source revision consumed by this candidate.
-pub const TL_MLTL_REVISION: &str = "b346cd0902794633e862f644a5575fc9776c34fb";
+pub const TL_MLTL_REVISION: &str = "22862189ac4eb515ab84928faec25b2eac47d835";
 
 /// Exact canonical WEST source revision from which permitted fixtures were selected.
 pub const WEST_REVISION: &str = "21cd99ab2e6095a099dd179029cfdeb54268ad3f";

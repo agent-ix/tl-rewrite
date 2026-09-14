@@ -22,7 +22,7 @@ relationships:
 | FR-007 | FR-007-AC-1 through FR-007-AC-6 | TC-031 through TC-036, TC-040 | ✅ covered |
 | FR-008 | FR-008-AC-1 through FR-008-AC-5 | TC-041 through TC-045 | ✅ covered |
 | FR-009 | FR-009-AC-1 through FR-009-AC-6 | TC-046 through TC-052 | ✅ covered |
-| FR-010 | FR-010-AC-1 through FR-010-AC-5 | TC-053 | 🚧 planned architecture reconciliation |
+| FR-010 | FR-010-AC-1 through FR-010-AC-5 | TC-053 | ✅ implemented |
 
 ## Stakeholder Requirement Coverage
 
@@ -94,4 +94,4 @@ relationships:
 | TC-050 | Refuse unsupported/invalid profiles and exhausted work without partial output, while leaving unproved transformations unchanged | Unit | P0 | FR-009-AC-5 | ✅ implemented |
 | TC-051 | Keep future bounded conformance explicitly non-conclusive for the past profile and bind that refusal to the past catalog | Unit | P0 | FR-009-AC-5 | ✅ implemented |
 | TC-052 | Compare both admitted past folds across generated histories, intervals, both clocks, and every anchor using the pinned origin-complete evaluator | Property | P0 | FR-009-AC-6 | ✅ implemented |
-| TC-053 | Preserve all profile behavior while separating rewrite subsystems | Integration | P0 | FR-010-AC-1, FR-010-AC-2, FR-010-AC-3, FR-010-AC-4, FR-010-AC-5 | 🚧 planned |
+| TC-053 | Preserve all profile behavior while separating rewrite subsystems | Integration | P0 | FR-010-AC-1, FR-010-AC-2, FR-010-AC-3, FR-010-AC-4, FR-010-AC-5 | ✅ implemented |

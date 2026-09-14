@@ -9,6 +9,9 @@ pub(crate) fn sha256_bytes(bytes: &[u8]) -> String {
 }
 
 pub(crate) fn sha256_json<T: Serialize>(value: &T) -> String {
+    // This helper is crate-private and every call site uses a closed derive-based
+    // value whose maps have JSON-string keys. Such values have no serializer
+    // refusal path; keep that invariant explicit if a new call site is added.
     let bytes = serde_json::to_vec(value).expect("serializing internal typed data cannot fail");
     sha256_bytes(&bytes)
 }

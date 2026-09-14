@@ -10,9 +10,9 @@ make ci
 make spec
 ```
 
-The library consumes validated `tl-syntax.formula/v1` and
+The library requires Rust 1.98 and consumes validated `tl-syntax.formula/v1` and
 `tl-syntax.formula/v2` documents pinned to revision
-`e70f2379a752117c79603bc399a86c26feed7716`. Its immutable future catalog
+`842d82553f045eb69a7f38745756d968254fc25e`. Its immutable future catalog
 enables 38 closed-trace rules with stable identity, revision, profile,
 precondition, and derivation metadata. Two
 growth-sensitive nested Until/Release transformations from WEST paper Theorem 3
@@ -33,10 +33,20 @@ Only a fixed point carries a normalized formula. `replay` detects substituted
 inputs, catalog/options, steps, intermediates, or output. `check_equivalence`
 enumerates every valuation in a horizon-complete bounded closed-trace domain
 and delegates verdicts to pinned `tl-mltl` revision
-`b346cd0902794633e862f644a5575fc9776c34fb`. This future-only conformance API
+`22862189ac4eb515ab84928faec25b2eac47d835`. This future-only conformance API
 continues to return a typed non-conclusive refusal for past profiles. Past-fold
-tests instead compare the original and rewritten graphs with the pinned
-origin-complete evaluator over event-position and exact fixed-sample histories.
+tests and `check_past_equivalence` compare exact admitted original/rewritten
+requests through the pinned temporal owner result producer and strict reader
+over event-position and exact fixed-sample histories. Owner non-values remain
+typed non-conclusive results and are never coerced to Boolean.
+
+The public subsystem layout is `catalog`, `engine::{future,past}`,
+`equivalence`, `report`, and `replay`, with the established root API retained as
+compatibility re-exports. Shared engine code owns deterministic traversal and
+resource charging; profile modules select disjoint rule domains. Every
+successful graph is canonically serialized and re-admitted by the real
+tl-syntax strict reader. `report::{read,read_with_context}` and
+`ReplayReport::from_json_bytes` provide bounded canonical record admission.
 
 The supported `mltl.closed-trace/v1` profile uses false padding for missing
 proposition observations, while Boolean constants remain time-independent at
@@ -81,4 +91,6 @@ or make an automated release, accreditation, or certification decision.
 ## License
 
 Licensed under either of Apache License, Version 2.0 or MIT license at your
-option.
+option. The required tl-mltl dependency graph includes Quire Observation under
+AGPL-3.0-or-later; consumers and distributors of the combined dependency graph
+must comply with that dependency license.
