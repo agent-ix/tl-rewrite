@@ -89,6 +89,9 @@ FR-005 owned the PGM-01 evidence boundary as well until issue #13 deleted the
 retained archive; that allocation is removed rather than reassigned, because no
 requirement owns an evidence boundary this repository no longer has.
 
+FR-010 separates shared traversal from future and past rule policy while
+preserving all existing public and wire behavior.
+
 ## References
 
 - [tl-rewrite epic](https://github.com/agent-ix/tl-rewrite/issues/6).
