@@ -61,7 +61,7 @@ fn versioned_records_round_trip_and_reject_unknown_fields() {
     assert!(serde_json::from_value::<ConformanceReport>(add_unknown(conformance_value)).is_err());
 }
 
-// Trace: TC-035, TC-046, FR-002-AC-4, FR-007-AC-5, FR-009-AC-1, FR-009-AC-6
+// Trace: TC-035, TC-046, TC-053, FR-002-AC-4, FR-007-AC-5, FR-009-AC-1, FR-009-AC-6, FR-010-AC-3
 #[test]
 fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
     let input = document(
@@ -94,9 +94,9 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
             digest(&conformance_bytes),
         ],
         [
-            "87446e26a20b0018289d7821e2c5c448e136eb2bbbb05a8aac1362de0f435283",
-            "242d31428e94daa6869ffdf262d9b962cc02ab69decc93cded0dc42ddeaa98fc",
-            "1b02034f0c433adc7e5f7ce221776fe9a13d5a5b83ec53302ee44d1db1804c60",
+            "caba21a9a8b9aa8290b775b627e840097d2b59d51e58ac985579bb0933262648",
+            "0a9ff9d662cfcbf637e9e1981f08ff03a22b3cef3c93ccdc313d56cc6fc72fd6",
+            "90ea8513bfd1ea258872e9a4f063bef7bbf90916897f58040f280245d64502f2",
         ]
     );
     assert_eq!(rewrite_report.schema_version, "tl-rewrite.report/v1");

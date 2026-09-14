@@ -211,19 +211,38 @@ def manifest_section(manifest: str, name: str) -> str:
     return match.group(1) if match else ""
 
 
+def inline_dependency(section: str, name: str) -> str | None:
+    """Return one dependency's inline-table body independent of field order."""
+    entry = re.search(
+        rf"^{re.escape(name)}\s*=\s*\{{([^}}\n]*)\}}\s*(?:#.*)?$",
+        section,
+        re.MULTILINE,
+    )
+    return entry.group(1) if entry else None
+
+
+def inline_string_field(table: str, name: str) -> str | None:
+    """Return one quoted inline-table field, refusing absent or duplicate fields."""
+    values = re.findall(rf'(?:^|,)\s*{re.escape(name)}\s*=\s*"([^"]*)"', table)
+    return values[0] if len(values) == 1 else None
+
+
 def development_revisions(manifest: str, crate: str) -> set[str]:
     """Revisions of `crate` that `[dev-dependencies]` declares, renamed or not."""
     revisions = set()
     for line in manifest_section(manifest, "dev-dependencies").splitlines():
-        entry = re.match(r'^([A-Za-z0-9_-]+) = \{(.*)\}\s*$', line)
+        entry = re.match(r"^([A-Za-z0-9_-]+)\s*=", line)
         if entry is None:
             continue
-        package = re.search(r'package = "([^"]+)"', entry.group(2))
-        if (package.group(1) if package else entry.group(1)) != crate:
+        table = inline_dependency(line, entry.group(1))
+        if table is None:
             continue
-        rev = re.search(r'rev = "([0-9a-f]{40})"', entry.group(2))
-        if rev is not None:
-            revisions.add(rev.group(1))
+        package = inline_string_field(table, "package") or entry.group(1)
+        if package != crate:
+            continue
+        revision = inline_string_field(table, "rev")
+        if revision is not None and re.fullmatch(r"[0-9a-f]{40}", revision):
+            revisions.add(revision)
     return revisions
 
 
@@ -290,12 +309,10 @@ def dependency_rows() -> list[dict[str, Any]]:
             )
             continue
         revision = declared.group(1)
-        pinned = re.search(
-            rf'^{re.escape(crate)} = \{{ git = "[^"]+", rev = "([0-9a-f]{{40}})"',
-            production,
-            re.MULTILINE,
-        )
-        if pinned is None:
+        dependency = inline_dependency(production, crate)
+        pinned = inline_string_field(dependency, "rev") if dependency is not None else None
+        git = inline_string_field(dependency, "git") if dependency is not None else None
+        if pinned is None or git is None or re.fullmatch(r"[0-9a-f]{40}", pinned) is None:
             rows.append(
                 row(f"dependency:{crate}", "fail", f"Cargo.toml does not pin {crate} by revision")
             )
@@ -310,13 +327,13 @@ def dependency_rows() -> list[dict[str, Any]]:
                 row(f"dependency:{crate}", "fail", f"Cargo.lock does not resolve {crate} to a git revision")
             )
             continue
-        if revision != pinned.group(1) or pinned.group(1) not in locked_revisions:
+        if revision != pinned or pinned not in locked_revisions:
             rows.append(
                 row(
                     f"dependency:{crate}",
                     "fail",
                     (
-                        f"{constant} is {revision}, Cargo.toml pins {pinned.group(1)}, and "
+                        f"{constant} is {revision}, Cargo.toml pins {pinned}, and "
                         f"Cargo.lock resolves {', '.join(sorted(locked_revisions))}; the wire "
                         "field would attribute a verdict to a revision that did not produce it"
                     ),

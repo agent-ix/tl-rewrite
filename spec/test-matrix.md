@@ -11,7 +11,7 @@ relationships:
 
 ## Functional Requirement Coverage
 
-| Functional Req | Acceptance Criteria | Test Cases | Status |
+| Functional Req | Acceptance Criteria | Test Cases | Coverage Status |
 |---|---|---|---|
 | FR-001 | FR-001-AC-1 through FR-001-AC-3 | TC-001 through TC-004 | ✅ covered |
 | FR-002 | FR-002-AC-1 through FR-002-AC-4 | TC-005 through TC-008, TC-020, TC-021, TC-040 | ✅ covered |
@@ -22,10 +22,11 @@ relationships:
 | FR-007 | FR-007-AC-1 through FR-007-AC-6 | TC-031 through TC-036, TC-040 | ✅ covered |
 | FR-008 | FR-008-AC-1 through FR-008-AC-5 | TC-041 through TC-045 | ✅ covered |
 | FR-009 | FR-009-AC-1 through FR-009-AC-6 | TC-046 through TC-052 | ✅ covered |
+| FR-010 | FR-010-AC-1 through FR-010-AC-5 | TC-053 | ✅ implemented |
 
 ## Stakeholder Requirement Coverage
 
-| Stakeholder Req | Trace to US/FR | Test/Validation | Status |
+| Stakeholder Req | Trace to US/FR | Test/Validation | Coverage Status |
 |---|---|---|---|
 | StR-001 | FR-001, FR-003, FR-005, FR-009 | TC-001, TC-009, TC-010, TC-019, TC-046, TC-049 | ✅ covered |
 | StR-002 | FR-002, FR-004, FR-006, FR-008, FR-009 | TC-005, TC-006, TC-013, TC-016, TC-028, TC-041, TC-042, TC-047, TC-052 | ✅ covered |
@@ -93,3 +94,4 @@ relationships:
 | TC-050 | Refuse unsupported/invalid profiles and exhausted work without partial output, while leaving unproved transformations unchanged | Unit | P0 | FR-009-AC-5 | ✅ implemented |
 | TC-051 | Keep future bounded conformance explicitly non-conclusive for the past profile and bind that refusal to the past catalog | Unit | P0 | FR-009-AC-5 | ✅ implemented |
 | TC-052 | Compare both admitted past folds across generated histories, intervals, both clocks, and every anchor using the pinned origin-complete evaluator | Property | P0 | FR-009-AC-6 | ✅ implemented |
+| TC-053 | Preserve all profile behavior while separating rewrite subsystems | Integration | P0 | FR-010-AC-1, FR-010-AC-2, FR-010-AC-3, FR-010-AC-4, FR-010-AC-5 | ✅ implemented |

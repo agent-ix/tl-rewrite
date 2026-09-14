@@ -16,7 +16,7 @@ make normalization    # sweep determinism, fixed point, replay, and budgets
 make deny             # cargo deny check advisories, bans, licenses, sources
 make audit-unsafe     # check that every unsafe block has a // SAFETY: comment
 make spec             # validate and cover specifications with quire
-make msrv             # check all targets and features with Rust 1.75
+make msrv             # check all targets and features with Rust 1.98.1
 make rustdoc          # build warning-free public documentation
 make assurance-env    # build the pinned shared-assurance interpreter
 make assurance-inputs # run the producers and write their structured results
@@ -57,7 +57,7 @@ nothing notices. Tracked as `agent-ix/tl-rewrite#11`.
 
 Backported from `agent-ix/ecaz`:
 
-- `clippy.toml` pins MSRV to `1.75` and caps cognitive complexity / arg count
+- `clippy.toml` pins MSRV to `1.98` and caps cognitive complexity / arg count
 - `deny.toml` allow-lists licenses and denies unknown registries/git sources
 - `scripts/check_unsafe_comments.sh` runs in CI and locally via `make audit-unsafe`. Every `unsafe {` block must have a `// SAFETY:` comment within the 3 preceding lines, or be listed in `scripts/unsafe_comment_baseline.txt`. Update the baseline with `bash scripts/check_unsafe_comments.sh --update-baseline`.
 - `rustfmt.toml` uses only stable 100-character-width settings. CI fails on drift.

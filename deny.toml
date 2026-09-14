@@ -3,12 +3,8 @@ version = 2
 allow = [
     "MIT",
     "Apache-2.0",
-    "BSD-2-Clause",
-    "BSD-3-Clause",
-    "CDLA-Permissive-2.0",
-    "ISC",
     "Unicode-3.0",
-    "Zlib",
+    "AGPL-3.0-or-later",
 ]
 confidence-threshold = 0.9
 
@@ -23,16 +19,17 @@ db-path = "$CARGO_HOME/tl-rewrite-advisory-db"
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-# Exact-source exceptions for three git dependencies, all pinned to revisions
-# reachable from their own `main`. The tl-parse dependency is dev-only and
-# exercises the real parser-to-rewriter seam; it is not linked into production.
-# The tl-syntax and tl-mltl pins must move together because
-# src/equivalence.rs passes tl_syntax::Formula values into
-# tl_mltl::evaluate_closed. scripts/check_provenance.py enforces that the
-# crate's published production-dependency revision constants agree with
-# Cargo.toml and Cargo.lock.
+# Exact-source exceptions for the pinned TL dependencies and tl-mltl's
+# transitive Quire Observation owner. tl-parse is dev-only and exercises the
+# parser-to-rewriter seam; its derived-lowering revisions remain explicitly
+# isolated as historical test dependencies. The production tl-syntax and
+# tl-mltl pins move together because equivalence passes syntax-owned formulas
+# and temporal requests into the evaluator owner. scripts/check_provenance.py
+# enforces that published production revision constants agree with Cargo.toml
+# and Cargo.lock.
 allow-git = [
     "https://github.com/agent-ix/tl-mltl.git",
     "https://github.com/agent-ix/tl-parse.git",
+    "https://github.com/agent-ix/quire-observation",
     "https://github.com/agent-ix/tl-syntax.git",
 ]
