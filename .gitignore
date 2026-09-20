@@ -10,4 +10,5 @@ proptest-regressions/
 
 target/
 *-target/
+target-*/
 .worktrees/
