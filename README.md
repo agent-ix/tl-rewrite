@@ -1,5 +1,7 @@
 # tl-rewrite
 
+[![Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/6qsdhSPE)
+
 Deterministic, bounded, semantics-preserving rewrites for Mission-time Linear
 Temporal Logic with replayable traces and exhaustive bounded equivalence evidence.
 
