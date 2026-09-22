@@ -154,6 +154,45 @@ fn successful_recipe_writes_its_own_record_only() {
     );
 }
 
+// Independent second-pass review (SR-079/FND-001), reproduced end-to-end
+// against the real compiled binary: a recipe line joining a failing check
+// and the record call with a bare `;` used to defeat the entire mechanism
+// (static scan, reconciliation, and the trailing raw-exit-code check
+// together), because Make's exit status for the line is `ci_guard
+// record`'s (always 0), not the check's. Fixed by extending the static
+// scan to flag a bare `;` command separator; this test would have observed
+// a false success (exit 0) before that fix.
+// Trace: TC-057, NFR-004-AC-1
+#[test]
+fn semicolon_chained_check_and_record_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let guard = ci_guard_bin();
+    let makefile = format!(
+        ".PHONY: ci gate-a\n\
+         ci: gate-a\n\
+         \n\
+         gate-a:\n\
+         \tfalse; \"{guard}\" record gate-a\n"
+    );
+    fs::write(dir.path().join("Makefile"), makefile).unwrap();
+
+    let output = run_guard(dir.path());
+    assert!(
+        !output.status.success(),
+        "a semicolon-chained check+record line must not report success"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("recipe-chains-commands"),
+        "expected the static scan to name recipe-chains-commands, got: {stderr}"
+    );
+
+    // Refused before Make ran at all: no completion record exists, so even
+    // if the static scan regressed, reconciliation would still have nothing
+    // to falsely accept here.
+    assert!(!dir.path().join("target/ci-gates/gate-a.json").exists());
+}
+
 // A record file present from an unrelated prior run must not count as a
 // pass for the current run — the guard resets the gates directory before
 // every invocation (NFR-004-AC-5's defense-in-depth alongside the run-id

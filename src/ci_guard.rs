@@ -54,6 +54,9 @@ pub enum ViolationKind {
     RecipeSwallowsFailure,
     /// A recipe line redirecting stderr to `/dev/null`.
     RecipeHidesStderr,
+    /// A recipe line joins two shell commands with a bare `;`, so Make's
+    /// exit status for the line is the *last* command's, not the check's.
+    RecipeChainsCommands,
     /// `$(eval` anywhere in the text.
     DynamicEval,
     /// The file (or an `include` target) could not be read.
@@ -73,6 +76,7 @@ impl ViolationKind {
             Self::DashPrefixedRecipe => "dash-prefixed-recipe",
             Self::RecipeSwallowsFailure => "recipe-swallows-failure",
             Self::RecipeHidesStderr => "recipe-hides-stderr",
+            Self::RecipeChainsCommands => "recipe-chains-commands",
             Self::DynamicEval => "dynamic-eval",
             Self::Unreadable => "unreadable",
         }
@@ -128,7 +132,9 @@ const ASSIGNED_VARS: [(&str, ViolationKind); 3] = [
 /// execution-control surfaces NFR-004-AC-1 names: `SHELL`, `.SHELLFLAGS`,
 /// `MAKEFLAGS` assignment; `.ONESHELL:`, `.DEFAULT:`, `.IGNORE:`, `.SILENT:`
 /// as special targets; a `-`-prefixed recipe line; a recipe containing
-/// `|| true` or a stderr-to-`/dev/null` redirect; and `$(eval` anywhere.
+/// `|| true`, a stderr-to-`/dev/null` redirect, or a bare `;` joining two
+/// shell commands (Make's exit status for a recipe line is its *last*
+/// command's); and `$(eval` anywhere.
 ///
 /// Returns every violation found; an empty result means the text is clean.
 /// An unreadable file — including an `include` target that cannot be
@@ -219,6 +225,52 @@ fn scan_recipe_line(
             "`$(eval` is refused outright, not analyzed".to_string(),
         );
     }
+    if has_bare_command_separator(body) {
+        push(
+            ViolationKind::RecipeChainsCommands,
+            "a bare `;` joins shell commands on one recipe line, so Make's \
+             exit status for the line is the last command's, not an earlier \
+             check's — e.g. `false; ci_guard record gate` reports success \
+             because `ci_guard record` always exits 0"
+                .to_string(),
+        );
+    }
+}
+
+/// True if `body` joins two shell commands with a bare `;` (a plain command
+/// separator, not part of a `for`/`while`/`case` control-flow keyword or a
+/// `;;` case-statement terminator). Make runs each recipe line as one shell
+/// invocation whose exit status is the *last* command's; `cmd1; cmd2`
+/// silently discards `cmd1`'s failure the same way `|| true` does, and is
+/// how a recipe combining a check with `ci_guard record <gate>` (which
+/// always exits 0) can report success despite the check failing — the
+/// static scan must see it precisely because reconciliation cannot: a
+/// record written that way is genuinely present and genuinely from this run.
+///
+/// Textual, not shell-grammar-aware: a `;` inside a quoted string is still
+/// flagged, the same accepted false-positive-over-false-negative trade-off
+/// as this module's other recipe-content checks.
+fn has_bare_command_separator(body: &str) -> bool {
+    const CONTROL_WORDS: [&str; 7] = ["do", "done", "then", "else", "elif", "fi", "esac"];
+    let mut chars = body.char_indices();
+    while let Some((idx, ch)) = chars.next() {
+        if ch != ';' {
+            continue;
+        }
+        if body[idx + 1..].starts_with(';') {
+            chars.next(); // `;;` case-statement terminator, not a separator
+            continue;
+        }
+        let rest = body[idx + 1..].trim_start();
+        let is_control_word = CONTROL_WORDS.iter().any(|kw| {
+            rest.strip_prefix(kw)
+                .is_some_and(|after| !after.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
+        });
+        if !is_control_word {
+            return true;
+        }
+    }
+    false
 }
 
 fn scan_directive_line(
@@ -358,8 +410,36 @@ pub struct GateRecord {
     pub run_id: String,
 }
 
+/// `true` if `gate` is safe to use as a bare filename component: every
+/// declared `ci` prerequisite name in this repository's Makefile is
+/// lowercase ASCII letters, digits, and `-` (e.g. `fmt-check`,
+/// `check-corpus`), so that is the admitted alphabet. Rejects anything that
+/// could escape the completion-record directory (`/`, `..`, a leading `.`)
+/// along with anything simply outside the expected shape.
+fn is_valid_gate_name(gate: &str) -> bool {
+    !gate.is_empty()
+        && gate
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+}
+
 /// Write `gate`'s completion record into `dir`, stamped with `run_id`.
+///
+/// `gate` is a CLI argument in practice (`ci_guard record GATE`, called from
+/// a Makefile recipe with a literal gate name); not reachable with an
+/// attacker-controlled value today, since every caller is a fixed literal in
+/// this repository's own trusted Makefile. Validated anyway, matching this
+/// module's fail-closed-on-untrusted-shape default: an invalid `gate` is
+/// refused with an error rather than silently building a path that could
+/// escape `dir` (NFR-004's own threat model is exactly "a recipe edit
+/// reopens something this control was supposed to close").
 pub fn write_record(dir: &Path, gate: &str, run_id: &str) -> std::io::Result<()> {
+    if !is_valid_gate_name(gate) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("refusing to write a completion record for invalid gate name {gate:?}"),
+        ));
+    }
     fs::create_dir_all(dir)?;
     let record = GateRecord {
         gate: gate.to_string(),
@@ -603,6 +683,65 @@ mod tests {
     }
 
     // Trace: TC-057, NFR-004-AC-1
+    // Independent second-pass review (SR-079/FND-001): a recipe line joining
+    // the check and the record call with a bare `;` is invisible to every
+    // other check here (no .IGNORE, no `-` prefix, no `|| true`, no stderr
+    // redirect, no $(eval)) yet defeats reconciliation, because Make's exit
+    // status for the line is `ci_guard record`'s (always 0), not the
+    // check's. This is the reviewer's own reproduction shape.
+    #[test]
+    fn scan_detects_semicolon_chained_check_and_record() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_temp(
+            dir.path(),
+            "Makefile",
+            "ci: gate-a\ngate-a:\n\tfalse; \"/path/to/ci_guard\" record gate-a\n",
+        );
+        assert!(scan_makefile(&path)
+            .iter()
+            .any(|v| v.kind == ViolationKind::RecipeChainsCommands));
+    }
+
+    // Trace: TC-057, NFR-004-AC-1
+    #[test]
+    fn scan_detects_simple_semicolon_chain() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_temp(dir.path(), "Makefile", "ci:\n\ttrue; false\n");
+        assert!(scan_makefile(&path)
+            .iter()
+            .any(|v| v.kind == ViolationKind::RecipeChainsCommands));
+    }
+
+    // Trace: TC-057, NFR-004-AC-1
+    // A `for`/`do`/`done` loop's structural semicolons are not a command
+    // separator hiding a failure and must not be flagged — over-flagging
+    // ordinary shell control flow would make this check impractical to
+    // leave on for any recipe using a loop.
+    #[test]
+    fn scan_allows_for_loop_control_flow_semicolons() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_temp(
+            dir.path(),
+            "Makefile",
+            "ci:\n\tfor f in a b c; do echo $$f; done\n",
+        );
+        assert!(scan_makefile(&path).is_empty());
+    }
+
+    // Trace: TC-057, NFR-004-AC-1
+    // `;;` terminates a `case` branch; it is not two bare command separators.
+    #[test]
+    fn scan_allows_case_statement_terminators() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_temp(
+            dir.path(),
+            "Makefile",
+            "ci:\n\tcase $$x in a) true ;; b) true ;; esac\n",
+        );
+        assert!(scan_makefile(&path).is_empty());
+    }
+
+    // Trace: TC-057, NFR-004-AC-1
     #[test]
     fn scan_detects_dynamic_eval() {
         let dir = tempfile::tempdir().unwrap();
@@ -785,6 +924,45 @@ mod tests {
         let records = read_records(dir.path());
         let record = records.get("fmt-check").unwrap();
         assert_eq!(record.run_id, "run-1");
+    }
+
+    // Trace: TC-059, NFR-004-AC-3
+    // SR-079/FND-003: `gate` reaches the filesystem path unvalidated; a
+    // traversal-shaped name must be refused rather than escaping `dir`.
+    #[test]
+    fn write_record_rejects_path_traversal_gate_names() {
+        let dir = tempfile::tempdir().unwrap();
+        for gate in ["../escape", "a/b", "/etc/passwd", "..", "", "Fmt-Check"] {
+            let result = write_record(dir.path(), gate, "run-1");
+            assert!(result.is_err(), "expected {gate:?} to be refused");
+        }
+        // Nothing escaped `dir`.
+        assert!(read_records(dir.path()).is_empty());
+        assert!(!dir.path().parent().unwrap().join("escape").exists());
+    }
+
+    // Trace: TC-059, NFR-004-AC-3
+    #[test]
+    fn write_record_accepts_every_real_gate_name() {
+        let dir = tempfile::tempdir().unwrap();
+        for gate in [
+            "fmt-check",
+            "lint",
+            "test",
+            "check-corpus",
+            "conformance",
+            "counterexamples",
+            "normalization",
+            "deny",
+            "audit-unsafe",
+            "spec",
+            "msrv",
+            "rustdoc",
+            "assurance",
+        ] {
+            write_record(dir.path(), gate, "run-1").unwrap();
+        }
+        assert_eq!(read_records(dir.path()).len(), 13);
     }
 
     // Trace: TC-061, NFR-004-AC-5
