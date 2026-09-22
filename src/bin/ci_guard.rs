@@ -32,11 +32,10 @@ use sha2::{Digest, Sha256};
 use tl_rewrite::ci_guard::{
     authorized_gate, cleanup_gate_tokens, dangerous_makeflags, mint_gate_tokens,
     parse_prerequisites, read_gate_tokens, read_records, reconcile, reset_gates_dir, scan_makefile,
-    write_gate_tokens, write_record, GATE_TOKEN_VAR,
+    write_gate_tokens, write_record, GATES_DIR, GATE_TOKEN_VAR,
 };
 
 const RUN_ID_VAR: &str = "CI_GUARD_RUN_ID";
-const GATES_DIR: &str = "target/ci-gates";
 const MAKE_TARGET: &str = "ci";
 
 fn main() -> ExitCode {

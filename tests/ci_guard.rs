@@ -375,3 +375,73 @@ fn stale_record_from_a_prior_run_does_not_leak_into_a_pass() {
         "a stale record must not make a failing run report success"
     );
 }
+
+// The independent reviewer's exact reproduction of a regression the
+// original NFR-004-AC-9 diff introduced, run against the compiled binary
+// exactly as they ran it: `scan_makefile`'s missing-soft-include exemption,
+// before it was scoped to exactly `target/ci-gates/.gate-tokens.mk`, applied
+// to *any* soft-include anywhere in the Makefile. A Makefile carrying
+// `-include generated.mk` (missing at scan time, so unflagged before the
+// fix) plus a Make *rule* to build `generated.mk` containing `.IGNORE:`
+// passed the static scan cleanly — but GNU Make's own documented behavior is
+// to remake an included makefile it has a rule for and *restart itself*
+// with the freshly built version before running any other target, all
+// before the guard's one-shot, before-Make-ever-runs scan could see it
+// again. The reviewer confirmed this fully defeats the guard against the
+// pre-fix binary: `false` in gate-a's recipe is silently ignored once
+// `.IGNORE:` takes effect, gate-a's own legitimate `ci_guard record` call
+// still runs and succeeds, and `ci_guard ci` reports success with exit 0 —
+// and confirmed the identical fixture is correctly refused by `main`
+// (pre-TL-202) `ci_guard`, isolating this as a regression this diff
+// introduced rather than a pre-existing gap. Scoping the exemption to
+// exactly the one path `ci_guard ci` itself generates and that carries no
+// build rule of its own closes it: the scan must now refuse before Make
+// ever runs, exactly as it did before AC-9 for every other missing include.
+// Trace: TC-064, NFR-004-AC-1, NFR-004-AC-9
+#[test]
+fn a_missing_soft_include_with_a_build_rule_cannot_smuggle_ignore_past_the_scan() {
+    let dir = tempfile::tempdir().unwrap();
+    let guard = ci_guard_bin();
+    // Carries the real token-delivery include too (as the actual Makefile
+    // does), so the only thing standing between this fixture and a false
+    // pass is the missing-soft-include scan — not an incidentally-absent
+    // token, which would refuse the record for an unrelated reason and mask
+    // whether the scan itself was actually the thing that caught this.
+    let makefile = format!(
+        "{GATE_TOKENS_INCLUDE}-include generated.mk\n\
+         .PHONY: ci gate-a\n\
+         ci: gate-a\n\
+         \n\
+         gate-a:\n\
+         \tfalse\n\
+         \t\"{guard}\" record gate-a\n\
+         \n\
+         generated.mk:\n\
+         \techo '.IGNORE:' > generated.mk\n"
+    );
+    fs::write(dir.path().join("Makefile"), makefile).unwrap();
+
+    let output = run_guard(dir.path());
+    assert!(
+        !output.status.success(),
+        "a soft-include target that a Make rule could plant an execution-control directive \
+         into must be refused, not silently treated as harmless-missing; got success"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("unreadable"),
+        "expected the static scan to refuse before Make ever ran, naming the unreadable \
+         generated.mk target — got: {stderr}"
+    );
+
+    // Refused before Make ran at all: no completion record exists, and
+    // critically, `generated.mk` itself must never have been built — if it
+    // had, the attack already succeeded regardless of what this process
+    // reports.
+    assert!(!dir.path().join("target/ci-gates/gate-a.json").exists());
+    assert!(
+        !dir.path().join("generated.mk").exists(),
+        "the guard must refuse before invoking Make at all, so Make must never reach the \
+         rule that builds generated.mk"
+    );
+}

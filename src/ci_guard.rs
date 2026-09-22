@@ -152,24 +152,80 @@ const ASSIGNED_VARS: [(&str, ViolationKind); 3] = [
 pub fn scan_makefile(path: &Path) -> Vec<Violation> {
     let mut visited = BTreeSet::new();
     let mut out = Vec::new();
-    scan_file(path, true, &mut visited, &mut out);
+    let exempt = exempt_missing_include_path(path);
+    scan_file(path, true, &exempt, &mut visited, &mut out);
+    out
+}
+
+/// The one path a missing soft-include is allowed to name without being a
+/// violation (see [`scan_file`]): `ci_guard ci`'s own generated
+/// `target/ci-gates/.gate-tokens.mk`, resolved against the directory the
+/// *top-level* Makefile passed to [`scan_makefile`] lives in. Computed once,
+/// not per include level, so a nested include cannot use a relative-path
+/// trick (`../`) to make some other, differently-located missing target
+/// spuriously match — every candidate is compared, after lexical
+/// normalization, against this one fixed value.
+fn exempt_missing_include_path(top_level_makefile: &Path) -> PathBuf {
+    let base_dir = top_level_makefile
+        .parent()
+        .unwrap_or_else(|| Path::new("."));
+    normalize_lexically(&base_dir.join(GATES_DIR).join(GATE_TOKENS_MK))
+}
+
+/// Resolve `.`/`..` components without touching the filesystem (the path
+/// being checked may not exist — that is the whole point of the check this
+/// supports). Not symlink-aware; matches this module's existing posture of
+/// textual, not exhaustively adversarial, analysis (see
+/// `has_bare_command_separator`'s doc comment for the same trade-off stated
+/// explicitly elsewhere in this file).
+fn normalize_lexically(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                if !out.pop() {
+                    out.push("..");
+                }
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
     out
 }
 
 /// Scan `path`. `required` is `false` only for a target reached through a
 /// `-include`/`sinclude` directive: Make itself silently continues when that
 /// specific file does not exist (that is the documented difference from a
-/// plain `include`, which stops Make with an error), so a target that is
-/// simply absent is not a suppression surface and is not flagged here either
-/// — the on-disk generated fragment this repository's own Makefile
-/// `-include`s for NFR-004-AC-9 (TL-202) is legitimately absent outside a
-/// `ci_guard ci` run. A file that exists but cannot be read for any other
-/// reason (permissions, a directory in its place, …) is still flagged
-/// regardless of `required`: fail closed on anything that is not the exact
-/// "Make would have silently skipped this too" case.
+/// plain `include`, which stops Make with an error). Even then, a missing
+/// target is treated as harmless-absent only when it is also `exempt_path`
+/// (see [`exempt_missing_include_path`]) — *every other* missing soft
+/// include is still flagged.
+///
+/// That narrowing is the fix for a regression an independent review of
+/// NFR-004-AC-9 found and reproduced against the compiled binary (TL-202): a
+/// Makefile carrying `-include generated.mk` where `generated.mk` does not
+/// exist yet, alongside a Make *rule* to build `generated.mk` containing
+/// `.IGNORE:` (or any other execution-control surface), passed this scan
+/// cleanly before this narrowing — the file was simply absent at scan time.
+/// But GNU Make's own documented behavior is to remake an included makefile
+/// that has a rule for it and *restart itself* with the freshly built
+/// version once remaking finishes, all before running any `ci` prerequisite
+/// recipe — so the planted `.IGNORE:` would have taken effect regardless of
+/// what this one-shot, before-Make-ever-runs scan saw. Exempting *only* the
+/// one path this repository's own Makefile actually needs to `-include` —
+/// `ci_guard ci`'s own generated, code-controlled `.gate-tokens.mk`, which
+/// carries no rule of its own and is never itself Make-buildable — removes
+/// the opening without reopening it for an arbitrary future soft-include a
+/// Makefile edit might add. A file that exists but cannot be read for any
+/// other reason (permissions, a directory in its place, …) is still flagged
+/// regardless of `required` or path: fail closed on anything that is not the
+/// exact, narrow "Make would have silently skipped this too, and nothing can
+/// make it exist behind this scan's back" case.
 fn scan_file(
     path: &Path,
     required: bool,
+    exempt_path: &Path,
     visited: &mut BTreeSet<PathBuf>,
     out: &mut Vec<Violation>,
 ) {
@@ -179,8 +235,12 @@ fn scan_file(
     }
     let text = match fs::read_to_string(path) {
         Ok(text) => text,
-        Err(err) if !required && err.kind() == std::io::ErrorKind::NotFound => {
-            return; // absent optional include: not a violation, matches Make's own -include
+        Err(err)
+            if !required
+                && err.kind() == std::io::ErrorKind::NotFound
+                && normalize_lexically(path) == exempt_path =>
+        {
+            return; // absent optional include of exactly the one exempt path
         }
         Err(err) => {
             out.push(Violation {
@@ -211,7 +271,7 @@ fn scan_file(
             recipe_continues = body.trim_end().ends_with('\\');
         } else {
             recipe_continues = false;
-            scan_directive_line(path, lineno, trimmed, base_dir, visited, out);
+            scan_directive_line(path, lineno, trimmed, base_dir, exempt_path, visited, out);
         }
     }
 }
@@ -305,6 +365,7 @@ fn scan_directive_line(
     lineno: usize,
     trimmed: &str,
     base_dir: &Path,
+    exempt_path: &Path,
     visited: &mut BTreeSet<PathBuf>,
     out: &mut Vec<Violation>,
 ) {
@@ -338,7 +399,7 @@ fn scan_directive_line(
     }
     if let Some((target, required)) = include_target(trimmed) {
         let included = base_dir.join(target);
-        scan_file(&included, required, visited, out);
+        scan_file(&included, required, exempt_path, visited, out);
     }
 }
 
@@ -512,6 +573,13 @@ pub fn read_records(dir: &Path) -> BTreeMap<String, GateRecord> {
 /// TL-202). Keyed by gate name.
 pub type GateTokens = BTreeMap<String, String>;
 
+/// Where `ci_guard ci` keeps completion records and the generated per-gate
+/// token files, relative to the directory the Makefile it drives lives in.
+/// The single definition both `src/bin/ci_guard.rs` and [`scan_makefile`]'s
+/// missing-soft-include exemption build on — see that exemption's own doc
+/// comment for why the exemption is scoped to exactly this location rather
+/// than to soft-includes generally (TL-202 review finding, post-AC-9).
+pub const GATES_DIR: &str = "target/ci-gates";
 const GATE_TOKENS_JSON: &str = ".gate-tokens.json";
 const GATE_TOKENS_MK: &str = ".gate-tokens.mk";
 /// The environment variable name a gate recipe's own `ci_guard record` call
@@ -975,28 +1043,90 @@ mod tests {
     }
 
     // Trace: TC-064, NFR-004-AC-9
-    // A missing `-include`/`sinclude` target is not a violation: Make itself
-    // silently continues past it, unlike a plain `include`. This is what
-    // lets the real Makefile permanently `-include` the per-gate token
-    // fragment `ci_guard ci` generates fresh before every run and that is
-    // legitimately absent otherwise (a bare `make ci`, `make lint`, or a
-    // fresh checkout that has never run `ci_guard ci`).
+    // A missing `-include`/`sinclude` of *exactly* `ci_guard ci`'s own
+    // generated `target/ci-gates/.gate-tokens.mk` is not a violation: Make
+    // itself silently continues past a missing soft-include, unlike a plain
+    // `include`, and this is the one path the real Makefile permanently
+    // `-include`s that is legitimately absent outside a `ci_guard ci` run (a
+    // bare `make ci`, `make lint`, or a fresh checkout). Both spellings
+    // (`-include`/`sinclude`) are exempt for this exact path.
     #[test]
-    fn scan_does_not_flag_a_missing_soft_include() {
+    fn scan_does_not_flag_a_missing_soft_include_of_the_exempt_gate_tokens_path() {
         let dir = tempfile::tempdir().unwrap();
         let path = write_temp(
             dir.path(),
             "Makefile",
-            "-include does-not-exist.mk\nci:\n\tfalse\n",
+            "-include target/ci-gates/.gate-tokens.mk\nci:\n\tfalse\n",
         );
         assert!(scan_makefile(&path).is_empty());
 
         let path2 = write_temp(
             dir.path(),
             "Makefile2",
-            "sinclude also-missing.mk\nci:\n\tfalse\n",
+            "sinclude target/ci-gates/.gate-tokens.mk\nci:\n\tfalse\n",
         );
         assert!(scan_makefile(&path2).is_empty());
+    }
+
+    // Trace: TC-064, NFR-004-AC-9
+    // Regression (independent review, post-AC-9): the missing-soft-include
+    // exemption must be scoped to exactly the one generated path above, not
+    // to soft-includes generally. Before this was scoped, a Makefile could
+    // carry `-include generated.mk` (missing at scan time, so unflagged)
+    // alongside a Make *rule* to build `generated.mk` containing `.IGNORE:`
+    // — GNU Make remakes an included file it has a rule for and restarts
+    // itself with the freshly built version before running any `ci`
+    // prerequisite, planting the directive after this scan already passed.
+    // A missing soft-include of any path *other* than the one exempt path
+    // must still be flagged, closing that reopening.
+    #[test]
+    fn scan_still_flags_a_missing_soft_include_of_any_other_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_temp(
+            dir.path(),
+            "Makefile",
+            "-include generated.mk\nci:\n\tfalse\n",
+        );
+        assert!(scan_makefile(&path)
+            .iter()
+            .any(|v| v.kind == ViolationKind::Unreadable));
+
+        // Even a path that merely *ends with* the exempt path's components,
+        // rooted somewhere else, must not be forgiven — only an exact match
+        // (after lexical normalization) against the one path resolved from
+        // this Makefile's own directory is exempt.
+        let path2 = write_temp(
+            dir.path(),
+            "Makefile2",
+            "-include elsewhere/target/ci-gates/.gate-tokens.mk\nci:\n\tfalse\n",
+        );
+        assert!(scan_makefile(&path2)
+            .iter()
+            .any(|v| v.kind == ViolationKind::Unreadable));
+    }
+
+    // Trace: TC-064, NFR-004-AC-9
+    // The reviewer's exact reproduction, at the `scan_makefile` unit level:
+    // a non-exempt soft-include target that a Make rule could build is still
+    // flagged as unreadable while genuinely missing, regardless of whether a
+    // rule to build it exists elsewhere in the same file — the scan runs
+    // once, before Make (and hence before any such rule could ever run), so
+    // it can only ever see "missing" or "present", never "buildable".
+    // Confirms the fix does not accidentally key off "does a rule exist" (a
+    // check this static, single-pass scanner cannot make reliably) but
+    // simply refuses every non-exempt missing target outright.
+    #[test]
+    fn scan_flags_a_missing_soft_include_even_when_a_rule_could_build_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_temp(
+            dir.path(),
+            "Makefile",
+            "-include generated.mk\nci: gate-a\ngate-a:\n\tfalse\n\t\"guard\" record gate-a\n\
+             generated.mk:\n\techo '.IGNORE:' > generated.mk\n",
+        );
+        assert!(scan_makefile(&path)
+            .iter()
+            .any(|v| v.kind == ViolationKind::Unreadable));
     }
 
     // Trace: TC-064, NFR-004-AC-9

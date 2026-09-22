@@ -42,7 +42,23 @@ each:
    together with two recipe-content patterns the original guard did not
    police: a recipe line containing `|| true`, and one redirecting stderr to
    `/dev/null`. An `include`d file is scanned by the same check rather than
-   exempted; `$(eval` is refused outright rather than partially analyzed.
+   exempted; `$(eval` is refused outright rather than partially analyzed. A
+   missing `-include`/`sinclude` target (Make's own documented distinction
+   from a plain `include`, which errors on a missing target) is not itself a
+   violation, but only for exactly one path: item 4's own generated
+   `target/ci-gates/.gate-tokens.mk`, which this entry point writes fresh on
+   every run and which carries no Make rule of its own. Every other missing
+   soft-include target is still flagged, specifically because GNU Make
+   remakes an included file it has a rule for and restarts itself with the
+   rebuilt version before running any other target — a Makefile carrying a
+   soft-include of a not-yet-existing target *and* a rule to build it could
+   otherwise plant an execution-control surface after this one-shot,
+   before-Make-runs scan has already passed and before this control could
+   ever see it again. An independent review of the first version of this
+   exemption (scoped to any missing soft-include, not just the one path
+   above) reproduced exactly that against the compiled entry point; the
+   narrowing above is the fix, confirmed by a regression test reproducing
+   the same fixture.
 2. **Invocation-environment control**: the entry point does not forward an
    inherited `MAKEFLAGS` to the Make process it starts, and invokes Make with
    an explicit, minimal flag set rather than trusting the caller's shell
@@ -166,7 +182,9 @@ reconciliation, from a real one — reconciliation is deceived into treating
 the affected gate as present, not tipped off. What still catches the overall
 run today is the trailing raw Make exit-status check, and only because every
 currently-known way to hide a gate's *own* genuine failure from Make's exit
-code is already blocked by item 1's static scan; that check cannot say
+code is already blocked by item 1's static scan — including the missing
+soft-include exemption item 1 describes, which is scoped to exactly the one
+path that needs it for precisely this reason; that check cannot say
 *which* gate misbehaved, only that Make exited non-zero, so a forged record
 degrades the entry point's most useful output — reconciliation naming the
 specific gate — into the coarse, undifferentiated signal `NFR-004`'s own
@@ -187,6 +205,7 @@ naming the actual gate.
 | False rejections of an unmodified, passing Makefile and a clean invocation environment | 0 | 0 | Test |
 | Documented or hosted invocation paths for the full local gate set that still name a bare `make ci` instead of the entry point | 0 | 0 | Inspection |
 | A gate's own recipe (or a subprocess it spawns) attempting to write a completion record for a *different* declared gate, presenting only `CI_GUARD_RUN_ID` and that gate's public name | 0/1 accepted | 0/1 accepted | Test |
+| A missing soft-include target naming any path other than the one exempt generated path, including one a Make rule elsewhere in the file could build with an execution-control directive, rejected before Make ever runs | 100% | 100% | Test |
 
 ## Verification
 
@@ -220,7 +239,16 @@ to that recipe's exit code — e.g. an unawaited child of `cargo test`),
 attempts to forge `gate-b`'s record before `gate-b`'s own recipe — which
 genuinely fails — ever runs. Must be refused; reconciliation must go on to
 name `gate-b` itself as missing, not fall back to the raw Make exit-status
-check's undifferentiated failure. An inspection pass confirms the README,
+check's undifferentiated failure. A seventh reproduction verifies the
+missing-soft-include exemption's own scope directly, from an independent
+review of the first version of that exemption: a fixture Makefile carrying
+both the real token-delivery `-include` and a second `-include generated.mk`
+naming a target that does not exist yet but that the same file also carries
+a rule to build with `.IGNORE:` as its content — must be refused by the
+static scan before Make ever runs (naming the missing `generated.mk` as
+unreadable), and `generated.mk` itself must never be built, confirming the
+guard does not reach the point where Make's own remake-and-restart behavior
+could plant the directive. An inspection pass confirms the README,
 `CLAUDE.md`, and any hosted workflow dispatch reference the entry point
 rather than a bare `make ci`.
 
@@ -236,4 +264,4 @@ rather than a bare `make ci`.
 | NFR-004-AC-6 | Reproducing the tracked measurement — a `.IGNORE:`-prepended Makefile copy, and a skeleton Makefile with every recipe replaced by a failing stub — against the entry point yields a non-zero exit and a named violation, not a reported pass. | Test |
 | NFR-004-AC-7 | An unmodified Makefile, a clean invocation environment, and every gate genuinely passing yields a zero exit from the entry point with no violation reported. | Test |
 | NFR-004-AC-8 | The repository's README, `CLAUDE.md`, and any hosted workflow dispatch that runs the full local gate set invoke the entry point rather than a bare `make ci`. | Inspection |
-| NFR-004-AC-9 | The entry point mints a fresh per-declared-gate token before invoking Make, not derivable from `CI_GUARD_RUN_ID` and a gate's own name alone, and delivers each gate's token into only that gate's own recipe environment; a completion record is written only when the caller presents the token minted for the gate it names, so a call presenting `CI_GUARD_RUN_ID` and a different declared gate's name, but not that gate's own token, is refused and writes no record. | Test |
+| NFR-004-AC-9 | The entry point mints a fresh per-declared-gate token before invoking Make, not derivable from `CI_GUARD_RUN_ID` and a gate's own name alone, and delivers each gate's token into only that gate's own recipe environment; a completion record is written only when the caller presents the token minted for the gate it names, so a call presenting `CI_GUARD_RUN_ID` and a different declared gate's name, but not that gate's own token, is refused and writes no record. The missing-soft-include exemption item 1 grants to deliver this token (a `-include`/`sinclude` target that does not yet exist is not itself a violation) applies to exactly the one path this token delivery needs and no other: a missing soft-include target naming any other path, including one a Make rule elsewhere in the same file could build, is still refused before Make ever runs. | Test |
