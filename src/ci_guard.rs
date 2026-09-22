@@ -12,6 +12,11 @@
 //! 3. [`reconcile`], applied to the completion records each `ci` prerequisite
 //!    recipe writes only on its own success, binds what was declared to what
 //!    actually ran, independent of Make's own exit code.
+//! 4. [`mint_gate_tokens`]/[`authorized_gate`] bind each completion record to
+//!    the specific gate recipe Make itself scoped a fresh, per-run token to,
+//!    so a subprocess sharing `CI_GUARD_RUN_ID` cannot write a record for a
+//!    *different* declared gate than the one whose recipe actually spawned
+//!    it (NFR-004-AC-9, TL-202) merely by inheriting that run id.
 //!
 //! This remediates Linear TL-64 / `agent-ix/tl-rewrite#11`: a single
 //! `.IGNORE:` line, or an equivalent execution-control surface, used to make
@@ -21,10 +26,13 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt, fs,
+    io::Read,
     path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 /// Stable class of execution-control surface a [`Violation`] names.
 ///
@@ -144,17 +152,96 @@ const ASSIGNED_VARS: [(&str, ViolationKind); 3] = [
 pub fn scan_makefile(path: &Path) -> Vec<Violation> {
     let mut visited = BTreeSet::new();
     let mut out = Vec::new();
-    scan_file(path, &mut visited, &mut out);
+    let exempt = exempt_missing_include_path(path);
+    scan_file(path, true, &exempt, &mut visited, &mut out);
     out
 }
 
-fn scan_file(path: &Path, visited: &mut BTreeSet<PathBuf>, out: &mut Vec<Violation>) {
+/// The one path a missing soft-include is allowed to name without being a
+/// violation (see [`scan_file`]): `ci_guard ci`'s own generated
+/// `target/ci-gates/.gate-tokens.mk`, resolved against the directory the
+/// *top-level* Makefile passed to [`scan_makefile`] lives in. Computed once,
+/// not per include level, so a nested include cannot use a relative-path
+/// trick (`../`) to make some other, differently-located missing target
+/// spuriously match — every candidate is compared, after lexical
+/// normalization, against this one fixed value.
+fn exempt_missing_include_path(top_level_makefile: &Path) -> PathBuf {
+    let base_dir = top_level_makefile
+        .parent()
+        .unwrap_or_else(|| Path::new("."));
+    normalize_lexically(&base_dir.join(GATES_DIR).join(GATE_TOKENS_MK))
+}
+
+/// Resolve `.`/`..` components without touching the filesystem (the path
+/// being checked may not exist — that is the whole point of the check this
+/// supports). Not symlink-aware; matches this module's existing posture of
+/// textual, not exhaustively adversarial, analysis (see
+/// `has_bare_command_separator`'s doc comment for the same trade-off stated
+/// explicitly elsewhere in this file).
+fn normalize_lexically(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                if !out.pop() {
+                    out.push("..");
+                }
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
+}
+
+/// Scan `path`. `required` is `false` only for a target reached through a
+/// `-include`/`sinclude` directive: Make itself silently continues when that
+/// specific file does not exist (that is the documented difference from a
+/// plain `include`, which stops Make with an error). Even then, a missing
+/// target is treated as harmless-absent only when it is also `exempt_path`
+/// (see [`exempt_missing_include_path`]) — *every other* missing soft
+/// include is still flagged.
+///
+/// That narrowing is the fix for a regression an independent review of
+/// NFR-004-AC-9 found and reproduced against the compiled binary (TL-202): a
+/// Makefile carrying `-include generated.mk` where `generated.mk` does not
+/// exist yet, alongside a Make *rule* to build `generated.mk` containing
+/// `.IGNORE:` (or any other execution-control surface), passed this scan
+/// cleanly before this narrowing — the file was simply absent at scan time.
+/// But GNU Make's own documented behavior is to remake an included makefile
+/// that has a rule for it and *restart itself* with the freshly built
+/// version once remaking finishes, all before running any `ci` prerequisite
+/// recipe — so the planted `.IGNORE:` would have taken effect regardless of
+/// what this one-shot, before-Make-ever-runs scan saw. Exempting *only* the
+/// one path this repository's own Makefile actually needs to `-include` —
+/// `ci_guard ci`'s own generated, code-controlled `.gate-tokens.mk`, which
+/// carries no rule of its own and is never itself Make-buildable — removes
+/// the opening without reopening it for an arbitrary future soft-include a
+/// Makefile edit might add. A file that exists but cannot be read for any
+/// other reason (permissions, a directory in its place, …) is still flagged
+/// regardless of `required` or path: fail closed on anything that is not the
+/// exact, narrow "Make would have silently skipped this too, and nothing can
+/// make it exist behind this scan's back" case.
+fn scan_file(
+    path: &Path,
+    required: bool,
+    exempt_path: &Path,
+    visited: &mut BTreeSet<PathBuf>,
+    out: &mut Vec<Violation>,
+) {
     let canonical = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
     if !visited.insert(canonical) {
         return; // already scanned on this walk; avoid an include cycle
     }
     let text = match fs::read_to_string(path) {
         Ok(text) => text,
+        Err(err)
+            if !required
+                && err.kind() == std::io::ErrorKind::NotFound
+                && normalize_lexically(path) == exempt_path =>
+        {
+            return; // absent optional include of exactly the one exempt path
+        }
         Err(err) => {
             out.push(Violation {
                 file: path.to_path_buf(),
@@ -184,7 +271,7 @@ fn scan_file(path: &Path, visited: &mut BTreeSet<PathBuf>, out: &mut Vec<Violati
             recipe_continues = body.trim_end().ends_with('\\');
         } else {
             recipe_continues = false;
-            scan_directive_line(path, lineno, trimmed, base_dir, visited, out);
+            scan_directive_line(path, lineno, trimmed, base_dir, exempt_path, visited, out);
         }
     }
 }
@@ -278,6 +365,7 @@ fn scan_directive_line(
     lineno: usize,
     trimmed: &str,
     base_dir: &Path,
+    exempt_path: &Path,
     visited: &mut BTreeSet<PathBuf>,
     out: &mut Vec<Violation>,
 ) {
@@ -309,9 +397,9 @@ fn scan_directive_line(
             detail: "`$(eval` is refused outright, not analyzed".to_string(),
         });
     }
-    if let Some(target) = include_target(trimmed) {
+    if let Some((target, required)) = include_target(trimmed) {
         let included = base_dir.join(target);
-        scan_file(&included, visited, out);
+        scan_file(&included, required, exempt_path, visited, out);
     }
 }
 
@@ -325,11 +413,17 @@ fn is_assignment(line: &str, name: &str) -> bool {
         .any(|op| rest.starts_with(op))
 }
 
-fn include_target(line: &str) -> Option<&str> {
-    for prefix in ["include ", "-include ", "sinclude "] {
+/// The `include` target named on `line`, and whether Make treats a missing
+/// target as an error (`include`, `required = true`) or silently continues
+/// (`-include`/`sinclude`, `required = false`).
+fn include_target(line: &str) -> Option<(&str, bool)> {
+    for prefix in ["-include ", "sinclude "] {
         if let Some(rest) = line.strip_prefix(prefix) {
-            return Some(rest.trim());
+            return Some((rest.trim(), false));
         }
+    }
+    if let Some(rest) = line.strip_prefix("include ") {
+        return Some((rest.trim(), true));
     }
     None
 }
@@ -472,6 +566,178 @@ pub fn read_records(dir: &Path) -> BTreeMap<String, GateRecord> {
         out.insert(record.gate.clone(), record);
     }
     out
+}
+
+/// A per-gate, per-run secret minted just before `make ci` runs and
+/// delivered into only that gate's own recipe environment (NFR-004-AC-9,
+/// TL-202). Keyed by gate name.
+pub type GateTokens = BTreeMap<String, String>;
+
+/// Where `ci_guard ci` keeps completion records and the generated per-gate
+/// token files, relative to the directory the Makefile it drives lives in.
+/// The single definition both `src/bin/ci_guard.rs` and [`scan_makefile`]'s
+/// missing-soft-include exemption build on — see that exemption's own doc
+/// comment for why the exemption is scoped to exactly this location rather
+/// than to soft-includes generally (TL-202 review finding, post-AC-9).
+pub const GATES_DIR: &str = "target/ci-gates";
+const GATE_TOKENS_JSON: &str = ".gate-tokens.json";
+const GATE_TOKENS_MK: &str = ".gate-tokens.mk";
+/// The environment variable name a gate recipe's own `ci_guard record` call
+/// reads its per-gate token from. Delivered by the generated Make fragment's
+/// target-specific `export`, never by the top-level `make` invocation's own
+/// environment — unlike [`GateRecord::run_id`]'s source, `CI_GUARD_RUN_ID`,
+/// which every recipe and every subprocess it spawns inherits alike.
+pub const GATE_TOKEN_VAR: &str = "CI_GUARD_GATE_TOKEN";
+
+/// 32 bytes read from `/dev/urandom`, or `None` if that device cannot be
+/// opened or a short read occurs (a non-Unix host, an unusually locked-down
+/// sandbox, …). [`mint_gate_tokens`] still produces a usable, run-unique
+/// token without it — see that function's documentation for what guarantee
+/// is lost when this returns `None`.
+fn urandom_bytes() -> Option<[u8; 32]> {
+    let mut file = fs::File::open("/dev/urandom").ok()?;
+    let mut buf = [0u8; 32];
+    file.read_exact(&mut buf).ok()?;
+    Some(buf)
+}
+
+/// Mint one fresh token per `gate` in `declared`, keyed to `run_id`.
+///
+/// Each token folds in `/dev/urandom` output (when available), wall-clock
+/// time, this process's pid, the gate name, and a per-call counter, so that
+/// no two tokens collide even if two gates are minted within the same
+/// nanosecond or `/dev/urandom` is unavailable and the run falls back to the
+/// other, lower-entropy inputs alone. Deliberately **not** a deterministic
+/// function of `run_id` and `gate` alone: `run_id` is already visible to
+/// every subprocess `make ci` spawns (that visibility is exactly what
+/// TL-202 reports), so a token any such subprocess could recompute from
+/// `run_id` and a gate name it already knows would bind nothing.
+pub fn mint_gate_tokens(declared: &BTreeSet<String>, run_id: &str) -> GateTokens {
+    declared
+        .iter()
+        .enumerate()
+        .map(|(i, gate)| (gate.clone(), mint_one_token(run_id, gate, i as u64)))
+        .collect()
+}
+
+fn mint_one_token(run_id: &str, gate: &str, counter: u64) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(run_id.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(gate.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(counter.to_le_bytes());
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or_default();
+    hasher.update(nanos.to_le_bytes());
+    hasher.update(std::process::id().to_le_bytes());
+    if let Some(random) = urandom_bytes() {
+        hasher.update(random);
+    }
+    hasher
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+/// Write `tokens` two ways into `dir`: a JSON map [`read_gate_tokens`] reads
+/// back to validate a `ci_guard record` call, and a generated Make fragment
+/// (`.gate-tokens.mk`) the real Makefile `-include`s, which uses Make's own
+/// target-specific-variable scoping to place exactly one gate's token into
+/// exactly that gate's own recipe environment via `export` — never into a
+/// sibling gate's recipe environment, and never into the top-level `make`
+/// process's own environment the way `CI_GUARD_RUN_ID` is.
+///
+/// Both files are generated fresh by this function on every run from an
+/// already-validated gate-name set (every declared `ci` prerequisite, parsed
+/// from Makefile text `scan_makefile` has already cleared); neither is
+/// human-edited, so unlike the Makefile itself, the fragment this writes is
+/// not re-scanned for execution-control surfaces after being written.
+/// Refuses (without writing anything) if any gate name fails
+/// [`is_valid_gate_name`] — defense in depth matching [`write_record`]'s own
+/// default, even though every caller passes a set already drawn from parsed
+/// Makefile text.
+pub fn write_gate_tokens(dir: &Path, tokens: &GateTokens) -> std::io::Result<()> {
+    for gate in tokens.keys() {
+        if !is_valid_gate_name(gate) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("refusing to write a gate token for invalid gate name {gate:?}"),
+            ));
+        }
+    }
+    fs::create_dir_all(dir)?;
+    let json = serde_json::to_vec_pretty(tokens)
+        .expect("GateTokens serialization is infallible for these field types");
+    fs::write(dir.join(GATE_TOKENS_JSON), json)?;
+
+    let mut mk = String::from(
+        "# Generated by `ci_guard ci` (NFR-004-AC-9, TL-202). Do not edit or commit:\n\
+         # rewritten fresh before every guarded run and absent otherwise.\n",
+    );
+    for (gate, token) in tokens {
+        mk.push_str(gate);
+        mk.push_str(": export ");
+        mk.push_str(GATE_TOKEN_VAR);
+        mk.push_str(" := ");
+        mk.push_str(token);
+        mk.push('\n');
+    }
+    fs::write(dir.join(GATE_TOKENS_MK), mk)
+}
+
+/// Read the token map [`write_gate_tokens`] wrote into `dir`. A missing
+/// directory, a missing file, or a file that fails to parse contributes an
+/// empty map — the same "no token available" input to [`authorized_gate`]
+/// as an absent record is to [`reconcile`], never an authorization.
+pub fn read_gate_tokens(dir: &Path) -> GateTokens {
+    let Ok(bytes) = fs::read(dir.join(GATE_TOKENS_JSON)) else {
+        return GateTokens::new();
+    };
+    serde_json::from_slice(&bytes).unwrap_or_default()
+}
+
+/// `true` iff `gate` was minted a token in `tokens` and `presented` is
+/// `Some` of exactly that value.
+///
+/// This binds a `ci_guard record` call to the recipe environment Make itself
+/// scoped to that gate (NFR-004-AC-9): a subprocess spawned during a
+/// *different* declared gate's own recipe — the concrete risk TL-202 names,
+/// e.g. a compromised or buggy dependency invoked by `cargo test`, `cargo
+/// clippy`, a Python script, or an external `quire`/`quoin` binary — does
+/// not have this gate's token in its own inherited environment the way it
+/// already has `CI_GUARD_RUN_ID`, and so cannot satisfy this check for any
+/// gate other than its own without separately locating and reading this
+/// module's token store off disk. That residual — a subprocess with general
+/// filesystem access during the run that goes looking for the token store
+/// rather than merely inheriting an environment variable — is disclosed in
+/// NFR-004's Scope rather than claimed closed: Make gives every recipe in a
+/// single `make ci` invocation the same user, the same filesystem, and no
+/// sandboxing between them, so no protocol built only from environment
+/// variables and files can withhold a value from a sufficiently deliberate
+/// reader in that same trust domain. Closing that residual would require
+/// running each gate's recipe as a genuinely separate OS principal, which is
+/// a materially larger change than this control.
+pub fn authorized_gate(tokens: &GateTokens, gate: &str, presented: Option<&str>) -> bool {
+    match (tokens.get(gate), presented) {
+        (Some(expected), Some(presented)) => expected == presented,
+        _ => false,
+    }
+}
+
+/// Delete `dir`'s gate-token files, best-effort. Called after reconciliation
+/// so a completed run's tokens do not sit on disk longer than the run that
+/// minted them — not itself a security boundary ([`reset_gates_dir`] already
+/// wipes any leftover files at the *start* of the next run before minting
+/// fresh ones — an attacker cannot make a prior run's token accepted by a
+/// later run's [`authorized_gate`] check, which is keyed to that later run's
+/// own freshly minted map), just hygiene.
+pub fn cleanup_gate_tokens(dir: &Path) {
+    let _ = fs::remove_file(dir.join(GATE_TOKENS_JSON));
+    let _ = fs::remove_file(dir.join(GATE_TOKENS_MK));
 }
 
 /// Delete and recreate `dir` so a fresh run starts from no completion
@@ -776,6 +1042,106 @@ mod tests {
             .any(|v| v.kind == ViolationKind::Unreadable));
     }
 
+    // Trace: TC-064, NFR-004-AC-9
+    // A missing `-include`/`sinclude` of *exactly* `ci_guard ci`'s own
+    // generated `target/ci-gates/.gate-tokens.mk` is not a violation: Make
+    // itself silently continues past a missing soft-include, unlike a plain
+    // `include`, and this is the one path the real Makefile permanently
+    // `-include`s that is legitimately absent outside a `ci_guard ci` run (a
+    // bare `make ci`, `make lint`, or a fresh checkout). Both spellings
+    // (`-include`/`sinclude`) are exempt for this exact path.
+    #[test]
+    fn scan_does_not_flag_a_missing_soft_include_of_the_exempt_gate_tokens_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_temp(
+            dir.path(),
+            "Makefile",
+            "-include target/ci-gates/.gate-tokens.mk\nci:\n\tfalse\n",
+        );
+        assert!(scan_makefile(&path).is_empty());
+
+        let path2 = write_temp(
+            dir.path(),
+            "Makefile2",
+            "sinclude target/ci-gates/.gate-tokens.mk\nci:\n\tfalse\n",
+        );
+        assert!(scan_makefile(&path2).is_empty());
+    }
+
+    // Trace: TC-064, NFR-004-AC-9
+    // Regression (independent review, post-AC-9): the missing-soft-include
+    // exemption must be scoped to exactly the one generated path above, not
+    // to soft-includes generally. Before this was scoped, a Makefile could
+    // carry `-include generated.mk` (missing at scan time, so unflagged)
+    // alongside a Make *rule* to build `generated.mk` containing `.IGNORE:`
+    // — GNU Make remakes an included file it has a rule for and restarts
+    // itself with the freshly built version before running any `ci`
+    // prerequisite, planting the directive after this scan already passed.
+    // A missing soft-include of any path *other* than the one exempt path
+    // must still be flagged, closing that reopening.
+    #[test]
+    fn scan_still_flags_a_missing_soft_include_of_any_other_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_temp(
+            dir.path(),
+            "Makefile",
+            "-include generated.mk\nci:\n\tfalse\n",
+        );
+        assert!(scan_makefile(&path)
+            .iter()
+            .any(|v| v.kind == ViolationKind::Unreadable));
+
+        // Even a path that merely *ends with* the exempt path's components,
+        // rooted somewhere else, must not be forgiven — only an exact match
+        // (after lexical normalization) against the one path resolved from
+        // this Makefile's own directory is exempt.
+        let path2 = write_temp(
+            dir.path(),
+            "Makefile2",
+            "-include elsewhere/target/ci-gates/.gate-tokens.mk\nci:\n\tfalse\n",
+        );
+        assert!(scan_makefile(&path2)
+            .iter()
+            .any(|v| v.kind == ViolationKind::Unreadable));
+    }
+
+    // Trace: TC-064, NFR-004-AC-9
+    // The reviewer's exact reproduction, at the `scan_makefile` unit level:
+    // a non-exempt soft-include target that a Make rule could build is still
+    // flagged as unreadable while genuinely missing, regardless of whether a
+    // rule to build it exists elsewhere in the same file — the scan runs
+    // once, before Make (and hence before any such rule could ever run), so
+    // it can only ever see "missing" or "present", never "buildable".
+    // Confirms the fix does not accidentally key off "does a rule exist" (a
+    // check this static, single-pass scanner cannot make reliably) but
+    // simply refuses every non-exempt missing target outright.
+    #[test]
+    fn scan_flags_a_missing_soft_include_even_when_a_rule_could_build_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_temp(
+            dir.path(),
+            "Makefile",
+            "-include generated.mk\nci: gate-a\ngate-a:\n\tfalse\n\t\"guard\" record gate-a\n\
+             generated.mk:\n\techo '.IGNORE:' > generated.mk\n",
+        );
+        assert!(scan_makefile(&path)
+            .iter()
+            .any(|v| v.kind == ViolationKind::Unreadable));
+    }
+
+    // Trace: TC-064, NFR-004-AC-9
+    // A `-include`/`sinclude` target that *does* exist is scanned exactly
+    // like a hard `include` — only missingness is forgiven, not content.
+    #[test]
+    fn scan_still_scans_a_present_soft_include() {
+        let dir = tempfile::tempdir().unwrap();
+        write_temp(dir.path(), "extra.mk", ".IGNORE:\n");
+        let path = write_temp(dir.path(), "Makefile", "-include extra.mk\nci:\n\tfalse\n");
+        assert!(scan_makefile(&path)
+            .iter()
+            .any(|v| v.kind == ViolationKind::IgnoreDirective && v.file.ends_with("extra.mk")));
+    }
+
     // Trace: TC-057, NFR-004-AC-1
     #[test]
     fn scan_ignores_directives_named_only_in_comments() {
@@ -973,5 +1339,122 @@ mod tests {
         write_record(&gates, "stale", "old-run").unwrap();
         reset_gates_dir(&gates).unwrap();
         assert!(read_records(&gates).is_empty());
+    }
+
+    // Trace: TC-064, NFR-004-AC-9
+    #[test]
+    fn mint_gate_tokens_covers_every_declared_gate_with_distinct_nonempty_tokens() {
+        let declared: BTreeSet<String> = ["gate-a", "gate-b", "gate-c"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let tokens = mint_gate_tokens(&declared, "run-1");
+        assert_eq!(tokens.len(), 3);
+        for gate in &declared {
+            assert!(!tokens[gate].is_empty());
+        }
+        // No two gates share a token, even minted in the same call.
+        let values: BTreeSet<&String> = tokens.values().collect();
+        assert_eq!(values.len(), 3);
+    }
+
+    // Trace: TC-064, NFR-004-AC-9
+    #[test]
+    fn mint_gate_tokens_differs_across_runs_for_the_same_gate() {
+        let declared: BTreeSet<String> = ["gate-a"].into_iter().map(String::from).collect();
+        let first = mint_gate_tokens(&declared, "run-1");
+        let second = mint_gate_tokens(&declared, "run-2");
+        assert_ne!(first["gate-a"], second["gate-a"]);
+    }
+
+    // Trace: TC-064, NFR-004-AC-9
+    #[test]
+    fn write_then_read_gate_tokens_round_trips() {
+        let dir = tempfile::tempdir().unwrap();
+        let declared: BTreeSet<String> = ["fmt-check", "lint"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let tokens = mint_gate_tokens(&declared, "run-1");
+        write_gate_tokens(dir.path(), &tokens).unwrap();
+
+        let read_back = read_gate_tokens(dir.path());
+        assert_eq!(read_back, tokens);
+
+        // The generated Make fragment scopes each token to its own target
+        // via a target-specific `export` assignment, not a plain (globally
+        // inherited) variable.
+        let mk = fs::read_to_string(dir.path().join(".gate-tokens.mk")).unwrap();
+        for (gate, token) in &tokens {
+            assert!(mk.contains(&format!("{gate}: export {GATE_TOKEN_VAR} := {token}")));
+        }
+    }
+
+    // Trace: TC-064, NFR-004-AC-9
+    #[test]
+    fn read_gate_tokens_is_empty_for_a_missing_store() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(read_gate_tokens(dir.path().join("absent").as_path()).is_empty());
+    }
+
+    // Trace: TC-064, NFR-004-AC-9
+    // The reproduction TL-202 reports: a subprocess of gate-a's own recipe
+    // knows CI_GUARD_RUN_ID and gate-b's *name* (both are already public —
+    // the name is literally in the Makefile) but does not have gate-b's
+    // token, because that token was only ever placed into gate-b's own
+    // recipe environment. Confirms the fix in the reverse direction too: the
+    // legitimate call, presenting its own gate's own token, is authorized.
+    #[test]
+    fn authorized_gate_rejects_a_different_gates_token_and_accepts_its_own() {
+        let declared: BTreeSet<String> =
+            ["gate-a", "gate-b"].into_iter().map(String::from).collect();
+        let tokens = mint_gate_tokens(&declared, "run-1");
+
+        // gate-a's subprocess presents its own token while claiming gate-b.
+        assert!(!authorized_gate(
+            &tokens,
+            "gate-b",
+            Some(tokens["gate-a"].as_str())
+        ));
+        // No token presented at all (e.g. CI_GUARD_GATE_TOKEN unset).
+        assert!(!authorized_gate(&tokens, "gate-b", None));
+        // An outright guessed/empty token.
+        assert!(!authorized_gate(&tokens, "gate-b", Some("")));
+        // gate-b's own recipe, presenting gate-b's own token: authorized.
+        assert!(authorized_gate(
+            &tokens,
+            "gate-b",
+            Some(tokens["gate-b"].as_str())
+        ));
+    }
+
+    // Trace: TC-064, NFR-004-AC-9
+    #[test]
+    fn authorized_gate_rejects_an_undeclared_gate_name() {
+        let declared: BTreeSet<String> = ["gate-a"].into_iter().map(String::from).collect();
+        let tokens = mint_gate_tokens(&declared, "run-1");
+        assert!(!authorized_gate(&tokens, "gate-z", Some("anything")));
+    }
+
+    // Trace: TC-064, NFR-004-AC-9
+    #[test]
+    fn write_gate_tokens_rejects_invalid_gate_names() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut tokens = GateTokens::new();
+        tokens.insert("../escape".to_string(), "token".to_string());
+        assert!(write_gate_tokens(dir.path(), &tokens).is_err());
+        assert!(!dir.path().join(GATE_TOKENS_JSON).exists());
+    }
+
+    // Trace: TC-064, NFR-004-AC-9
+    #[test]
+    fn cleanup_gate_tokens_removes_both_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let declared: BTreeSet<String> = ["gate-a"].into_iter().map(String::from).collect();
+        let tokens = mint_gate_tokens(&declared, "run-1");
+        write_gate_tokens(dir.path(), &tokens).unwrap();
+        cleanup_gate_tokens(dir.path());
+        assert!(!dir.path().join(GATE_TOKENS_JSON).exists());
+        assert!(!dir.path().join(GATE_TOKENS_MK).exists());
     }
 }
