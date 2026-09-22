@@ -21,7 +21,7 @@ pub use engine::{rewrite, rewrite_with_context};
 pub use equivalence::{
     check_equivalence, check_equivalence_with_context, check_past_equivalence, ConformanceOptions,
     ConformanceReason, ConformanceReport, ConformanceStatus, PastConformanceReason,
-    PastConformanceReport,
+    PastConformanceReport, PastEvaluationContext,
 };
 pub use replay::{replay, replay_with_context, ReplayReport, ReplayStatus};
 pub use report::{
@@ -30,10 +30,10 @@ pub use report::{
 };
 
 /// Exact tl-syntax source revision consumed by this candidate.
-pub const TL_SYNTAX_REVISION: &str = "842d82553f045eb69a7f38745756d968254fc25e";
+pub const TL_SYNTAX_REVISION: &str = "d52d89549b0a6c0c429261bab912cd5396c4a19e";
 
 /// Exact tl-mltl reference source revision consumed by this candidate.
-pub const TL_MLTL_REVISION: &str = "22862189ac4eb515ab84928faec25b2eac47d835";
+pub const TL_MLTL_REVISION: &str = "c8d2c871dbb379019a58fe74fcb230f501088538";
 
 /// Exact canonical WEST source revision from which permitted fixtures were selected.
 pub const WEST_REVISION: &str = "21cd99ab2e6095a099dd179029cfdeb54268ad3f";

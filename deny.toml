@@ -1,10 +1,13 @@
 [licenses]
 version = 2
+# AGPL-3.0-or-later is deliberately absent: since tl-mltl 0.2.0 (TL-179) this
+# crate's dependency graph has no AGPL-3.0-or-later component (quire-observation
+# was the only one), and TL-175 requires every TL-* crate to stay entirely
+# independent of the agent-ix/Quire ecosystem, so none should reappear here.
 allow = [
     "MIT",
     "Apache-2.0",
     "Unicode-3.0",
-    "AGPL-3.0-or-later",
 ]
 confidence-threshold = 0.9
 
@@ -19,17 +22,18 @@ db-path = "$CARGO_HOME/tl-rewrite-advisory-db"
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-# Exact-source exceptions for the pinned TL dependencies and tl-mltl's
-# transitive Quire Observation owner. tl-parse is dev-only and exercises the
-# parser-to-rewriter seam; its derived-lowering revisions remain explicitly
-# isolated as historical test dependencies. The production tl-syntax and
-# tl-mltl pins move together because equivalence passes syntax-owned formulas
-# and temporal requests into the evaluator owner. scripts/check_provenance.py
-# enforces that published production revision constants agree with Cargo.toml
-# and Cargo.lock.
+# Exact-source exceptions for the pinned TL dependencies. tl-parse is dev-only
+# and exercises the parser-to-rewriter seam; its derived-lowering revisions
+# remain explicitly isolated as historical test dependencies. The production
+# tl-syntax and tl-mltl pins move together because equivalence passes
+# syntax-owned formulas and history documents into the evaluator owner. Since
+# tl-mltl 0.2.0 (TL-179) this crate has no quire-observation dependency,
+# direct or transitive, anywhere including dev-dependencies -- TL-175 requires
+# every TL-* crate to stay entirely independent of the agent-ix/Quire
+# ecosystem. scripts/check_provenance.py enforces that published production
+# revision constants agree with Cargo.toml and Cargo.lock.
 allow-git = [
     "https://github.com/agent-ix/tl-mltl.git",
     "https://github.com/agent-ix/tl-parse.git",
-    "https://github.com/agent-ix/quire-observation",
     "https://github.com/agent-ix/tl-syntax.git",
 ]

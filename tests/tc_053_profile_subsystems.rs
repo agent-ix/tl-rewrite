@@ -1,337 +1,27 @@
-use quire_observation::authority::{
-    self, AuthoritySelection, Context, History, Limits as ObservationLimits, OpenClosed,
-    SubjectSelection, TemporalBoundary,
-};
-use quire_observation::{
-    admit, AdmissionOutcome, AdmissionRequest, AdmittedRecord, Anchor, ClockRange, Digest,
-    Identity, Member, ObservationBinding, PackageSelection, ProducerSelection,
-    QualifiedObservation, ResourceLimits, ScopeKind, ScopeSelection, Subject, SubjectKind,
-    ValueState, Visibility, NATIVE_LINKED_PACKAGE_FORMAT, PRODUCER_INTERFACE_VERSION,
-};
-use tl_mltl::past::history;
-use tl_mltl::wire::{request, OwnerLimits};
 use tl_mltl::{
-    fixed_sample_instant, ClockBinding, ClockSample, ExactNumber, PositionHistoryDocument,
-    PositionObservation,
+    fixed_sample_instant, ClockBinding, ClockSample, ExactNumber, PastEvaluationLimits,
+    PositionHistoryDocument, PositionObservation,
 };
 use tl_rewrite::{
     check_past_equivalence, engine, past_catalog, replay as replay_report,
     report as rewrite_report, rewrite, BudgetKind, ConformanceStatus, PastConformanceReason,
-    RecordLimits, RecordReadErrorCode, ReplayReport, ReplayStatus, RewriteBudgets, RewriteOptions,
-    RewriteStatus, TL_MLTL_REVISION, TL_SYNTAX_REVISION,
+    PastEvaluationContext, RecordLimits, RecordReadErrorCode, ReplayReport, ReplayStatus,
+    RewriteBudgets, RewriteOptions, RewriteStatus, TL_MLTL_REVISION, TL_SYNTAX_REVISION,
 };
 use tl_syntax::{
-    FormulaDocument, Interval, Node, NodeId, NodeKind, PropositionEntry, PropositionId,
-    PropositionMapDocument, SemanticProfile,
+    FormulaDocument, Interval, Node, NodeId, NodeKind, PropositionId, SemanticProfile,
 };
 
+/// Selects between the two TL-native `ClockBinding` shapes a
+/// [`PositionHistoryDocument`] fixture can carry. Before TL-179 this also fed
+/// quire-observation authority-view fixtures (`ClockRange`, `Anchor`,
+/// `TemporalBoundary`); tl-mltl 0.2.0 dropped the owner-admission machinery
+/// that consumed those, so this enum is now scoped to exactly what
+/// [`history_document`] still needs.
 #[derive(Clone, Copy, Debug)]
 enum FixtureClock {
     EventPosition,
     FixedSample,
-}
-
-impl FixtureClock {
-    const fn identity(self) -> &'static str {
-        match self {
-            Self::EventPosition => "clock:event-position",
-            Self::FixedSample => "clock:fixed-sample",
-        }
-    }
-
-    const fn range(self, positions: u64) -> ClockRange {
-        match self {
-            Self::EventPosition => ClockRange::EventPosition {
-                start: 0,
-                end_exclusive: positions,
-            },
-            Self::FixedSample => ClockRange::FixedSample {
-                start: 0,
-                end_exclusive: positions,
-                epoch_nanos: 100,
-                period_nanos: 10,
-            },
-        }
-    }
-
-    const fn anchor(self) -> Anchor {
-        match self {
-            Self::EventPosition => Anchor::EventPosition(0),
-            Self::FixedSample => Anchor::FixedSample {
-                index: 0,
-                epoch_nanos: 100,
-                period_nanos: 10,
-            },
-        }
-    }
-
-    const fn boundary(self, positions: u64) -> TemporalBoundary {
-        match self {
-            Self::EventPosition => TemporalBoundary::EventPosition {
-                lower: 0,
-                upper_inclusive: positions - 1,
-                carrier_end_exclusive: positions,
-                watermark: positions,
-            },
-            Self::FixedSample => TemporalBoundary::FixedSample {
-                lower: 0,
-                upper_inclusive: positions - 1,
-                carrier_end_exclusive: positions,
-                watermark: positions,
-            },
-        }
-    }
-}
-
-struct OwnerViews {
-    clock: authority::clock::View,
-    progress: authority::progress::View,
-    closure: authority::closure::View,
-    completeness: authority::completeness::View,
-    availability: authority::availability::View,
-}
-
-fn identity(value: impl Into<String>) -> Identity {
-    Identity::new(value)
-}
-
-fn digest(value: u8) -> Digest {
-    Digest::new([value; 32])
-}
-
-fn qualified_observation(
-    tag: &str,
-    positions: u64,
-    clock: FixtureClock,
-) -> Box<QualifiedObservation> {
-    let subject = Subject {
-        kind: SubjectKind::Order,
-        identity: identity(format!("order:{tag}")),
-    };
-    let mut request = AdmissionRequest {
-        package: PackageSelection {
-            format: NATIVE_LINKED_PACKAGE_FORMAT.to_owned(),
-            identity: identity(format!("package:{tag}")),
-            revision: identity("1"),
-            digest: digest(1),
-        },
-        producer: ProducerSelection {
-            interface_version: PRODUCER_INTERFACE_VERSION.to_owned(),
-            document_identity: identity(format!("producer:{tag}")),
-            document_digest: digest(2),
-            model_identity: identity(format!("model:{tag}")),
-            configuration_identity: identity(format!("configuration:{tag}")),
-            configuration_digest: digest(3),
-        },
-        binding: ObservationBinding {
-            identity: identity(format!("binding:{tag}")),
-            source_identity: identity(format!("source:{tag}")),
-            schema_identity: identity(format!("schema:{tag}")),
-            signal_identity: identity("signal:p"),
-            trigger_identity: identity(format!("trigger:{tag}")),
-            unit: identity("boolean"),
-            subject_kind: SubjectKind::Order,
-            required: true,
-        },
-        expected_subject: subject.clone(),
-        relationships: Vec::new(),
-        required_relationships: Vec::new(),
-        scope: ScopeSelection {
-            population_identity: identity("unsealed-population"),
-            membership_rule_identity: identity(format!("membership:{tag}")),
-            membership_digest: digest(4),
-            membership_document: Vec::new(),
-            required_member_identities: vec![identity(format!("member:{tag}"))],
-            observation_sources: vec![identity(format!("source:{tag}"))],
-            completeness_dependencies: vec![identity(format!("completeness:{tag}"))],
-            progress_dependencies: vec![identity(format!("progress:{tag}"))],
-            clock_identity: identity(clock.identity()),
-            clock_revision: identity("1"),
-            membership_complete: true,
-            closure_identity: Some(identity(format!("closure:{tag}"))),
-            closure_digest: Some(digest(5)),
-            kind: ScopeKind::Snapshot {
-                snapshot_identity: identity(format!("snapshot:{tag}")),
-            },
-            range: clock.range(positions),
-            members: vec![Member {
-                object_identity: identity(format!("member:{tag}")),
-                record_identity: identity("unsealed-record"),
-                anchor: clock.anchor(),
-            }],
-        },
-        records: vec![AdmittedRecord {
-            identity: identity("unsealed-record"),
-            binding_identity: identity(format!("binding:{tag}")),
-            source_identity: identity(format!("source:{tag}")),
-            schema_identity: identity(format!("schema:{tag}")),
-            subject,
-            signal_identity: identity("signal:p"),
-            trigger_identity: identity(format!("trigger:{tag}")),
-            unit: identity("boolean"),
-            value: ValueState::Present {
-                value_type: identity("boolean"),
-                canonical_value: "true".to_owned(),
-            },
-            visibility: Visibility::External,
-            anchor: clock.anchor(),
-            event_time_nanos: 0,
-            ingestion_time_nanos: 1,
-            causal_relationship_identity: None,
-            clock_identity: identity(clock.identity()),
-            clock_revision: identity("1"),
-            clock_uncertainty_nanos: 0,
-        }],
-        limits: ResourceLimits {
-            max_records: 1,
-            max_members: 1,
-            max_relationships: 0,
-            max_required_relationships: 0,
-        },
-    };
-    let record_identity = authority::observation::record_identity(
-        &request.records[0],
-        ObservationLimits::owner_max(),
-    )
-    .unwrap();
-    request.records[0].identity = record_identity.clone();
-    request.scope.members[0].record_identity = record_identity;
-    authority::population::assign_request_identities(&mut request, ObservationLimits::owner_max())
-        .unwrap();
-    match admit(request) {
-        AdmissionOutcome::Available { observation } => observation,
-        other => panic!("observation fixture admission failed: {other:?}"),
-    }
-}
-
-fn owner_views(tag: &str, positions: u64, fixture_clock: FixtureClock) -> OwnerViews {
-    let qualified = qualified_observation(tag, positions, fixture_clock);
-    let authority = AuthoritySelection {
-        definition_identity: identity(format!("definition:{tag}")),
-        definition_revision: identity("1"),
-        definition_digest: digest(9),
-    };
-    let subject = SubjectSelection {
-        scope_identity: identity(format!("snapshot:{tag}")),
-        population_identity: qualified.scope().population_identity.clone(),
-    };
-    let context = Context::new(History::batch(&qualified), &authority, &subject, 1, None);
-    let clock_selection =
-        authority::clock::Selection::new(identity(fixture_clock.identity()), identity("1"));
-    let clock_document =
-        authority::clock::derive(context, &clock_selection, ObservationLimits::owner_max())
-            .unwrap();
-    let clock = authority::clock::read(
-        clock_document.bytes(),
-        context,
-        &clock_selection,
-        ObservationLimits::owner_max(),
-    )
-    .unwrap();
-    let progress_selection = authority::progress::Selection::new(
-        clock_selection,
-        vec![identity(format!("source:{tag}"))],
-        fixture_clock.boundary(positions),
-        OpenClosed::Closed,
-        identity(format!("trigger:{tag}")),
-        authority::observation::CutoffSelection::new(
-            identity(fixture_clock.identity()),
-            identity("1"),
-            2,
-            authority::observation::CutoffRule::IngestionTimeAtOrBefore,
-            identity("1"),
-        ),
-        identity(format!("restoration:{tag}")),
-    );
-    let progress_document =
-        authority::progress::derive(context, &progress_selection, ObservationLimits::owner_max())
-            .unwrap();
-    let progress = authority::progress::read(
-        progress_document.bytes(),
-        context,
-        &progress_selection,
-        ObservationLimits::owner_max(),
-    )
-    .unwrap();
-    let closure_selection = authority::closure::Selection::new(
-        identity(fixture_clock.identity()),
-        identity("1"),
-        vec![identity(format!("source:{tag}"))],
-        fixture_clock.boundary(positions),
-        OpenClosed::Closed,
-    );
-    let closure_document =
-        authority::closure::derive(context, &closure_selection, ObservationLimits::owner_max())
-            .unwrap();
-    let closure = authority::closure::read(
-        closure_document.bytes(),
-        context,
-        &closure_selection,
-        ObservationLimits::owner_max(),
-    )
-    .unwrap();
-    let completeness_selection = authority::completeness::Selection::new(
-        identity(format!("boundary:{tag}")),
-        vec![authority::completeness::Fact::new(
-            identity(format!("member:{tag}")),
-            Some(qualified.records()[0].identity.clone()),
-            authority::completeness::FactStatus::Available,
-        )],
-    );
-    let completeness_document = authority::completeness::derive(
-        context,
-        &completeness_selection,
-        ObservationLimits::owner_max(),
-    )
-    .unwrap();
-    let completeness = authority::completeness::read(
-        completeness_document.bytes(),
-        context,
-        &completeness_selection,
-        ObservationLimits::owner_max(),
-    )
-    .unwrap();
-    let required = vec![identity(format!("required-result:{tag}"))];
-    let availability_selection = authority::availability::Selection::new(
-        required.clone(),
-        required,
-        authority::availability::DependencyState::Available,
-        authority::availability::DependencyState::Available,
-    );
-    let availability_document = authority::availability::derive(
-        context,
-        &availability_selection,
-        ObservationLimits::owner_max(),
-    )
-    .unwrap();
-    let availability = authority::availability::read(
-        availability_document.bytes(),
-        context,
-        &availability_selection,
-        ObservationLimits::owner_max(),
-    )
-    .unwrap();
-    OwnerViews {
-        clock,
-        progress,
-        closure,
-        completeness,
-        availability,
-    }
-}
-
-fn proposition_map() -> PropositionMapDocument {
-    PropositionMapDocument::new(vec![
-        PropositionEntry {
-            id: PropositionId(0),
-            name: "p".to_owned(),
-        },
-        PropositionEntry {
-            id: PropositionId(1),
-            name: "q".to_owned(),
-        },
-    ])
-    .unwrap()
 }
 
 fn past_document(nodes: Vec<Node>) -> FormulaDocument {
@@ -425,72 +115,31 @@ fn history_document(
     .unwrap()
 }
 
-fn admit_history(document: &PositionHistoryDocument) -> history::ValidatedPositionHistory {
-    let derived = history::derive(document, OwnerLimits::default()).unwrap();
-    history::read(derived.bytes(), document, OwnerLimits::default()).unwrap()
-}
-
-fn admit_request(
-    formula: &FormulaDocument,
-    propositions: &PropositionMapDocument,
-    history: &history::ValidatedPositionHistory,
-    views: &OwnerViews,
+/// Bundles one formula pair into the two [`PastEvaluationContext`]s
+/// `check_past_equivalence` compares, sharing one history, anchor and
+/// proposition-map identity. `history` is built by the caller (via
+/// [`history_document`]) so it outlives both contexts.
+fn context_pair<'a>(
+    original: &'a FormulaDocument,
+    rewritten: &'a FormulaDocument,
+    history: &'a PositionHistoryDocument,
     anchor: u64,
-    correspondence: &str,
-) -> request::ValidatedTemporalRequest {
-    let input = request::RequestInput {
-        formula,
-        proposition_map: propositions,
-        input: request::TemporalInput::Past(history),
-        clock: &views.clock,
-        subject_identity: "native-subject:rewrite-equivalence",
-        correspondence_identity: correspondence,
-        anchor,
-        observations: request::ObservationInputs {
-            decision_scope_progress: &views.progress,
-            decision_scope_closure: &views.closure,
-            surrounding_execution_progress: &views.progress,
-            surrounding_execution_closure: &views.closure,
-            completeness: &views.completeness,
-            availability: &views.availability,
-        },
-    };
-    let document = request::derive(input, OwnerLimits::default()).unwrap();
-    request::read(document.bytes(), input, OwnerLimits::default()).unwrap()
-}
-
-fn owner_pair(
-    original: &FormulaDocument,
-    rewritten: &FormulaDocument,
-    values: &[(bool, bool)],
-    clock: FixtureClock,
-    anchor: u64,
-    tag: &str,
-) -> (
-    request::ValidatedTemporalRequest,
-    request::ValidatedTemporalRequest,
-) {
-    let propositions = proposition_map();
-    let history_value = history_document(tag, values, clock);
-    let history = admit_history(&history_value);
-    let views = owner_views(tag, u64::try_from(values.len()).unwrap(), clock);
+) -> (PastEvaluationContext<'a>, PastEvaluationContext<'a>) {
     (
-        admit_request(
-            original,
-            &propositions,
-            &history,
-            &views,
+        PastEvaluationContext {
+            formula: original,
+            formula_id: "correspondence:original",
+            history,
             anchor,
-            "correspondence:original",
-        ),
-        admit_request(
-            rewritten,
-            &propositions,
-            &history,
-            &views,
+            proposition_map_id: "proposition-map:tc-053",
+        },
+        PastEvaluationContext {
+            formula: rewritten,
+            formula_id: "correspondence:rewritten",
+            history,
             anchor,
-            "correspondence:rewritten",
-        ),
+            proposition_map_id: "proposition-map:tc-053",
+        },
     )
 }
 
@@ -535,9 +184,9 @@ fn tc_053_profile_dispatch_owner_admission_and_legacy_bytes_are_preserved() {
     );
     assert_eq!(
         TL_SYNTAX_REVISION,
-        "842d82553f045eb69a7f38745756d968254fc25e"
+        "d52d89549b0a6c0c429261bab912cd5396c4a19e"
     );
-    assert_eq!(TL_MLTL_REVISION, "22862189ac4eb515ab84928faec25b2eac47d835");
+    assert_eq!(TL_MLTL_REVISION, "c8d2c871dbb379019a58fe74fcb230f501088538");
 
     let future = FormulaDocument::new(
         SemanticProfile::ClosedTraceV1,
@@ -848,13 +497,14 @@ fn tc_053_past_owner_equivalence_covers_both_clocks_all_anchors_and_wrong_operat
         for anchor in 0..u64::try_from(values.len()).unwrap() {
             for (index, (original, rewritten)) in correct_pairs.iter().enumerate() {
                 let tag = format!("correct-{clock:?}-{anchor}-{index}");
-                let (original_request, rewritten_request) =
-                    owner_pair(original, rewritten, &values, clock, anchor, &tag);
+                let history = history_document(&tag, &values, clock);
+                let (original_context, rewritten_context) =
+                    context_pair(original, rewritten, &history, anchor);
                 let report = check_past_equivalence(
-                    &original_request,
-                    &rewritten_request,
+                    &original_context,
+                    &rewritten_context,
                     tag,
-                    OwnerLimits::default(),
+                    PastEvaluationLimits::default(),
                 );
                 assert_eq!(report.status, ConformanceStatus::Equivalent);
                 assert_eq!(report.reason, None);
@@ -923,13 +573,14 @@ fn tc_053_past_owner_equivalence_covers_both_clocks_all_anchors_and_wrong_operat
     for clock in [FixtureClock::EventPosition, FixtureClock::FixedSample] {
         for (operator, original, wrong, anchor) in &wrong_pairs {
             let tag = format!("wrong-{clock:?}-{operator}");
-            let (original_request, wrong_request) =
-                owner_pair(original, wrong, &values, clock, *anchor, &tag);
+            let history = history_document(&tag, &values, clock);
+            let (original_context, wrong_context) =
+                context_pair(original, wrong, &history, *anchor);
             let report = check_past_equivalence(
-                &original_request,
-                &wrong_request,
+                &original_context,
+                &wrong_context,
                 tag,
-                OwnerLimits::default(),
+                PastEvaluationLimits::default(),
             );
             assert_eq!(report.status, ConformanceStatus::Mismatch, "{operator}");
             assert_eq!(report.reason, None);
@@ -940,79 +591,80 @@ fn tc_053_past_owner_equivalence_covers_both_clocks_all_anchors_and_wrong_operat
     let rewritten = rewrite(&original, "once", RewriteOptions::default(), "source")
         .output
         .unwrap();
-    let (original_request, _) = owner_pair(
-        &original,
-        &rewritten,
-        &values,
-        FixtureClock::EventPosition,
-        0,
-        "context-original",
-    );
-    let (_, different_anchor) = owner_pair(
-        &original,
-        &rewritten,
-        &values,
-        FixtureClock::EventPosition,
-        1,
-        "context-original",
-    );
+
+    // Both sides of a context-mismatch comparison must share one history,
+    // anchor and proposition map (see `matching_past_context` in
+    // src/equivalence.rs); here only the anchor differs.
+    let context_mismatch_history =
+        history_document("context-original", &values, FixtureClock::EventPosition);
+    let original_at_anchor_zero = PastEvaluationContext {
+        formula: &original,
+        formula_id: "correspondence:original",
+        history: &context_mismatch_history,
+        anchor: 0,
+        proposition_map_id: "proposition-map:tc-053",
+    };
+    let rewritten_at_anchor_one = PastEvaluationContext {
+        formula: &rewritten,
+        formula_id: "correspondence:rewritten",
+        history: &context_mismatch_history,
+        anchor: 1,
+        proposition_map_id: "proposition-map:tc-053",
+    };
     let refused = check_past_equivalence(
-        &original_request,
-        &different_anchor,
+        &original_at_anchor_zero,
+        &rewritten_at_anchor_one,
         "context-mismatch",
-        OwnerLimits::default(),
+        PastEvaluationLimits::default(),
     );
     assert_eq!(refused.status, ConformanceStatus::NonConclusive);
     assert_eq!(refused.reason, Some(PastConformanceReason::ContextMismatch));
 
-    let (original_request, rewritten_request) = owner_pair(
-        &original,
-        &rewritten,
-        &values,
-        FixtureClock::EventPosition,
-        1,
-        "resource-nonvalue",
-    );
+    let resource_history =
+        history_document("resource-nonvalue", &values, FixtureClock::EventPosition);
+    let (original_context, rewritten_context) =
+        context_pair(&original, &rewritten, &resource_history, 1);
     let nonvalue = check_past_equivalence(
-        &original_request,
-        &rewritten_request,
+        &original_context,
+        &rewritten_context,
         "resource-nonvalue",
-        OwnerLimits {
-            max_evaluation_steps: 0,
-            ..OwnerLimits::default()
+        PastEvaluationLimits {
+            max_steps: 0,
+            ..PastEvaluationLimits::default()
         },
     );
     assert_eq!(nonvalue.status, ConformanceStatus::NonConclusive);
+    // Before tl-mltl 0.2.0 (TL-179) an exhausted step budget still produced a
+    // completed owner result with a non-final/non-Boolean truth
+    // (`TemporalTruth::Unavailable`), reported here as a dedicated
+    // `NonBooleanResult` reason. `tl_mltl::past::evaluate_past` (the TL-179
+    // replacement) has no such intermediate state for the past lane: it
+    // either returns a definite Boolean verdict or a typed
+    // `PastEvaluationError` (here `StepLimitExceeded`). A step-limit refusal
+    // now reports the same way as any other evaluator refusal.
     assert_eq!(
         nonvalue.reason,
-        Some(PastConformanceReason::NonBooleanResult)
+        Some(PastConformanceReason::OriginalEvaluatorError)
     );
-    assert_eq!(
-        nonvalue.original_truth,
-        Some(tl_mltl::wire::report::TemporalTruth::Unavailable)
-    );
-    assert_eq!(
-        nonvalue.rewritten_truth,
-        Some(tl_mltl::wire::report::TemporalTruth::Unavailable)
-    );
+    assert!(nonvalue.original_result_identity.is_none());
+    assert!(nonvalue.rewritten_result_identity.is_none());
 
     let one_node = constant(true);
     let two_nodes = once(Interval::new(1, 1).unwrap());
-    let (short_request, long_request) = owner_pair(
-        &one_node,
-        &two_nodes,
-        &values,
-        FixtureClock::EventPosition,
-        1,
-        "rewritten-owner-refusal",
-    );
+    let refusal_history = history_document("owner-refusal", &values, FixtureClock::EventPosition);
+    let (short_context, long_context) = context_pair(&one_node, &two_nodes, &refusal_history, 1);
+    // `max_formula_nodes` no longer exists on `PastEvaluationLimits` (tl-mltl
+    // 0.2.0 bounds past evaluation by recursion depth, not node count).
+    // `max_recursion_depth: 0` reproduces the same asymmetry: `one_node` is a
+    // single leaf evaluated at depth 0 and still succeeds, while `two_nodes`
+    // (`once`) must recurse into its operand at depth 1 and is refused.
     let rewritten_refused = check_past_equivalence(
-        &short_request,
-        &long_request,
+        &short_context,
+        &long_context,
         "rewritten-owner-refusal",
-        OwnerLimits {
-            max_formula_nodes: 1,
-            ..OwnerLimits::default()
+        PastEvaluationLimits {
+            max_recursion_depth: 0,
+            ..PastEvaluationLimits::default()
         },
     );
     assert_eq!(
@@ -1023,12 +675,12 @@ fn tc_053_past_owner_equivalence_covers_both_clocks_all_anchors_and_wrong_operat
     assert!(rewritten_refused.rewritten_result_identity.is_none());
 
     let original_refused = check_past_equivalence(
-        &long_request,
-        &short_request,
+        &long_context,
+        &short_context,
         "original-owner-refusal",
-        OwnerLimits {
-            max_formula_nodes: 1,
-            ..OwnerLimits::default()
+        PastEvaluationLimits {
+            max_recursion_depth: 0,
+            ..PastEvaluationLimits::default()
         },
     );
     assert_eq!(

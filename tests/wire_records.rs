@@ -87,6 +87,10 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
     // dependency advance. The v1 schemas and status meanings did not change;
     // diagnostic spans still do not contribute to formula digests, while the
     // exact compiled syntax/evaluator revisions remain truthful report fields.
+    // Updated again for the tl-mltl 0.2.0 / tl-syntax d52d8954 advance (TL-179:
+    // dropped the quire-observation dev-dependency): only the compiled
+    // TL_SYNTAX_REVISION/TL_MLTL_REVISION report fields changed, so only the
+    // digests derived from them move here.
     assert_eq!(
         [
             digest(&rewrite_bytes),
@@ -94,9 +98,9 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
             digest(&conformance_bytes),
         ],
         [
-            "caba21a9a8b9aa8290b775b627e840097d2b59d51e58ac985579bb0933262648",
-            "0a9ff9d662cfcbf637e9e1981f08ff03a22b3cef3c93ccdc313d56cc6fc72fd6",
-            "90ea8513bfd1ea258872e9a4f063bef7bbf90916897f58040f280245d64502f2",
+            "a45ed5125ff8c79e69381eeb2aca38cfb88ae100097a6c6a6113b87fd13a858b",
+            "d1ddd8aad30bde4eab954b58a9da36e8fc5c0f4f27d0be1fc2a59d6a88773281",
+            "55d446877b30606ea39e1b7cdae1c0c468a0d3aa3a81f13243a4aa87abebaf8b",
         ]
     );
     assert_eq!(rewrite_report.schema_version, "tl-rewrite.report/v1");

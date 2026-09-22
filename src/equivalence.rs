@@ -2,16 +2,8 @@ use std::collections::BTreeSet;
 
 use serde::{de::Error as _, Deserialize, Serialize};
 use tl_mltl::{
-    analyze_horizon, evaluate_closed,
-    wire::{
-        report::{
-            self as temporal_report, AssessmentExecution, ResultRelationInput, TemporalTruth,
-            ValidatedTemporalResult,
-        },
-        request::{TemporalLane, ValidatedTemporalRequest},
-        OwnerLimits,
-    },
-    EvaluationLimits, TruthValue,
+    analyze_horizon, evaluate_closed, evaluate_past, EvaluationLimits, PastEvaluationLimits,
+    PastEvaluationRelationInput, PastEvaluationReport, PositionHistoryDocument, TruthValue,
 };
 use tl_syntax::{
     Formula, FormulaDocument, NodeKind, PropositionId, RequirementContextDocument, SemanticProfile,
@@ -84,19 +76,53 @@ pub enum ConformanceReason {
 }
 
 /// Typed reason an owner-backed past comparison was not conclusive.
+///
+/// Before tl-mltl 0.2.0 (TL-179) the pinned owner API (`wire::request` /
+/// `wire::report`) could produce a *completed but non-final/non-Boolean*
+/// result, distinct from an outright evaluator refusal; that state carried its
+/// own `NonBooleanResult` reason here. TL-179 removed `wire::request` /
+/// `wire::report` from tl-mltl entirely (they now live only in the
+/// quire-observation-coupled bridge crate `quire-mltl`, which a TL-* crate
+/// must not depend on per TL-175) and replaced them with
+/// `tl_mltl::past::evaluate_past`, which for the past lane only ever returns a
+/// definite Boolean verdict (`PastResultFinality::Final` is past's only
+/// variant) or a typed `PastEvaluationError`. There is no longer an
+/// intermediate non-final state to distinguish, so `NonBooleanResult` no
+/// longer has a reachable case and has been removed; what used to reach it
+/// (for example a step-limit refusal) now reports as `OriginalEvaluatorError`
+/// / `RewrittenEvaluatorError`, same as any other evaluator refusal.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PastConformanceReason {
-    /// Either request is not an origin-complete past request.
+    /// Either formula is not the origin-complete past profile.
     UnsupportedProfile,
-    /// Non-formula owner inputs do not describe the same evaluation context.
+    /// The two contexts do not share one history, anchor and proposition map.
     ContextMismatch,
-    /// The temporal owner refused original-result production or strict re-admission.
+    /// The pinned tl-mltl past evaluator refused the original formula.
     OriginalEvaluatorError,
-    /// The temporal owner refused rewritten-result production or strict re-admission.
+    /// The pinned tl-mltl past evaluator refused the rewritten formula.
     RewrittenEvaluatorError,
-    /// At least one owner result was not a completed final Boolean.
-    NonBooleanResult,
+}
+
+/// One TL-native past-evaluation context: a formula paired with the exact
+/// history, anchor and proposition-map identity it is evaluated against.
+///
+/// Replaces the pre-TL-179 owner-admitted `ValidatedTemporalRequest`. tl-mltl
+/// 0.2.0 dropped the admission/authority machinery that type required (and
+/// its quire-observation coupling) along with the type itself, so this crate
+/// now owns its own minimal, fully TL-native request shape.
+#[derive(Clone, Copy, Debug)]
+pub struct PastEvaluationContext<'a> {
+    /// The formula being evaluated.
+    pub formula: &'a FormulaDocument,
+    /// Caller-owned formula identity.
+    pub formula_id: &'a str,
+    /// Complete admitted position history shared by both sides of a comparison.
+    pub history: &'a PositionHistoryDocument,
+    /// Explicit in-range evaluation anchor.
+    pub anchor: u64,
+    /// Caller-owned total proposition-map identity.
+    pub proposition_map_id: &'a str,
 }
 
 /// One owner-backed past comparison at an exact history and anchor.
@@ -109,22 +135,18 @@ pub struct PastConformanceReport {
     pub schema_version: String,
     /// Caller-provided comparison identity.
     pub comparison_id: String,
-    /// Exact original temporal request identity.
-    pub original_request_identity: String,
-    /// Exact rewritten temporal request identity.
-    pub rewritten_request_identity: String,
-    /// Strict-read original temporal result identity, when produced.
+    /// Exact original evaluation context identity.
+    pub original_context_identity: String,
+    /// Exact rewritten evaluation context identity.
+    pub rewritten_context_identity: String,
+    /// Past-evaluator original result identity, when produced.
     pub original_result_identity: Option<String>,
-    /// Strict-read rewritten temporal result identity, when produced.
+    /// Past-evaluator rewritten result identity, when produced.
     pub rewritten_result_identity: Option<String>,
-    /// Original owner execution state, when produced.
-    pub original_execution: Option<AssessmentExecution>,
-    /// Rewritten owner execution state, when produced.
-    pub rewritten_execution: Option<AssessmentExecution>,
-    /// Original owner truth state, when produced.
-    pub original_truth: Option<TemporalTruth>,
-    /// Rewritten owner truth state, when produced.
-    pub rewritten_truth: Option<TemporalTruth>,
+    /// Original evaluator verdict, when produced.
+    pub original_verdict: Option<bool>,
+    /// Rewritten evaluator verdict, when produced.
+    pub rewritten_verdict: Option<bool>,
     /// Comparison disposition.
     pub status: ConformanceStatus,
     /// Typed non-conclusive reason.
@@ -530,80 +552,89 @@ pub fn check_equivalence(
 }
 
 fn matching_past_context(
-    original: &ValidatedTemporalRequest,
-    rewritten: &ValidatedTemporalRequest,
+    original: &PastEvaluationContext<'_>,
+    rewritten: &PastEvaluationContext<'_>,
 ) -> bool {
-    original.lane() == TemporalLane::Past
-        && rewritten.lane() == TemporalLane::Past
-        && original.semantic_profile() == SemanticProfile::OriginCompleteHistoryV1
-        && rewritten.semantic_profile() == SemanticProfile::OriginCompleteHistoryV1
-        && original.operator_profile() == rewritten.operator_profile()
-        && original.proposition_map() == rewritten.proposition_map()
-        && original.input_artifact() == rewritten.input_artifact()
-        && original.clock() == rewritten.clock()
-        && original.clock_identity() == rewritten.clock_identity()
-        && original.clock_revision() == rewritten.clock_revision()
-        && original.evaluator() == rewritten.evaluator()
-        && original.subject_identity() == rewritten.subject_identity()
-        && original.anchor() == rewritten.anchor()
-        && original.decision_scope_progress() == rewritten.decision_scope_progress()
-        && original.decision_scope_closure() == rewritten.decision_scope_closure()
-        && original.surrounding_execution_progress() == rewritten.surrounding_execution_progress()
-        && original.surrounding_execution_closure() == rewritten.surrounding_execution_closure()
-        && original.completeness() == rewritten.completeness()
-        && original.availability() == rewritten.availability()
+    original.history == rewritten.history
+        && original.anchor == rewritten.anchor
+        && original.proposition_map_id == rewritten.proposition_map_id
 }
+
+fn context_identity(context: &PastEvaluationContext<'_>) -> String {
+    sha256_json(&(
+        "tl-rewrite.past-context/v1",
+        context.formula.semantic_view(),
+        context.formula_id,
+        context.history,
+        context.anchor,
+        context.proposition_map_id,
+    ))
+}
+
+/// This crate never issues a corrected/superseding past result, so every
+/// evaluation is the first (and only) result revision. tl-mltl reserves
+/// revision 0 for "no predecessor" and rejects it as invalid
+/// (`PastEvaluationReport::validate`), so the first real revision is 1.
+const PAST_RESULT_REVISION: u64 = 1;
+
+/// Refusal to produce a past-evaluator result: either the formula itself
+/// failed structural admission, or the pinned tl-mltl past evaluator refused
+/// it (a resource limit, an out-of-range anchor, a non-past node, etc). The
+/// caller does not need to distinguish these; both surface as the same typed
+/// `PastConformanceReason` at the call site, so this carries no payload.
+struct PastOwnerRefusal;
 
 fn evaluate_owner_result(
-    request: &ValidatedTemporalRequest,
-    limits: OwnerLimits,
-) -> Result<ValidatedTemporalResult, tl_mltl::wire::OwnerReadError> {
-    let document = temporal_report::evaluate(request, ResultRelationInput::Original, limits)?;
-    temporal_report::read(
-        document.bytes(),
-        request,
-        ResultRelationInput::Original,
+    context: &PastEvaluationContext<'_>,
+    limits: PastEvaluationLimits,
+) -> Result<PastEvaluationReport, PastOwnerRefusal> {
+    let formula = context.formula.validate().map_err(|_| PastOwnerRefusal)?;
+    evaluate_past(
+        formula,
+        context.formula_id,
+        context.history,
+        context.anchor,
+        context.proposition_map_id,
+        PAST_RESULT_REVISION,
+        PastEvaluationRelationInput::Original,
         limits,
     )
+    .map_err(|_| PastOwnerRefusal)
 }
 
-/// Compares two exact origin-complete requests through the tl-mltl owner result
-/// producer and strict reader.
+/// Compares two exact origin-complete formulas through the pinned tl-mltl past
+/// evaluator.
 ///
-/// Both requests must carry the same history, clock, anchor, evaluator and
-/// observation-owner context. Formula and correspondence identities may differ
-/// because those are the two subjects being compared. A non-final or unavailable
-/// result remains non-conclusive and is never coerced to Boolean. Agreement is
-/// evidence for this exact request pair only, not a universal rewrite proof.
+/// Both contexts must share one history, anchor and proposition map. Formula
+/// and formula identities may differ because those are the two subjects being
+/// compared. Evaluator refusal (including a resource limit) remains
+/// non-conclusive and is never coerced to a verdict. Agreement is evidence for
+/// this exact context pair only, not a universal rewrite proof.
 ///
 /// Implements: FR-010-AC-4
 pub fn check_past_equivalence(
-    original: &ValidatedTemporalRequest,
-    rewritten: &ValidatedTemporalRequest,
+    original: &PastEvaluationContext<'_>,
+    rewritten: &PastEvaluationContext<'_>,
     comparison_id: impl Into<String>,
-    limits: OwnerLimits,
+    limits: PastEvaluationLimits,
 ) -> PastConformanceReport {
     let mut report = PastConformanceReport {
-        schema_version: "tl-rewrite.past-conformance/v1".to_owned(),
+        schema_version: "tl-rewrite.past-conformance/v2".to_owned(),
         comparison_id: comparison_id.into(),
-        original_request_identity: original.identity().to_owned(),
-        rewritten_request_identity: rewritten.identity().to_owned(),
+        original_context_identity: context_identity(original),
+        rewritten_context_identity: context_identity(rewritten),
         original_result_identity: None,
         rewritten_result_identity: None,
-        original_execution: None,
-        rewritten_execution: None,
-        original_truth: None,
-        rewritten_truth: None,
+        original_verdict: None,
+        rewritten_verdict: None,
         status: ConformanceStatus::NonConclusive,
         reason: None,
         syntax_revision: TL_SYNTAX_REVISION.to_owned(),
         evaluator_revision: TL_MLTL_REVISION.to_owned(),
-        limitation: "owner-backed agreement covers only the exact admitted history, clock, anchor, assertions and formulas; it does not prove a universal rewrite schema or qualify a consuming tool".to_owned(),
+        limitation: "owner-backed agreement covers only the exact admitted history, clock, anchor and formulas; it does not prove a universal rewrite schema or qualify a consuming tool".to_owned(),
     };
-    if original.lane() != TemporalLane::Past
-        || rewritten.lane() != TemporalLane::Past
-        || original.semantic_profile() != SemanticProfile::OriginCompleteHistoryV1
-        || rewritten.semantic_profile() != SemanticProfile::OriginCompleteHistoryV1
+    if original.formula.semantic_profile() != SemanticProfile::OriginCompleteHistoryV1
+        || rewritten.formula.semantic_profile() != SemanticProfile::OriginCompleteHistoryV1
     {
         report.reason = Some(PastConformanceReason::UnsupportedProfile);
         return report;
@@ -619,9 +650,8 @@ pub fn check_past_equivalence(
             return report;
         }
     };
-    report.original_result_identity = Some(original_result.identity().to_owned());
-    report.original_execution = Some(original_result.execution());
-    report.original_truth = Some(original_result.truth());
+    report.original_result_identity = Some(original_result.result_sha256.clone());
+    report.original_verdict = Some(original_result.verdict);
     let rewritten_result = match evaluate_owner_result(rewritten, limits) {
         Ok(result) => result,
         Err(_) => {
@@ -629,26 +659,9 @@ pub fn check_past_equivalence(
             return report;
         }
     };
-    report.rewritten_result_identity = Some(rewritten_result.identity().to_owned());
-    report.rewritten_execution = Some(rewritten_result.execution());
-    report.rewritten_truth = Some(rewritten_result.truth());
-    if original_result.execution() != AssessmentExecution::Completed
-        || rewritten_result.execution() != AssessmentExecution::Completed
-        || !original_result.is_final()
-        || !rewritten_result.is_final()
-        || !matches!(
-            original_result.truth(),
-            TemporalTruth::Satisfied | TemporalTruth::Violated
-        )
-        || !matches!(
-            rewritten_result.truth(),
-            TemporalTruth::Satisfied | TemporalTruth::Violated
-        )
-    {
-        report.reason = Some(PastConformanceReason::NonBooleanResult);
-        return report;
-    }
-    report.status = if original_result.truth() == rewritten_result.truth() {
+    report.rewritten_result_identity = Some(rewritten_result.result_sha256.clone());
+    report.rewritten_verdict = Some(rewritten_result.verdict);
+    report.status = if original_result.verdict == rewritten_result.verdict {
         ConformanceStatus::Equivalent
     } else {
         ConformanceStatus::Mismatch
