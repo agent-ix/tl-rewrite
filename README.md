@@ -8,7 +8,7 @@ Temporal Logic with replayable traces and exhaustive bounded equivalence evidenc
 ## Build
 
 ```bash
-make ci
+make guarded-ci
 make spec
 ```
 

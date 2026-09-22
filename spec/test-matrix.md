@@ -39,6 +39,7 @@ relationships:
 | NFR-001 | deterministic and resource-bound tests | TC-004 through TC-008, TC-015, TC-017, TC-021, TC-031, TC-035, TC-047, TC-049, TC-050 | ✅ covered |
 | NFR-002 | catalog, corpus, context, and provenance inspection | TC-001, TC-002, TC-016, TC-019, TC-030, TC-031, TC-034, TC-036, TC-046, TC-052 | ✅ covered |
 | NFR-003 | producer-boundary, outcome-distinguishability, identity, and mutation probes | TC-024, TC-027, TC-030, TC-037, TC-039 | ✅ implemented |
+| NFR-004 | static Makefile/environment inspection, per-gate completion records, and declared/executed reconciliation | TC-057 through TC-063 | ✅ implemented |
 
 ## Test Case Summary
 
@@ -96,3 +97,10 @@ relationships:
 | TC-052 | Compare both admitted past folds across generated histories, intervals, both clocks, and every anchor using the pinned origin-complete evaluator | Property | P0 | FR-009-AC-6 | ✅ implemented |
 | TC-053 | Preserve all profile behavior while separating rewrite subsystems | Integration | P0 | FR-010-AC-1, FR-010-AC-2, FR-010-AC-3, FR-010-AC-4, FR-010-AC-5 | ✅ implemented |
 | TC-054 | Ground bounded temporal and reflexive Boolean rewrite families as finite-domain properties against the exact evaluator | Property | P0 | FR-001-AC-2, FR-004-AC-1, NFR-001-AC-1 | ✅ implemented |
+| TC-057 | Refuse to invoke Make when Makefile text (including a recursively scanned `include`d file) carries any of the eleven execution-control surfaces, and accept a clean control with none of them | Unit | P0 | NFR-004-AC-1 | ✅ implemented |
+| TC-058 | Refuse to invoke Make when the calling environment's MAKEFLAGS carries an ignore/keep-going-equivalent flag, in both dashed and bundled short-flag form; accept a clean environment | Unit | P0 | NFR-004-AC-2 | ✅ implemented |
+| TC-059 | Write a per-gate completion record only on that gate's own recipe succeeding; a failed recipe writes none | Integration | P0 | NFR-004-AC-3 | ✅ implemented |
+| TC-060 | Reconcile the completion-record set against the declared `ci` prerequisite set and report every mismatch by name in either direction | Integration | P0 | NFR-004-AC-4 | ✅ implemented |
+| TC-061 | Treat a completion record from a different run id (removed, replayed, or backdated) as absent rather than a pass | Integration | P0 | NFR-004-AC-5 | ✅ implemented |
+| TC-062 | Reproduce the tracked TL-64/agent-ix/tl-rewrite#11 measurement directly: an `.IGNORE:`-prepended Makefile copy is refused via static inspection, and an all-failing-recipe skeleton with no execution-control directive is refused via reconciliation | Integration | P0 | NFR-004-AC-6 | ✅ implemented |
+| TC-063 | An unmodified Makefile, clean environment, and genuinely passing gates yield a zero exit with no violation reported | Integration | P0 | NFR-004-AC-7 | ✅ implemented |

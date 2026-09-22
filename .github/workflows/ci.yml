@@ -1,9 +1,9 @@
 name: CI
 
 # Manual dispatch only, deliberately. There is no push or pull_request trigger:
-# local `make ci` is the iteration gate, and a hosted run is dispatched once for
-# a finalized revision so parallel pull-request work does not generate repeated
-# billable runs.
+# local `make guarded-ci` is the iteration gate, and a hosted run is dispatched
+# once for a finalized revision so parallel pull-request work does not
+# generate repeated billable runs.
 on:
   workflow_dispatch:
 
@@ -81,7 +81,7 @@ jobs:
           tool: cargo-deny
 
       - name: Complete local gate
-        run: make ci
+        run: make guarded-ci
 
   licenses:
     name: License Check

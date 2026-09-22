@@ -23,7 +23,8 @@ make assurance-inputs # run the producers and write their structured results
 make pins             # classify the toolchain through the shared matrix
 make assurance-chain  # seal, retain, and verify through quoin
 make assurance        # pins + assurance-chain
-make ci               # every gate locally; hosted CI is manual-dispatch only
+make ci               # every gate locally, unguarded (see Makefile header)
+make guarded-ci       # the assured entry point; hosted CI is manual-dispatch only
 ```
 
 ## Specification workflow
@@ -47,11 +48,19 @@ from it, and `assurance/README.md` explains how the pieces relate.
 `make assurance-inputs` is the only target that runs a producer. Everything
 downstream consumes those files and refuses to create them.
 
-**Read `Makefile`'s header before trusting a green `make ci`.** The parse-time
-guard that policed Make's own execution controls went with the collector it
-protected. Measured on this Makefile: a single `.IGNORE:` line takes `make ci`
-from exit 2 to exit 0 with all 13 `ci` prerequisites reporting success, and
-nothing notices. Tracked as `agent-ix/tl-rewrite#11`.
+**Run `make guarded-ci`, not a bare `make ci`.** The parse-time guard that
+used to police Make's own execution controls went with the collector it
+protected, and a bare `make ci` still trusts Make's own execution controls
+and exit code exactly as before: a single `.IGNORE:` line still takes it from
+exit 2 to exit 0 with all 13 `ci` prerequisites reporting success. `make
+guarded-ci` wraps it with a Rust program, external to Make (`src/ci_guard.rs`,
+`src/bin/ci_guard.rs`), that refuses to invoke Make at all if the Makefile
+text or the invocation environment could suppress that propagation, and
+reconciles the declared `ci` prerequisite set against the gates that actually
+wrote a completion record, independent of Make's own exit code. See
+`spec/requirements/NFR-004-gate-set-integrity.md`. `make ci` remains directly
+invocable for local convenience and is not itself the assured gate; tracked
+as `agent-ix/tl-rewrite#11`.
 
 ## Safety scaffolding
 

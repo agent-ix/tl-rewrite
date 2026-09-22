@@ -7,6 +7,7 @@
 #![forbid(unsafe_code)]
 
 pub mod catalog;
+pub mod ci_guard;
 pub mod engine;
 pub mod equivalence;
 mod hash;

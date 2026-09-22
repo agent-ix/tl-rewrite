@@ -44,12 +44,15 @@ FR-006-AC-8's
 tracked-input restoration control shall be implemented and verified before the
 hosted assurance-tool installation is changed.
 
-It no longer owns `tools.lock`, a local-CI runner, Make execution-control
-probes, a collector, a finalizer, a manifest verifier, an evidence-profile
-resolver, an anchor gate, or a retraction registry. Those were removed with the
-local evidence framework they belonged to under issue #9. It no longer owns a
-compatibility view, a retained evidence archive, or a frozen evidence schema
-family either; those were deleted under issue #13.
+It no longer owns `tools.lock`, a local-CI runner, a collector, a finalizer, an
+evidence-profile resolver, an anchor gate, or a retraction registry. Those were
+removed with the local evidence framework they belonged to under issue #9. It
+no longer owns a compatibility view, a retained evidence archive, or a frozen
+evidence schema family either; those were deleted under issue #13. Policing
+Make's own execution controls is owned by NFR-004, under a different
+mechanism — a CI entry point outside Make rather than a parse-time guard
+inside it — rather than continuing to be described here as permanently
+unowned.
 
 That is a real reduction in local detection, and the extent of it is stated here
 rather than minimised. Measured on this repository's own Makefile at the migration revision, not inherited from a sibling, and with the command named so the number can be re-derived. Run `make ci CARGO=false PYTHON=false QUIRE=false QUOIN=false ASSURANCE_DIR=target/ig-probe ASSURANCE_PYTHON=/bin/false` so that no gate's work happens: `make ci` exits **2** and stops at the first prerequisite. Prepend a single `.IGNORE:` line to the same Makefile and run the identical command: it exits **0** after **25** ignored recipe failures, and all 13 `ci` prerequisites report success. Eleven of them do so with their own recipe having failed; `assurance` is an aggregate whose two sub-targets each failed and were ignored; `audit-unsafe` invokes `bash` directly and is not reachable by the tool-variable sabotage, and a skeleton Makefile in which every recipe is replaced by `false` confirms it reports success too.
@@ -66,7 +69,9 @@ writes nothing the chain reads: `fmt-check`, `lint`, `test`, `check-corpus`,
 each be neutered and every remaining check stays green.
 
 The residue is recorded as an open unknown in the change-assurance declaration
-and tracked as `agent-ix/tl-rewrite#11`, which carries the reproduction.
+and tracked as `agent-ix/tl-rewrite#11`, which carries the reproduction; the
+binding that closes it is specified in NFR-004 and remains open here until
+NFR-004's entry point is implemented and verified.
 
 ## Measurement and Evaluation
 
