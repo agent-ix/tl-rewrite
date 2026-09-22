@@ -2224,26 +2224,32 @@ tl-rewrite-evidence-input-v1.schema.json";
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **203** scanned tracked files, measured
+    // Population at this review head: **198** scanned tracked files, measured
     // directly against `origin/main` `cecb9f4` plus issue #27's four SR-065
     // through SR-068 review artifacts under `spec/reviews` (renumbered from
     // SR-048 through SR-051 during the rebase, whose ids the rebase's
     // unrelated upstream past-profile and profile-subsystem work had since
     // claimed for different reviews; the implementation and matrix changes
-    // add no new path). `origin/main` alone measures 199: the prior pin of
-    // 165 predates all of the past-profile work, FR-009, FR-010, and the
-    // SR-048 through SR-064 reviews that landed on main between this branch's
-    // last main-merge at 033a687 and current main, and was never a live
+    // add no new path), minus the 5 files TL-171 removed from
+    // `corpus/past-history/` (`README.md`, `SHA256SUMS`, `cases.json`,
+    // `manifest.json`, `schema.json`). That tree was a byte-identical copy of
+    // `tl-syntax`'s `corpus/past-history/`, guarded only against its own
+    // snapshot; `tests/past_history_corpus.rs` now reads the canonical tree
+    // through the existing `tl-syntax` dependency's `tl_syntax::CORPUS_DIR`
+    // instead. The prior measurement was 203: the prior pin of 165 predates
+    // all of the past-profile work, FR-009, FR-010, and the SR-048 through
+    // SR-064 reviews that landed on main between this branch's last
+    // main-merge at 033a687 and current main, and was never a live
     // measurement of that state; it is superseded by this measurement rather
-    // than reconciled with it. The 203 are 207 tracked in total, minus the 4
+    // than reconciled with it. The 198 are 202 tracked in total, minus the 4
     // the
     // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
-    // `corpus/west-v1/LICENSE`). All four are named here, because the previous
+    // `corpus/west-v1/LICENSE`). All four are named here, because an earlier
     // version of this comment enumerated four exclusions for a count of five and
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 13 `<root>`, 139 `spec`, 14 `tests`, 11 `corpus`, 10 `src`,
+    // By area: 13 `<root>`, 139 `spec`, 14 `tests`, 6 `corpus`, 10 `src`,
     // 5 `scripts`, 3 `examples`, 3 `assurance`, 3 `.github`, 1 `docs`, 1 `.agent`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
@@ -2252,8 +2258,8 @@ tl-rewrite-evidence-input-v1.schema.json";
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 203,
-        "the source census population changed from the reviewed 203 tracked files \
+        inspected, 198,
+        "the source census population changed from the reviewed 198 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
