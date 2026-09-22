@@ -83,7 +83,8 @@ FR-006 the shared assurance intake path, FR-007 context-bound native reports, an
 FR-008 direct-versus-lowered parity for tl-syntax W/M lowering.
 NFR-001 constrains
 determinism/resources, NFR-002 constrains provenance and qualification claims,
-and NFR-003 owns the qualification controls.
+NFR-003 owns the qualification controls, and NFR-004 binds the CI entry
+point's declared and executed gate set.
 
 FR-005 owned the PGM-01 evidence boundary as well until issue #13 deleted the
 retained archive; that allocation is removed rather than reassigned, because no

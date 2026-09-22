@@ -8,13 +8,32 @@
 # Nothing here computes a verdict, attests to its own correctness, or retains
 # evidence of its own.
 #
-# This file is not a trust root and no longer tries to be one. The parse-time
+# This file is not a trust root and does not try to be one. The parse-time
 # guards that used to police Make's own execution controls — SHELL, .SHELLFLAGS,
 # MAKEFLAGS, .ONESHELL, .IGNORE, the `-` prefix, $(eval), include — went with the
-# collector they were protecting.
+# collector they were protecting, and re-adding a Make-parsing guard was
+# explicitly not the remediation (it had itself accumulated findings across
+# three review rounds; see NFR-004's Rationale).
 #
-# Read this before trusting a green `make ci`. Measured on this file, not
-# inherited from a sibling, with the command named so it can be re-derived:
+# `make ci` alone still trusts Make's own execution controls and Make's own
+# exit code, exactly as measured below. Nothing in this Makefile changed that.
+# What changed is that `make ci` is no longer the assured entry point: run
+# `make guarded-ci` instead. It wraps `make ci` with a Rust program, external
+# to Make, that (1) refuses to invoke Make at all if this file's text — or any
+# file it `include`s — carries an execution-control surface capable of
+# suppressing prerequisite-failure propagation, or if the calling
+# environment's MAKEFLAGS carries the same suppression; and (2), after Make
+# returns, reconciles the set of gates that actually wrote a completion
+# record against the declared `ci` prerequisite set below, independent of
+# Make's own exit code. See `spec/requirements/NFR-004-gate-set-integrity.md`
+# and `src/ci_guard.rs`. `make ci` remains directly invocable for local
+# convenience; a person who runs it directly instead of `make guarded-ci`
+# bypasses the binding, and that residual is disclosed rather than solved by
+# removing the convenience — see NFR-004's Scope.
+#
+# The reproduction NFR-004 remediates, still true of `make ci` alone and no
+# longer true of `make guarded-ci`, measured on this file with the command
+# named so it can be re-derived:
 #
 #   make ci CARGO=false PYTHON=false QUIRE=false QUOIN=false \
 #     ASSURANCE_DIR=target/ig-probe ASSURANCE_PYTHON=/bin/false
@@ -23,7 +42,9 @@
 # line and the identical command exits 0 after 25 ignored recipe failures,
 # with all 13 `ci` prerequisites reporting success: eleven whose own recipe
 # failed, `assurance` whose two sub-targets each failed, and `audit-unsafe`,
-# which invokes bash directly and the sabotage does not reach.
+# which invokes bash directly and the sabotage does not reach. `make
+# guarded-ci` against the same `.IGNORE:`-prepended file refuses before Make
+# ever runs.
 #
 # That was 28 before agent-ix/tl-rewrite#13. The figure fell by exactly three
 # because the deletion removed three sabotaged recipe lines — the deleted
@@ -37,13 +58,19 @@
 # the producer's own bytes, so a producer that did not run yields an absent or
 # empty input that the chain names. That covers the work re-run inside
 # `assurance-inputs`. It does not cover fmt-check, lint, test, check-corpus,
-# deny, audit-unsafe, rustdoc, or the `quire validate` half of spec, which are
-# simply neutered. Tracked as agent-ix/tl-rewrite#11.
+# deny, audit-unsafe, rustdoc, or the `quire validate` half of spec — `make
+# guarded-ci`'s completion-record reconciliation covers exactly that residue.
+# Tracked as agent-ix/tl-rewrite#11.
 
 CARGO ?= cargo
 PYTHON ?= python3
 QUIRE ?= quire
 QUOIN ?= quoin
+
+# `ci_guard record` is the last step of every `ci` prerequisite's recipe, so
+# it only runs on that recipe's own success. Run alone (e.g. `make lint` for
+# local iteration, outside `make guarded-ci`), it is a deliberate no-op.
+CI_GUARD ?= $(CARGO) run --quiet --bin ci_guard --
 
 # The shared-assurance lane runs in its own interpreter. There is no jsonschema
 # conflict left to resolve here — every script in this repository that imported
@@ -88,7 +115,8 @@ help:
 	@echo "  make pins             - Classify the toolchain through the shared matrix"
 	@echo "  make assurance-chain  - Seal, retain, and verify through Quoin"
 	@echo "  make assurance        - pins + assurance-chain"
-	@echo "  make ci               - All CI gates locally (hosted CI is manual-only)"
+	@echo "  make ci               - All CI gates locally, unguarded (see Makefile header)"
+	@echo "  make guarded-ci       - The assured entry point: run this, not 'make ci'"
 
 # =============================================================================
 # Format / Lint / Test
@@ -101,10 +129,12 @@ fmt:
 .PHONY: fmt-check
 fmt-check:
 	$(CARGO) fmt --all -- --check
+	$(CI_GUARD) record fmt-check
 
 .PHONY: lint
 lint:
 	$(CARGO) clippy --all-targets --all-features -- -D warnings
+	$(CI_GUARD) record lint
 
 # The traced tests invoke the assurance gates, so the producers must already have
 # run. They are a prerequisite rather than something a test creates for itself: a
@@ -112,6 +142,7 @@ lint:
 .PHONY: test
 test: assurance-inputs
 	$(CARGO) test --all-targets --all-features
+	$(CI_GUARD) record test
 
 # =============================================================================
 # Rewrite domain
@@ -121,19 +152,23 @@ test: assurance-inputs
 check-corpus:
 	$(PYTHON) scripts/check_provenance.py
 	sha256sum --check corpus/past-history/SHA256SUMS
+	$(CI_GUARD) record check-corpus
 
 .PHONY: conformance
 conformance:
 	$(CARGO) run --quiet --example rule_conformance -- --manifest $(RULE_MANIFEST)
+	$(CI_GUARD) record conformance
 
 .PHONY: counterexamples
 counterexamples:
 	$(CARGO) run --quiet --example counterexample_evidence -- \
 		--manifest $(COUNTEREXAMPLE_MANIFEST)
+	$(CI_GUARD) record counterexamples
 
 .PHONY: normalization
 normalization:
 	$(CARGO) run --quiet --release --example normalization_sweep
+	$(CI_GUARD) record normalization
 
 .PHONY: build
 build:
@@ -154,23 +189,28 @@ deny:
 	$(CARGO) deny check bans
 	$(CARGO) deny check licenses
 	$(CARGO) deny check sources
+	$(CI_GUARD) record deny
 
 .PHONY: audit-unsafe
 audit-unsafe:
 	bash scripts/check_unsafe_comments.sh
+	$(CI_GUARD) record audit-unsafe
 
 .PHONY: spec
 spec:
 	$(QUIRE) validate --scope . 'spec/**/*.md' 'docs/*.md' --strict --summary
 	$(QUIRE) coverage --scope . --strict
+	$(CI_GUARD) record spec
 
 .PHONY: msrv
 msrv:
 	rustup run 1.98.1 $(CARGO) check --locked --all-targets --all-features
+	$(CI_GUARD) record msrv
 
 .PHONY: rustdoc
 rustdoc:
 	RUSTDOCFLAGS=-Dwarnings $(CARGO) doc --no-deps --all-features
+	$(CI_GUARD) record rustdoc
 
 # =============================================================================
 # Shared assurance
@@ -213,6 +253,7 @@ assurance-chain: assurance-inputs
 
 .PHONY: assurance
 assurance: pins assurance-chain
+	$(CI_GUARD) record assurance
 
 # An operator target, not a CI gate. It writes into this repository's own Quoin
 # evidence store, which is a reviewed change to spec/evidence/ rather than
@@ -237,3 +278,13 @@ assurance-record: assurance-inputs
 .PHONY: ci
 ci: fmt-check lint test check-corpus conformance counterexamples normalization \
 	deny audit-unsafe spec msrv rustdoc assurance
+
+# The assured entry point (NFR-004). Builds and runs the guard, which refuses
+# to invoke `make ci` at all if this file's execution controls or the calling
+# environment's MAKEFLAGS could suppress a prerequisite's failure, then
+# reconciles the gates that actually completed against the declared list
+# above regardless of Make's own exit code. `make ci` alone still does
+# neither of those — see the header comment.
+.PHONY: guarded-ci
+guarded-ci:
+	$(CI_GUARD) ci

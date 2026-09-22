@@ -10,7 +10,7 @@ type: SuiteRegistry
 
 | ID | Name | Command | Tool | Evidence Kind |
 |---|---|---|---|---|
-| SUITE-001 | Complete repository CI | `make ci` | GNU Make and Cargo | Integration |
+| SUITE-001 | Complete repository CI | `make guarded-ci` | GNU Make and Cargo | Integration |
 | SUITE-002 | Specification validation | `make spec` | quire 0.31.0 | Analysis |
 | SUITE-003 | Requirement coverage | `quire coverage --scope . --strict` | quire 0.31.0 | Analysis |
 | SUITE-004 | Catalog and bounded engine | `cargo test --test rewrite` | Rust test harness | Integration |
