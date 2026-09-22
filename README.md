@@ -14,7 +14,7 @@ make spec
 
 The library requires Rust 1.98 and consumes validated `tl-syntax.formula/v1` and
 `tl-syntax.formula/v2` documents pinned to revision
-`842d82553f045eb69a7f38745756d968254fc25e`. Its immutable future catalog
+`d52d89549b0a6c0c429261bab912cd5396c4a19e`. Its immutable future catalog
 enables 38 closed-trace rules with stable identity, revision, profile,
 precondition, and derivation metadata. Two
 growth-sensitive nested Until/Release transformations from WEST paper Theorem 3
@@ -35,12 +35,14 @@ Only a fixed point carries a normalized formula. `replay` detects substituted
 inputs, catalog/options, steps, intermediates, or output. `check_equivalence`
 enumerates every valuation in a horizon-complete bounded closed-trace domain
 and delegates verdicts to pinned `tl-mltl` revision
-`22862189ac4eb515ab84928faec25b2eac47d835`. This future-only conformance API
+`c8d2c871dbb379019a58fe74fcb230f501088538`. This future-only conformance API
 continues to return a typed non-conclusive refusal for past profiles. Past-fold
-tests and `check_past_equivalence` compare exact admitted original/rewritten
-requests through the pinned temporal owner result producer and strict reader
-over event-position and exact fixed-sample histories. Owner non-values remain
-typed non-conclusive results and are never coerced to Boolean.
+tests and `check_past_equivalence` compare two `PastEvaluationContext`s -- a
+formula paired with the exact history, anchor, and proposition-map identity it
+evaluates against -- through the pinned `tl_mltl::past::evaluate_past`
+evaluator over event-position and exact fixed-sample histories. Evaluator
+refusal, including a resource limit, remains a typed non-conclusive result and
+is never coerced to a verdict.
 
 The public subsystem layout is `catalog`, `engine::{future,past}`,
 `equivalence`, `report`, and `replay`, with the established root API retained as
@@ -93,6 +95,8 @@ or make an automated release, accreditation, or certification decision.
 ## License
 
 Licensed under either of Apache License, Version 2.0 or MIT license at your
-option. The required tl-mltl dependency graph includes Quire Observation under
-AGPL-3.0-or-later; consumers and distributors of the combined dependency graph
-must comply with that dependency license.
+option. Since tl-mltl 0.2.0 (TL-179) the dependency graph carries no
+Quire Observation (or other AGPL-3.0-or-later) component, direct or
+transitive: this crate, and every crate it depends on for its production
+build, stay entirely independent of the agent-ix/Quire ecosystem, per the
+TL-175 architect ruling.

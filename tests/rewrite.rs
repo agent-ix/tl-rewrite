@@ -186,14 +186,30 @@ fn span_distinct_inputs_keep_budget_partial_identity_semantic() {
 // Trace: TC-040, FR-002-AC-4
 #[test]
 fn parser_to_rewriter_seam_preserves_semantic_identity() {
+    // tl-parse pins its own tl-syntax revision independently of this crate's
+    // (see Cargo.toml), so `tl_parse::tl_syntax::FormulaDocument` and this
+    // crate's `tl_syntax::FormulaDocument` are not guaranteed to be the same
+    // compiled type. A parsed formula crosses into this crate's own
+    // tl-syntax type through canonical wire bytes -- the same boundary the
+    // `tl-syntax-lowering` dev-dependency already crosses for the same
+    // reason (see the `tl-parse-derived` / `tl-syntax-lowering` comment in
+    // Cargo.toml).
     let parsed = |source| {
-        parse(
+        let document = parse(
             source,
-            SemanticProfile::ClosedTraceV1,
+            tl_parse::tl_syntax::SemanticProfile::ClosedTraceV1,
             ParseLimits::default(),
         )
         .document
-        .expect("parser accepts fixture")
+        .expect("parser accepts fixture");
+        let bytes = document
+            .canonical_json_bytes()
+            .expect("parsed document serializes to canonical bytes");
+        tl_syntax::FormulaDocument::from_json_bytes(
+            &bytes,
+            tl_syntax::SyntaxArtifactLimits::default(),
+        )
+        .expect("parsed bytes admit through this crate's tl-syntax reader")
     };
     let compact = parsed("p1|p1");
     let spaced = parsed("( p1 ) | p1");

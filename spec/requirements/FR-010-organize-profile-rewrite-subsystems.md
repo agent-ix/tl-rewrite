@@ -63,6 +63,25 @@ digests derived from those fields; it does not silently retain a stale producer
 identity. No parser, native-language, Contract-IR vocabulary, production
 monitor or evidence framework is added.
 
+The 2026-09-21 advance to tl-mltl 0.2.0 (agent-ix/tl-rewrite quire-observation
+dev-dependency removal, `agent-ix/tl-rewrite#42`/TL-175/TL-179) is the one
+exception to the "only revision fields and digests" claim above: tl-mltl 0.2.0
+removed `wire::request` and `wire::report` -- the pre-0.2.0 owner-admission
+API, itself coupled to quire-observation -- entirely, relocating that surface
+to the quire-observation-coupled bridge crate `quire-mltl`, which a TL-* crate
+must not depend on. `check_past_equivalence`'s own parameter and report shape
+moved with it. `PastEvaluationContext` (a TL-native formula/history/anchor/
+proposition-map bundle this crate now owns) replaces `ValidatedTemporalRequest`;
+`PastConformanceReport`'s `original_execution`/`rewritten_execution`/
+`original_truth`/`rewritten_truth` fields become `original_verdict`/
+`rewritten_verdict: Option<bool>`; and `PastConformanceReason::NonBooleanResult`
+is removed, because `tl_mltl::past::evaluate_past` (the TL-179 replacement) has
+no intermediate non-final result for the past lane -- what used to reach that
+reason now reports `OriginalEvaluatorError`/`RewrittenEvaluatorError`, same as
+any other evaluator refusal. FR-010-AC-4's own text is unaffected by this
+change: past equivalence still invokes only the pinned tl-mltl owner API,
+still detects every wrong fold, and still claims no universal proof.
+
 ## Acceptance Criteria
 
 | ID | Criteria | Verification |

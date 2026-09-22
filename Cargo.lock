@@ -229,17 +229,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
 
 [[package]]
-name = "quire-observation"
-version = "0.1.0"
-source = "git+https://github.com/agent-ix/quire-observation?rev=9ac80e93f4b68a2c7d5a337f9a448ad10de798fc#9ac80e93f4b68a2c7d5a337f9a448ad10de798fc"
-dependencies = [
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
-]
-
-[[package]]
 name = "quote"
 version = "1.0.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -351,7 +340,7 @@ checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn",
 ]
 
 [[package]]
@@ -403,17 +392,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "syn"
-version = "3.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6275cddf4610d1775e6d1fe9469b2e77d0f39fd98fb7450901b821e0c53649f"
-dependencies = [
- "proc-macro2",
- "quote",
- "unicode-ident",
-]
-
-[[package]]
 name = "tempfile"
 version = "3.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -426,35 +404,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "thiserror"
-version = "2.0.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec86235f5fcc2a73650310756d2ac5b138a5780bbbdfae3eeccec992c435ba4f"
-dependencies = [
- "thiserror-impl",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "2.0.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc04cd3e1236dd4a98afca4569f2deb3f120e5422a4023be2cb683f8486292af"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 3.0.4",
-]
-
-[[package]]
 name = "tl-mltl"
-version = "0.1.0"
-source = "git+https://github.com/agent-ix/tl-mltl.git?rev=22862189ac4eb515ab84928faec25b2eac47d835#22862189ac4eb515ab84928faec25b2eac47d835"
+version = "0.2.0"
+source = "git+https://github.com/agent-ix/tl-mltl.git?rev=c8d2c871dbb379019a58fe74fcb230f501088538#c8d2c871dbb379019a58fe74fcb230f501088538"
 dependencies = [
- "quire-observation",
  "serde",
  "serde_json",
  "sha2",
- "tl-syntax 0.1.0 (git+https://github.com/agent-ix/tl-syntax.git?rev=842d82553f045eb69a7f38745756d968254fc25e)",
+ "tl-syntax 0.1.0 (git+https://github.com/agent-ix/tl-syntax.git?rev=d52d89549b0a6c0c429261bab912cd5396c4a19e)",
 ]
 
 [[package]]
@@ -484,7 +441,6 @@ name = "tl-rewrite"
 version = "0.1.0"
 dependencies = [
  "proptest",
- "quire-observation",
  "serde",
  "serde_json",
  "serde_yaml_ng",
@@ -495,6 +451,7 @@ dependencies = [
  "tl-parse 0.1.0 (git+https://github.com/agent-ix/tl-parse.git?rev=9ca856b4c040fc2c3329b6defd26a1c9b57de748)",
  "tl-syntax 0.1.0 (git+https://github.com/agent-ix/tl-syntax.git?rev=842d82553f045eb69a7f38745756d968254fc25e)",
  "tl-syntax 0.1.0 (git+https://github.com/agent-ix/tl-syntax.git?rev=8dc18eec5af227f484170362c9e8894b8531a27d)",
+ "tl-syntax 0.1.0 (git+https://github.com/agent-ix/tl-syntax.git?rev=d52d89549b0a6c0c429261bab912cd5396c4a19e)",
 ]
 
 [[package]]
@@ -513,6 +470,16 @@ version = "0.1.0"
 source = "git+https://github.com/agent-ix/tl-syntax.git?rev=8dc18eec5af227f484170362c9e8894b8531a27d#8dc18eec5af227f484170362c9e8894b8531a27d"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "tl-syntax"
+version = "0.1.0"
+source = "git+https://github.com/agent-ix/tl-syntax.git?rev=d52d89549b0a6c0c429261bab912cd5396c4a19e#d52d89549b0a6c0c429261bab912cd5396c4a19e"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -674,7 +641,7 @@ checksum = "f2ab42fc20575779bd240faa45f94a74256f755c0fa9e89f0ede20d91d0cdfc1"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn",
 ]
 
 [[package]]
