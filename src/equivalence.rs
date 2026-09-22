@@ -136,9 +136,9 @@ pub struct PastConformanceReport {
     /// Caller-provided comparison identity.
     pub comparison_id: String,
     /// Exact original evaluation context identity.
-    pub original_request_identity: String,
+    pub original_context_identity: String,
     /// Exact rewritten evaluation context identity.
-    pub rewritten_request_identity: String,
+    pub rewritten_context_identity: String,
     /// Past-evaluator original result identity, when produced.
     pub original_result_identity: Option<String>,
     /// Past-evaluator rewritten result identity, when produced.
@@ -571,35 +571,35 @@ fn context_identity(context: &PastEvaluationContext<'_>) -> String {
     ))
 }
 
+/// This crate never issues a corrected/superseding past result, so every
+/// evaluation is the first (and only) result revision. tl-mltl reserves
+/// revision 0 for "no predecessor" and rejects it as invalid
+/// (`PastEvaluationReport::validate`), so the first real revision is 1.
+const PAST_RESULT_REVISION: u64 = 1;
+
 /// Refusal to produce a past-evaluator result: either the formula itself
 /// failed structural admission, or the pinned tl-mltl past evaluator refused
 /// it (a resource limit, an out-of-range anchor, a non-past node, etc). The
 /// caller does not need to distinguish these; both surface as the same typed
-/// `PastConformanceReason` at the call site.
-enum PastOwnerRefusal {
-    InvalidFormula,
-    Evaluator,
-}
+/// `PastConformanceReason` at the call site, so this carries no payload.
+struct PastOwnerRefusal;
 
 fn evaluate_owner_result(
     context: &PastEvaluationContext<'_>,
     limits: PastEvaluationLimits,
 ) -> Result<PastEvaluationReport, PastOwnerRefusal> {
-    let formula = context
-        .formula
-        .validate()
-        .map_err(|_| PastOwnerRefusal::InvalidFormula)?;
+    let formula = context.formula.validate().map_err(|_| PastOwnerRefusal)?;
     evaluate_past(
         formula,
         context.formula_id,
         context.history,
         context.anchor,
         context.proposition_map_id,
-        1,
+        PAST_RESULT_REVISION,
         PastEvaluationRelationInput::Original,
         limits,
     )
-    .map_err(|_| PastOwnerRefusal::Evaluator)
+    .map_err(|_| PastOwnerRefusal)
 }
 
 /// Compares two exact origin-complete formulas through the pinned tl-mltl past
@@ -619,10 +619,10 @@ pub fn check_past_equivalence(
     limits: PastEvaluationLimits,
 ) -> PastConformanceReport {
     let mut report = PastConformanceReport {
-        schema_version: "tl-rewrite.past-conformance/v1".to_owned(),
+        schema_version: "tl-rewrite.past-conformance/v2".to_owned(),
         comparison_id: comparison_id.into(),
-        original_request_identity: context_identity(original),
-        rewritten_request_identity: context_identity(rewritten),
+        original_context_identity: context_identity(original),
+        rewritten_context_identity: context_identity(rewritten),
         original_result_identity: None,
         rewritten_result_identity: None,
         original_verdict: None,
