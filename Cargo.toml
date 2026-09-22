@@ -37,15 +37,14 @@ tl-parse-derived = { version = "=0.1.0", package = "tl-parse", git = "https://gi
 tl-syntax-lowering = { version = "=0.1.0", package = "tl-syntax", git = "https://github.com/agent-ix/tl-syntax.git", rev = "8dc18eec5af227f484170362c9e8894b8531a27d", default-features = false, features = ["alloc", "serde"] }
 # tl-parse's own Cargo.toml (both its v0.1.0 tag and its main branch tip) pins
 # tl-syntax at this revision, independently of the production pin above; it
-# has not yet advanced to track tl-syntax past 842d8255 (agent-ix/tl-parse
-# does not yet have a tracking issue for this -- filed as part of this PR).
-# `tests/rewrite.rs`'s parser-to-rewriter seam test therefore crosses from
-# tl-parse's own tl-syntax instance into this crate's through canonical wire
-# bytes, same as the `tl-syntax-lowering` crossing above; code cannot reach
-# this alias because dev-dependencies are not in scope for `src/`.
-# scripts/check_provenance.py enforces that every additional locked revision
-# is explicitly declared here and cannot masquerade as the production
-# dependency.
+# has not yet advanced to track tl-syntax past 842d8255 (tracked upstream as
+# agent-ix/tl-parse#45). `tests/rewrite.rs`'s parser-to-rewriter seam test
+# therefore crosses from tl-parse's own tl-syntax instance into this crate's
+# through canonical wire bytes, same as the `tl-syntax-lowering` crossing
+# above; code cannot reach this alias because dev-dependencies are not in
+# scope for `src/`. scripts/check_provenance.py enforces that every
+# additional locked revision is explicitly declared here and cannot
+# masquerade as the production dependency.
 tl-syntax-parser-seam = { version = "=0.1.0", package = "tl-syntax", git = "https://github.com/agent-ix/tl-syntax.git", rev = "842d82553f045eb69a7f38745756d968254fc25e", features = ["serde"] }
 
 [profile.release]

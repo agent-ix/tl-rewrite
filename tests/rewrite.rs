@@ -189,11 +189,11 @@ fn parser_to_rewriter_seam_preserves_semantic_identity() {
     // tl-parse pins its own tl-syntax revision independently of this crate's
     // (see Cargo.toml), so `tl_parse::tl_syntax::FormulaDocument` and this
     // crate's `tl_syntax::FormulaDocument` are not guaranteed to be the same
-    // compiled type. A parsed formula crosses into this crate's own
-    // tl-syntax type through canonical wire bytes -- the same boundary the
-    // `tl-syntax-lowering` dev-dependency already crosses for the same
-    // reason (see the `tl-parse-derived` / `tl-syntax-lowering` comment in
-    // Cargo.toml).
+    // compiled type -- tracked as agent-ix/tl-parse#45. A parsed formula
+    // crosses into this crate's own tl-syntax type through canonical wire
+    // bytes -- the same boundary the `tl-syntax-lowering` dev-dependency
+    // already crosses for the same reason (see the `tl-parse-derived` /
+    // `tl-syntax-lowering` comment in Cargo.toml).
     let parsed = |source| {
         let document = parse(
             source,
