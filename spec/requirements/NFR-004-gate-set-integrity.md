@@ -56,6 +56,20 @@ each:
    against the exact declared `ci` prerequisite set and reports a violation
    naming any mismatch in either direction, rather than trusting Make's own
    exit code.
+4. **Per-gate record binding**: the entry point mints a fresh token, not
+   derivable from `CI_GUARD_RUN_ID` and a gate's own name alone, for every
+   declared gate immediately before invoking Make, and
+   delivers each gate's token into only that gate's own recipe environment
+   through Make's target-specific-variable scoping — not through the
+   top-level environment the entry point also hands Make, where every
+   recipe and every subprocess it spawns already shares the run identifier
+   item 3's completion record carries. A completion record is written only
+   when the caller presents the token minted for the gate it names; a
+   subprocess of a *different* declared gate's own recipe — a compromised or
+   buggy `cargo test`, `cargo clippy`, python script, or external
+   `quire`/`quoin` invocation, the concrete risk Linear TL-202 raised — no
+   longer has enough information, by inheritance alone, to write a
+   convincing completion record for a gate other than its own.
 
 It does not own the correctness of any individual gate's recipe (formatting,
 lint, corpus, conformance, and the rest each remain owned by the requirement
@@ -94,6 +108,31 @@ this `ci` target; it is not a proposal for a shared, cross-repository
 control. A future generalization of the same guarantee into Quoin or
 Engineering Assurance is a separate, later decision and is out of scope here.
 
+Item 4's binding is deliberately scoped to what Make's own execution model
+can actually enforce, and what it cannot is disclosed here rather than
+claimed away. Every recipe in a single `ci_guard ci` invocation — and every
+subprocess any of them spawns — runs as the same OS user with unrestricted
+read access to the same filesystem; Make provides no sandboxing or process
+identity between one gate's recipe and another's. The per-gate token is
+therefore not a secret in the cryptographic sense: it withholds a gate's
+token from a process that only *inherits* environment state the way it
+already inherits the run identifier (the entire mechanism TL-202 reported as
+missing), but it does not withhold that token from a process that
+deliberately locates and reads the entry point's own token store off disk,
+which nothing in this control encrypts or otherwise protects from a reader
+already inside that shared trust domain. Closing that further residual would
+require running each gate's recipe as a genuinely separate OS principal —
+e.g. a distinct container or user per gate with its own credential the
+others cannot read even via the filesystem — which is a materially larger
+architectural change than a completion-record protocol, is not proposed
+here, and is out of scope for the reasons the paragraph above already gives
+for not generalizing this mechanism further. What item 4 closes is the
+inheritance-only forgery TL-202 described as exploitable "in principle" by
+any of the thirteen gates' own subprocesses with zero additional effort;
+what it does not close is a subprocess that goes looking for the token store
+specifically, which was already a materially higher-effort, more deliberate
+action than the one this control removes.
+
 ## Rationale
 
 Make's failure-propagation behavior is not an invariant of the tool; it is a
@@ -113,6 +152,31 @@ genuine passes or it does not report a pass at all, regardless of which
 mechanism — present or future, textual, dynamic, or environmental — caused a
 gate not to run its own work.
 
+Item 3's completion record is bound to a *run* (NFR-004-AC-5) but, until
+NFR-004-AC-9, not to a *gate*: `CI_GUARD_RUN_ID` is exported once into the
+top-level Make process and every recipe and subprocess in that run's process
+tree inherits it identically, so a completion record for any declared gate
+was writable by any of the thirteen gates' own recipes, or anything they
+shell out to, using nothing but a value already in their environment and a
+gate name already public in the Makefile. Reconciliation (item 3) is not an
+independent catch for this: `reconcile` only asks whether *some* record
+naming a gate exists for this run id, so a record forged for a gate before
+that gate's own (genuinely failing) recipe runs is indistinguishable, to
+reconciliation, from a real one — reconciliation is deceived into treating
+the affected gate as present, not tipped off. What still catches the overall
+run today is the trailing raw Make exit-status check, and only because every
+currently-known way to hide a gate's *own* genuine failure from Make's exit
+code is already blocked by item 1's static scan; that check cannot say
+*which* gate misbehaved, only that Make exited non-zero, so a forged record
+degrades the entry point's most useful output — reconciliation naming the
+specific gate — into the coarse, undifferentiated signal `NFR-004`'s own
+Rationale above says a checked property should not still be depending on.
+Binding the record to a token Make's own target-specific-variable scoping
+places only in the one recipe environment that token was minted for turns
+"which run wrote this" into "which run *and which gate's own recipe* wrote
+this", so reconciliation itself is no longer deceivable this way and keeps
+naming the actual gate.
+
 ## Measurement and Evaluation
 
 | Metric | Target | Threshold | Method |
@@ -122,6 +186,7 @@ gate not to run its own work.
 | Induced-failure classes from the tracked reproduction (`.IGNORE:` prepended; every recipe replaced by a failing stub; a backdated or removed completion record) rejected by the entry point | 3/3 | 3/3 | Test |
 | False rejections of an unmodified, passing Makefile and a clean invocation environment | 0 | 0 | Test |
 | Documented or hosted invocation paths for the full local gate set that still name a bare `make ci` instead of the entry point | 0 | 0 | Inspection |
+| A gate's own recipe (or a subprocess it spawns) attempting to write a completion record for a *different* declared gate, presenting only `CI_GUARD_RUN_ID` and that gate's public name | 0/1 accepted | 0/1 accepted | Test |
 
 ## Verification
 
@@ -139,9 +204,25 @@ code never inspects. A further control sets `MAKEFLAGS` in the calling
 environment to a value equivalent to `-i`/`-k` before invoking the entry
 point, without touching the Makefile text, and must also be rejected — this
 demonstrates the environment-control check independently of the static-text
-check, so a failure in one is attributable without the other masking it. An
-inspection pass confirms the README, `CLAUDE.md`, and any hosted workflow
-dispatch reference the entry point rather than a bare `make ci`.
+check, so a failure in one is attributable without the other masking it. A
+fifth and sixth reproduction, of the Linear TL-202 report directly. Fifth: a
+fixture Makefile whose declared `ci` prerequisites are `gate-a` alone, where
+`gate-a`'s recipe, after recording its own completion, also attempts
+`ci_guard record gate-b` for an undeclared gate using only the shared
+`CI_GUARD_RUN_ID` — must be refused for lacking `gate-b`'s own token, and
+must produce no completion record naming `gate-b` at all, while `gate-a`'s
+own legitimate record is unaffected. Sixth, and the sharper case the
+Rationale above describes: `ci: gate-a gate-b`, where `gate-a` genuinely
+succeeds and, as a side effect Make itself does not check the exit status
+of (`$(shell ...)` evaluated while expanding a recipe line, standing in for
+a subprocess `gate-a`'s own recipe spawned whose failure does not propagate
+to that recipe's exit code — e.g. an unawaited child of `cargo test`),
+attempts to forge `gate-b`'s record before `gate-b`'s own recipe — which
+genuinely fails — ever runs. Must be refused; reconciliation must go on to
+name `gate-b` itself as missing, not fall back to the raw Make exit-status
+check's undifferentiated failure. An inspection pass confirms the README,
+`CLAUDE.md`, and any hosted workflow dispatch reference the entry point
+rather than a bare `make ci`.
 
 ## Acceptance Criteria
 
@@ -155,3 +236,4 @@ dispatch reference the entry point rather than a bare `make ci`.
 | NFR-004-AC-6 | Reproducing the tracked measurement — a `.IGNORE:`-prepended Makefile copy, and a skeleton Makefile with every recipe replaced by a failing stub — against the entry point yields a non-zero exit and a named violation, not a reported pass. | Test |
 | NFR-004-AC-7 | An unmodified Makefile, a clean invocation environment, and every gate genuinely passing yields a zero exit from the entry point with no violation reported. | Test |
 | NFR-004-AC-8 | The repository's README, `CLAUDE.md`, and any hosted workflow dispatch that runs the full local gate set invoke the entry point rather than a bare `make ci`. | Inspection |
+| NFR-004-AC-9 | The entry point mints a fresh per-declared-gate token before invoking Make, not derivable from `CI_GUARD_RUN_ID` and a gate's own name alone, and delivers each gate's token into only that gate's own recipe environment; a completion record is written only when the caller presents the token minted for the gate it names, so a call presenting `CI_GUARD_RUN_ID` and a different declared gate's name, but not that gate's own token, is refused and writes no record. | Test |

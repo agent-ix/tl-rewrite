@@ -72,6 +72,20 @@ QUOIN ?= quoin
 # local iteration, outside `make guarded-ci`), it is a deliberate no-op.
 CI_GUARD ?= $(CARGO) run --quiet --bin ci_guard --
 
+# NFR-004-AC-9 (TL-202): `ci_guard ci` mints a fresh per-gate, per-run token
+# and writes it here just before invoking Make. Target-specific `export`
+# lines in the generated file below deliver each gate's token into only that
+# gate's own recipe environment, so a subprocess of a *different* gate's own
+# recipe (a compromised or buggy `cargo test`/`cargo clippy`/python/quire/
+# quoin invocation, the concrete risk TL-202 names) cannot bind a completion
+# record to a gate it did not itself run. `-include` — not `include` — is
+# deliberate: this file is absent outside a `ci_guard ci` run (a bare `make
+# ci`, `make lint`, or a fresh checkout that has never run `ci_guard ci`),
+# where `ci_guard record` is already a no-op and Make must not error on the
+# missing file. Generated fresh before every guarded run; never edit or
+# commit it.
+-include target/ci-gates/.gate-tokens.mk
+
 # The shared-assurance lane runs in its own interpreter. There is no jsonschema
 # conflict left to resolve here — every script in this repository that imported
 # jsonschema was part of the local evidence machinery this migration removed. The
