@@ -54,12 +54,12 @@
     "statement": "Both temporal dependencies resolve to exact remote-reachable revisions. tl-rewrite hands tl_syntax::Formula values straight to tl_mltl evaluators, so the two crates must resolve the SAME tl-syntax revision; scripts/check_provenance.py requires src/lib.rs, Cargo.toml and Cargo.lock to agree for both.",
     "tl-syntax": {
       "was": "d52d89549b0a6c0c429261bab912cd5396c4a19e",
-      "now": "8bcbce984f7ec3d86a92f90d866e842cc98b39fb",
+      "now": "fed48a2fab3f5277131a7012e1a8d10993330cb1",
       "why": "8bcbce98 is the remote-reachable Stage 1 syntax revision with the scoped release verifier, tracked-source census correction, and span-independent semantic identity. It is the exact revision consumed by tl-rewrite, the pinned tl-mltl evaluator, the dev-only tl-parse, and the dev-only tl-oracle, so one tl-syntax resolves in Cargo.lock."
     },
     "tl-mltl": {
       "was": "c8d2c871dbb379019a58fe74fcb230f501088538",
-      "now": "e7f9b1f5d453aeca39e14b73cf6be6ac1ac0bbf7",
+      "now": "cd3825f4e45644b506ed51ca6e1833ed51ebca36",
       "why": "e7f9b1f5 is the remote-reachable Stage 1 evaluator and verification-campaign revision and carries the shared tl-syntax revision 8bcbce98. Pinning both exact revisions keeps the Formula type passed across the crate boundary identical."
     },
     "earlier_dangling_pin": {

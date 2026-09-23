@@ -1945,6 +1945,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         ".agent",
         ".github",
         "assurance",
+        "benches",
         "corpus",
         "docs",
         "examples",
@@ -2272,20 +2273,17 @@ tl-rewrite-evidence-input-v1.schema.json";
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 13 `<root>`, 139 `spec`, 14 `tests`, 6 `corpus`, 10 `src`,
-    // 5 `scripts`, 3 `examples`, 3 `assurance`, 3 `.github`, 1 `docs`, 1 `.agent`.
+    // By area: the prior 254 files plus the three reviewed Criterion bench
+    // inputs under `benches/`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
     // its margin whenever `spec/` grows and cannot be the first reactor for a
     // whole-area loss because the area-set equality above catches that loss.
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
-    // The bounded V4 fuzz producer and its false-credit controls add two
-    // reviewed source files after the Stage 1 population of 249; the measured
-    // report and both raw streams add three more.
     assert_eq!(
-        inspected, 254,
-        "the source census population changed from the reviewed 254 tracked files \
+        inspected, 257,
+        "the source census population changed from the reviewed 257 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
