@@ -840,3 +840,181 @@ pub fn replay_infinite(
         _ => false,
     }
 }
+
+/// Outcome of a trace-scoped provider comparison for one completed rewrite.
+#[cfg(feature = "infinite-trace")]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum InfiniteConformanceStatus {
+    /// Both completed provider results have the same semantic axes.
+    Equivalent,
+    /// Completed provider results differ on a semantic axis.
+    Mismatch,
+    /// The comparison could not make a semantic claim.
+    NonConclusive,
+}
+
+/// Typed reason a provider comparison has no semantic claim.
+#[cfg(feature = "infinite-trace")]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum InfiniteConformanceReason {
+    /// The rewrite record cannot be replayed against the trusted inputs.
+    InvalidRewrite,
+    /// The trace and formula have incompatible profile or clock identities.
+    InvalidTrace,
+    /// Conflicting evidence was present before either provider evaluation.
+    ConflictingObservation,
+    /// Neither graph had any completion admitted by fairness.
+    EmptyFairAdmission,
+    /// A configured provider ceiling prevented complete evaluation.
+    ResourceIncomplete,
+    /// A provider refused malformed or mismatched input.
+    ProviderRefusal,
+    /// A provider returned an unsuccessful execution disposition.
+    ProviderFailure,
+}
+
+/// Exact provider evidence for a trace-scoped comparison, never a model proof.
+#[cfg(feature = "infinite-trace")]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InfiniteConformanceReport {
+    /// Comparison state.
+    pub status: InfiniteConformanceStatus,
+    /// Typed nonconclusive reason, absent on completed comparisons.
+    pub reason: Option<InfiniteConformanceReason>,
+    /// Original graph's provider result, absent when preclassification refused.
+    pub before: Option<tl_mltl::infinite::InfiniteResult>,
+    /// Rewritten graph's provider result, absent when preclassification refused.
+    pub after: Option<tl_mltl::infinite::InfiniteResult>,
+}
+
+/// Compares the original and rewritten formula on the same exact lasso.
+///
+/// This is differential, trace-scoped evidence. Independent soundness
+/// qualification remains the responsibility of the dev-only oracle.
+#[cfg(feature = "infinite-trace")]
+pub fn check_infinite_rewrite(
+    input: &InfiniteFormulaDocument,
+    fairness: Option<&FairnessPremisesDocument>,
+    trace: &tl_syntax::LassoTraceDocument,
+    report: &InfiniteRewriteReport,
+    selected_position: u64,
+    trusted_source_revision: &str,
+    limit: tl_mltl::infinite::EvaluationLimit,
+) -> InfiniteConformanceReport {
+    use tl_mltl::infinite::{
+        evaluate_lasso, Disposition, ExecutionDisposition, InfiniteError, LassoRequest,
+        ResultReason,
+    };
+
+    let refuse = |reason| InfiniteConformanceReport {
+        status: InfiniteConformanceStatus::NonConclusive,
+        reason: Some(reason),
+        before: None,
+        after: None,
+    };
+    if !replay_infinite(input, fairness, report, trusted_source_revision) {
+        return refuse(InfiniteConformanceReason::InvalidRewrite);
+    }
+    if trace.semantic_profile() != input.semantic_profile() || trace.clock() != input.clock() {
+        return refuse(InfiniteConformanceReason::InvalidTrace);
+    }
+    // Classify the whole admitted trace before evaluating either formula: a
+    // Boolean fold may otherwise hide conflicting evidence in a dead branch.
+    if trace
+        .prefix()
+        .iter()
+        .chain(trace.loop_observations())
+        .flat_map(|observation| observation.valuation.entries())
+        .any(|entry| entry.value == tl_syntax::PartialValue::Conflicting)
+    {
+        return refuse(InfiniteConformanceReason::ConflictingObservation);
+    }
+    let Some(output) = report.output.as_ref() else {
+        return refuse(InfiniteConformanceReason::InvalidRewrite);
+    };
+    let Some(output_identity) = report.output_identity.as_deref() else {
+        return refuse(InfiniteConformanceReason::InvalidRewrite);
+    };
+    let Ok(trace_id) = trace.content_identity() else {
+        return refuse(InfiniteConformanceReason::InvalidTrace);
+    };
+    let original = LassoRequest {
+        formula: input,
+        trace,
+        fairness,
+        graph_id: &report.input_identity,
+        trace_id: &trace_id,
+        selected_position,
+        limit,
+    };
+    let rewritten = LassoRequest {
+        formula: output,
+        trace,
+        fairness: report.output_fairness.as_ref(),
+        graph_id: output_identity,
+        trace_id: &trace_id,
+        selected_position,
+        limit,
+    };
+    let map_error = |error| match error {
+        InfiniteError::ResourceIncomplete => InfiniteConformanceReason::ResourceIncomplete,
+        InfiniteError::InvalidFormula
+        | InfiniteError::InvalidLasso
+        | InfiniteError::IdentityMismatch => InfiniteConformanceReason::ProviderRefusal,
+    };
+    let before = match evaluate_lasso(&original) {
+        Ok(value) => value,
+        Err(error) => return refuse(map_error(error)),
+    };
+    let after = match evaluate_lasso(&rewritten) {
+        Ok(value) => value,
+        Err(error) => {
+            return InfiniteConformanceReport {
+                status: InfiniteConformanceStatus::NonConclusive,
+                reason: Some(map_error(error)),
+                before: Some(before),
+                after: None,
+            };
+        }
+    };
+    let nonconclusive = if before.execution != ExecutionDisposition::Completed
+        || after.execution != ExecutionDisposition::Completed
+    {
+        Some(
+            if before.reason == Some(ResultReason::ResourceIncomplete)
+                || after.reason == Some(ResultReason::ResourceIncomplete)
+            {
+                InfiniteConformanceReason::ResourceIncomplete
+            } else {
+                InfiniteConformanceReason::ProviderFailure
+            },
+        )
+    } else if before.disposition == Disposition::Inconclusive
+        && before.reason == Some(ResultReason::EmptyFairAdmission)
+        || after.disposition == Disposition::Inconclusive
+            && after.reason == Some(ResultReason::EmptyFairAdmission)
+    {
+        Some(InfiniteConformanceReason::EmptyFairAdmission)
+    } else {
+        None
+    };
+    let status = if nonconclusive.is_some() {
+        InfiniteConformanceStatus::NonConclusive
+    } else if before.disposition == after.disposition
+        && before.execution == after.execution
+        && before.truth == after.truth
+        && before.basis == after.basis
+        && before.reason == after.reason
+        && before.admitted_completions == after.admitted_completions
+    {
+        InfiniteConformanceStatus::Equivalent
+    } else {
+        InfiniteConformanceStatus::Mismatch
+    };
+    InfiniteConformanceReport {
+        status,
+        reason: nonconclusive,
+        before: Some(before),
+        after: Some(after),
+    }
+}
