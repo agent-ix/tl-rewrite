@@ -95,6 +95,8 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
     // substituting the prior revisions back into these bytes reproduces the
     // prior rewrite and conformance digests exactly; the replay digest moves
     // only because it embeds the rewrite report's digest.
+    // Stage 1 exact dependency pins (tl-syntax de37776a, tl-mltl 7b27cb82)
+    // advance the same revision fields; these are the measured unpatched bytes.
     assert_eq!(
         [
             digest(&rewrite_bytes),
@@ -102,9 +104,9 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
             digest(&conformance_bytes),
         ],
         [
-            "c8fe4d212a4173a2a5df392ca436f3a26ed7addb445d5237d5451c8c761c77a5",
-            "ec6ddfd6d93ffe64c86bef9c7eebdcb54d64e3717d95136fd744788aed221691",
-            "08c91da590db33ef54528e2647cdc5716d4e5272ce2c8565f53da319b4f1f1b7",
+            "1affc2ac92104e9ec3cf64741483a15201b5b61ed57b3443e8682b56c9aa604e",
+            "ab8a3d988643c247b3d6011931aca9d670e47b3dc47548c1e8dcd776fb8d6ed5",
+            "25b0dbffc6fb04a616092aef029ec9025066559e68243b045e3d227b5e163373",
         ]
     );
     assert_eq!(rewrite_report.schema_version, "tl-rewrite.report/v1");

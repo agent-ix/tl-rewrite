@@ -340,7 +340,7 @@ checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -392,6 +392,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "syn"
+version = "3.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8593e8e72159ed2257d083c7a454a85cbf854f37a0966d8d483aff8c8a3ebcee"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
+
+[[package]]
 name = "tempfile"
 version = "3.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -404,9 +415,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "thiserror"
+version = "2.0.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec86235f5fcc2a73650310756d2ac5b138a5780bbbdfae3eeccec992c435ba4f"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc04cd3e1236dd4a98afca4569f2deb3f120e5422a4023be2cb683f8486292af"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.6",
+]
+
+[[package]]
 name = "tl-mltl"
 version = "0.3.0"
-source = "git+https://github.com/agent-ix/tl-mltl.git?rev=452f013a3168512603d427bce3360bc14c1175a6#452f013a3168512603d427bce3360bc14c1175a6"
+source = "git+https://github.com/agent-ix/tl-mltl.git?rev=7b27cb82dbdd6fe6301d9b45a9f97d1ff12ee2b2#7b27cb82dbdd6fe6301d9b45a9f97d1ff12ee2b2"
 dependencies = [
  "serde",
  "serde_json",
@@ -415,9 +446,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tl-oracle"
+version = "0.1.0"
+source = "git+https://github.com/agent-ix/tl-oracle.git?rev=d8be815f80fbaacd1a0d109533eb34c47df6d0a8#d8be815f80fbaacd1a0d109533eb34c47df6d0a8"
+dependencies = [
+ "thiserror",
+ "tl-syntax",
+]
+
+[[package]]
 name = "tl-parse"
 version = "0.3.0"
-source = "git+https://github.com/agent-ix/tl-parse.git?rev=496020aad5595b870f141b88995cdc2ea6a5994e#496020aad5595b870f141b88995cdc2ea6a5994e"
+source = "git+https://github.com/agent-ix/tl-parse.git?rev=1dfa9cb0f670c39009170c0938a4d613e3d57d5a#1dfa9cb0f670c39009170c0938a4d613e3d57d5a"
 dependencies = [
  "serde",
  "serde_json",
@@ -436,6 +476,7 @@ dependencies = [
  "sha2",
  "tempfile",
  "tl-mltl",
+ "tl-oracle",
  "tl-parse",
  "tl-syntax",
 ]
@@ -443,7 +484,7 @@ dependencies = [
 [[package]]
 name = "tl-syntax"
 version = "0.3.0"
-source = "git+https://github.com/agent-ix/tl-syntax.git?rev=4a5614193d21e5ae99950ae683b04ba0ec931358#4a5614193d21e5ae99950ae683b04ba0ec931358"
+source = "git+https://github.com/agent-ix/tl-syntax.git?rev=de37776a565d79bb4369956647026bd849908999#de37776a565d79bb4369956647026bd849908999"
 dependencies = [
  "serde",
  "serde_json",
@@ -609,7 +650,7 @@ checksum = "f2ab42fc20575779bd240faa45f94a74256f755c0fa9e89f0ede20d91d0cdfc1"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.119",
 ]
 
 [[package]]

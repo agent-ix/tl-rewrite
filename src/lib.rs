@@ -20,6 +20,8 @@ pub use catalog::{
     catalog, infinite_catalog, past_catalog, CatalogDocument, Provenance, ProvenanceKind,
     RuleClass, RuleDefinition, RuleDisposition,
 };
+#[cfg(feature = "infinite-trace")]
+pub use disposition::infinite_conformance_disposition;
 pub use disposition::{
     conformance_disposition, rewrite_disposition, DispositionMappingError, Fr341Disposition,
 };
@@ -28,6 +30,11 @@ pub use equivalence::{
     check_equivalence, check_equivalence_with_context, check_past_equivalence, ConformanceOptions,
     ConformanceReason, ConformanceReport, ConformanceStatus, PastConformanceReason,
     PastConformanceReport, PastEvaluationContext,
+};
+#[cfg(feature = "infinite-trace")]
+pub use infinite::{
+    check_infinite_rewrite, InfiniteConformanceReason, InfiniteConformanceReport,
+    InfiniteConformanceStatus,
 };
 pub use infinite::{
     replay_infinite, rewrite_infinite, InfiniteRewriteFailure, InfiniteRewriteReport,
@@ -40,10 +47,10 @@ pub use report::{
 };
 
 /// Exact tl-syntax source revision consumed by this candidate.
-pub const TL_SYNTAX_REVISION: &str = "4a5614193d21e5ae99950ae683b04ba0ec931358";
+pub const TL_SYNTAX_REVISION: &str = "de37776a565d79bb4369956647026bd849908999";
 
 /// Exact tl-mltl reference source revision consumed by this candidate.
-pub const TL_MLTL_REVISION: &str = "452f013a3168512603d427bce3360bc14c1175a6";
+pub const TL_MLTL_REVISION: &str = "7b27cb82dbdd6fe6301d9b45a9f97d1ff12ee2b2";
 
 /// Exact canonical WEST source revision from which permitted fixtures were selected.
 pub const WEST_REVISION: &str = "21cd99ab2e6095a099dd179029cfdeb54268ad3f";

@@ -1,0 +1,1 @@
+{"schema_version":"tl-syntax.formula-unbounded/v1","semantic_profile":"mltl.infinite-trace/v1","clock":"event_position","root":2,"nodes":[{"kind":"false"},{"kind":"proposition","proposition":0},{"kind":"and","left":0,"right":1}]}

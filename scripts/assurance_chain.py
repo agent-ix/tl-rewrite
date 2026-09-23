@@ -1460,7 +1460,7 @@ def adapter_probes(workspace: Path) -> list[dict[str, Any]]:
     # bound to — the rows bind to FR-004-AC-1 — not merely prose elsewhere in the
     # document. Editing the surrounding narrative changes the file without
     # changing the claim, and the audit correctly says nothing about it.
-    marker = "exhaustive horizon-complete agreement or a retained minimal-by-enumeration counterexample"
+    marker = "exhaustive horizon-complete agreement against the independent oracle or a retained minimal-by-enumeration counterexample"
     if marker not in text:
         raise ChainError(
             "the probe's statement marker is no longer present in FR-004-AC-1; it must "

@@ -3,6 +3,8 @@
 //! A rewrite or soundness comparison is not a temporal proof. Only its
 //! non-conclusive failure classes can correspond to external result labels.
 
+#[cfg(feature = "infinite-trace")]
+use crate::infinite::{InfiniteConformanceReason, InfiniteConformanceStatus};
 use crate::{ConformanceReason, ConformanceStatus, RewriteStatus};
 
 /// Exact external result class implied by a rewrite or comparison attempt.
@@ -83,6 +85,35 @@ pub const fn conformance_disposition(
             | ConformanceReason::HorizonLimit
             | ConformanceReason::TraceDomainLimit => Fr341Disposition::ResourceIncomplete,
             ConformanceReason::EvaluatorError => Fr341Disposition::Failed,
+        }),
+    }
+}
+
+/// Maps every infinite conformance state and typed reason without promoting
+/// trace-scoped differential evidence to a temporal verdict.
+#[cfg(feature = "infinite-trace")]
+pub const fn infinite_conformance_disposition(
+    status: InfiniteConformanceStatus,
+    reason: Option<InfiniteConformanceReason>,
+) -> Result<Fr341Disposition, DispositionMappingError> {
+    match (status, reason) {
+        (InfiniteConformanceStatus::Equivalent | InfiniteConformanceStatus::Mismatch, None) => {
+            Ok(Fr341Disposition::NoTemporalVerdict)
+        }
+        (InfiniteConformanceStatus::Equivalent | InfiniteConformanceStatus::Mismatch, Some(_)) => {
+            Err(DispositionMappingError::UnexpectedReason)
+        }
+        (InfiniteConformanceStatus::NonConclusive, None) => {
+            Err(DispositionMappingError::MissingReason)
+        }
+        (InfiniteConformanceStatus::NonConclusive, Some(reason)) => Ok(match reason {
+            InfiniteConformanceReason::InvalidRewrite
+            | InfiniteConformanceReason::InvalidTrace
+            | InfiniteConformanceReason::ProviderRefusal => Fr341Disposition::Unsupported,
+            InfiniteConformanceReason::ConflictingObservation
+            | InfiniteConformanceReason::EmptyFairAdmission => Fr341Disposition::NoTemporalVerdict,
+            InfiniteConformanceReason::ResourceIncomplete => Fr341Disposition::ResourceIncomplete,
+            InfiniteConformanceReason::ProviderFailure => Fr341Disposition::Failed,
         }),
     }
 }

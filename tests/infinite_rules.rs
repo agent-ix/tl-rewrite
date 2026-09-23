@@ -340,6 +340,51 @@ fn tc_070_every_enabled_rule_agrees_on_complete_and_partial_words() {
     assert!(compared >= 1_000);
 }
 
+/// TC-070, FR-020-AC-1: the independent oracle exposes a wrong infinite rule
+/// on both a complete lasso and a partial refinement population.
+#[test]
+fn tc_070_wrong_infinite_rule_yields_complete_and_partial_counterexamples() {
+    let input = graph(
+        vec![
+            Kind::Proposition {
+                proposition: PropositionId(0),
+            },
+            Kind::Future {
+                interval: open(0),
+                operand: NodeId(0),
+            },
+        ],
+        1,
+    );
+    let seeded_wrong = graph(vec![Kind::False], 0);
+    for (word, expected) in [
+        (
+            trace(&[], &[[PartialValue::True, PartialValue::False]]),
+            tl_oracle::Verdict::Proved,
+        ),
+        (
+            trace(&[], &[[PartialValue::Missing, PartialValue::False]]),
+            tl_oracle::Verdict::Inconclusive,
+        ),
+    ] {
+        let actual =
+            evaluate_documents(&input, &word, input.root(), &[], 0, OracleLimits::default())
+                .unwrap();
+        let wrong = evaluate_documents(
+            &seeded_wrong,
+            &word,
+            seeded_wrong.root(),
+            &[],
+            0,
+            OracleLimits::default(),
+        )
+        .unwrap();
+        assert_eq!(actual.verdict, expected);
+        assert_eq!(wrong.verdict, tl_oracle::Verdict::Refuted);
+        assert_ne!(actual, wrong);
+    }
+}
+
 /// TC-067, FR-019-AC-1: an open-upper interval never passes a singleton rule.
 #[test]
 fn tc_067_unbounded_singleton_is_not_admitted() {
@@ -466,17 +511,63 @@ fn tc_069_unmappable_fairness_refuses() {
     assert!(report.steps.is_empty());
 }
 
-/// TC-071, FR-020-AC-2: the oracle edge exists only in dev dependencies.
+/// TC-069, FR-010-AC-6, FR-019-AC-3: foreign identities refuse before infinite dispatch.
+#[test]
+fn tc_069_foreign_profile_clock_and_premises_refuse_before_rewrite() {
+    let foreign_profile = InfiniteFormulaDocument::new(
+        SemanticProfile::ClosedTraceV1,
+        InfiniteClock::EventPosition,
+        NodeId(0),
+        vec![InfiniteNode::new(Kind::True)],
+    );
+    assert!(foreign_profile.is_err());
+    let foreign_clock = LassoTraceDocument::from_selected_identities(
+        Some("mltl.infinite-trace/v1"),
+        "fixed_sample",
+        "map".to_owned(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    assert!(foreign_clock.is_err());
+
+    let input = graph(vec![Kind::False], 0);
+    let foreign = graph(vec![Kind::True], 0);
+    let premises = FairnessPremisesDocument::new(
+        &foreign,
+        foreign.content_identity().unwrap(),
+        InfiniteClock::EventPosition,
+        vec![NodeId(0)],
+    )
+    .unwrap();
+    let report = run(&input, Some(&premises));
+    assert_eq!(
+        report.failure,
+        Some(InfiniteRewriteFailure::IdentityMismatch)
+    );
+    assert!(report.output.is_none() && report.output_fairness.is_none());
+    assert!(report.steps.is_empty());
+}
+
+/// TC-071, FR-010-AC-6, FR-020-AC-2: the provider is opt-in and oracle dev-only.
 #[test]
 fn tc_071_oracle_is_dev_only() {
     let manifest = include_str!("../Cargo.toml");
+    assert!(manifest.contains("[features]\ndefault = []\n"));
+    assert!(manifest.contains("infinite-trace = [\"tl-mltl/infinite-trace\"]"));
     let production = manifest.split("[dev-dependencies]").next().unwrap();
     let development = manifest.split("[dev-dependencies]").nth(1).unwrap();
     assert!(!production.contains("tl-oracle"));
-    assert!(development.contains("tl-oracle = { path = \"../tl-oracle\" }"));
-    let oracle_manifest = include_str!("../../tl-oracle/Cargo.toml");
-    assert!(!oracle_manifest.contains("tl-mltl ="));
-    assert!(!oracle_manifest.contains("tl-rewrite ="));
+    assert!(development.contains("https://github.com/agent-ix/tl-oracle.git"));
+    assert!(development.contains("d8be815f80fbaacd1a0d109533eb34c47df6d0a8"));
+    let tree = std::process::Command::new("cargo")
+        .args(["tree", "--offline", "-e", "normal", "-p", "tl-oracle"])
+        .output()
+        .expect("cargo dependency inspection");
+    assert!(tree.status.success());
+    let tree = String::from_utf8(tree.stdout).unwrap();
+    assert!(!tree.contains("tl-mltl v"));
+    assert!(!tree.contains("tl-rewrite v"));
 }
 
 /// TC-075, NFR-005-AC-1: exact work limits succeed and one-under refuses.

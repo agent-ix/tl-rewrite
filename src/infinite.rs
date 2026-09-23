@@ -4,9 +4,11 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use tl_syntax::{
-    FairnessPremisesDocument, InfiniteFormulaDocument, InfiniteNode, InfiniteNodeKind as Kind,
-    NodeId, SourceSpan, TemporalInterval,
+    FairnessPremisesDocument, InfiniteFormulaDocument, InfiniteNode, InfiniteNodeKind, NodeId,
+    SourceSpan, TemporalInterval,
 };
+
+type Kind = InfiniteNodeKind;
 
 use crate::{
     catalog::infinite_catalog,
@@ -977,7 +979,13 @@ pub fn check_infinite_rewrite(
             };
         }
     };
-    let nonconclusive = if before.execution != ExecutionDisposition::Completed
+    let nonconclusive = if before.disposition == Disposition::Unsupported
+        || after.disposition == Disposition::Unsupported
+    {
+        Some(InfiniteConformanceReason::ProviderRefusal)
+    } else if before.disposition == Disposition::Failed
+        || after.disposition == Disposition::Failed
+        || before.execution != ExecutionDisposition::Completed
         || after.execution != ExecutionDisposition::Completed
     {
         Some(

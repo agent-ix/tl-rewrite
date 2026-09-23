@@ -1,0 +1,8 @@
+target/
+artifacts/
+coverage/
+corpus/infinite_rewrite/*
+!corpus/infinite_rewrite/SHA256SUMS
+!corpus/infinite_rewrite/boolean-false
+!corpus/infinite_rewrite/future-true
+!corpus/infinite_rewrite/past-history

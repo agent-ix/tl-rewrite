@@ -289,7 +289,7 @@ pub fn past_catalog() -> CatalogDocument {
 pub fn infinite_catalog() -> CatalogDocument {
     let mut rules = definitions()
         .into_iter()
-        .filter(|rule| rule.id.starts_with("bool."))
+        .filter(|rule| rule.id.split('.').next() == Some("bool"))
         .map(|mut rule| {
             rule.semantic_profiles = infinite_profiles();
             rule.provenance.uri = "ix://agent-ix/tl-rewrite/FR-019".to_owned();

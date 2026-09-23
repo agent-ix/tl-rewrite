@@ -4,7 +4,10 @@ use tl_mltl::infinite::EvaluationLimit;
 use tl_rewrite::infinite::{
     check_infinite_rewrite, InfiniteConformanceReason, InfiniteConformanceStatus,
 };
-use tl_rewrite::{rewrite_infinite, RewriteOptions};
+use tl_rewrite::{
+    infinite_conformance_disposition, rewrite_infinite, DispositionMappingError, Fr341Disposition,
+    RewriteOptions,
+};
 use tl_syntax::{
     FairnessPremisesDocument, InfiniteClock, InfiniteFormulaDocument, InfiniteNode,
     InfiniteNodeKind as Kind, LassoTraceDocument, NodeId, PartialValuation, PartialValue,
@@ -54,6 +57,7 @@ fn trace(value: PartialValue) -> LassoTraceDocument {
     .unwrap()
 }
 
+// Trace: TC-069, FR-019-AC-3.
 #[test]
 fn fr019_conflict_is_classified_before_fold_can_hide_it() {
     let input = graph();
@@ -76,6 +80,7 @@ fn fr019_conflict_is_classified_before_fold_can_hide_it() {
     assert!(check.before.is_none() && check.after.is_none());
 }
 
+// Trace: TC-069, FR-019-AC-3.
 #[test]
 fn fr019_complete_and_missing_evidence_compare_both_graphs() {
     let input = graph();
@@ -100,6 +105,7 @@ fn fr019_complete_and_missing_evidence_compare_both_graphs() {
     }
 }
 
+// Trace: TC-074, FR-021-AC-2.
 #[test]
 fn fr021_provider_resource_failure_has_no_equivalence_credit() {
     let input = graph();
@@ -124,6 +130,7 @@ fn fr021_provider_resource_failure_has_no_equivalence_credit() {
     assert!(check.before.is_some() && check.after.is_some());
 }
 
+// Trace: TC-074, FR-021-AC-2.
 #[test]
 fn fr021_empty_fair_admission_has_no_equivalence_credit() {
     let input = graph();
@@ -159,6 +166,7 @@ fn fr021_empty_fair_admission_has_no_equivalence_credit() {
     assert!(check.before.is_some() && check.after.is_some());
 }
 
+// Trace: TC-075, NFR-005-AC-1.
 #[test]
 fn nfr005_mismatched_replay_refuses_before_provider() {
     let input = graph();
@@ -178,4 +186,93 @@ fn nfr005_mismatched_replay_refuses_before_provider() {
         Some(InfiniteConformanceReason::InvalidRewrite)
     );
     assert!(check.before.is_none() && check.after.is_none());
+}
+
+// Trace: TC-069, FR-019-AC-3.
+#[test]
+fn fr019_unknown_rule_record_cannot_reach_provider() {
+    let input = graph();
+    let mut rewrite =
+        rewrite_infinite(&input, None, RewriteOptions::default(), REVISION, 1_000_000);
+    assert!(!rewrite.steps.is_empty());
+    rewrite.steps[0].rule_id = "unknown.infinite.rule".to_owned();
+    let check = check_infinite_rewrite(
+        &input,
+        None,
+        &trace(PartialValue::True),
+        &rewrite,
+        0,
+        REVISION,
+        EvaluationLimit::default(),
+    );
+    assert_eq!(check.status, InfiniteConformanceStatus::NonConclusive);
+    assert_eq!(
+        check.reason,
+        Some(InfiniteConformanceReason::InvalidRewrite)
+    );
+    assert!(check.before.is_none() && check.after.is_none());
+}
+
+// Trace: TC-073, FR-021-AC-1.
+#[test]
+fn fr021_every_infinite_conformance_reason_has_a_typed_disposition() {
+    let cases = [
+        (
+            InfiniteConformanceReason::InvalidRewrite,
+            Fr341Disposition::Unsupported,
+        ),
+        (
+            InfiniteConformanceReason::InvalidTrace,
+            Fr341Disposition::Unsupported,
+        ),
+        (
+            InfiniteConformanceReason::ConflictingObservation,
+            Fr341Disposition::NoTemporalVerdict,
+        ),
+        (
+            InfiniteConformanceReason::EmptyFairAdmission,
+            Fr341Disposition::NoTemporalVerdict,
+        ),
+        (
+            InfiniteConformanceReason::ResourceIncomplete,
+            Fr341Disposition::ResourceIncomplete,
+        ),
+        (
+            InfiniteConformanceReason::ProviderRefusal,
+            Fr341Disposition::Unsupported,
+        ),
+        (
+            InfiniteConformanceReason::ProviderFailure,
+            Fr341Disposition::Failed,
+        ),
+    ];
+    for (reason, expected) in cases {
+        assert_eq!(
+            infinite_conformance_disposition(
+                InfiniteConformanceStatus::NonConclusive,
+                Some(reason)
+            ),
+            Ok(expected),
+        );
+    }
+    for status in [
+        InfiniteConformanceStatus::Equivalent,
+        InfiniteConformanceStatus::Mismatch,
+    ] {
+        assert_eq!(
+            infinite_conformance_disposition(status, None),
+            Ok(Fr341Disposition::NoTemporalVerdict),
+        );
+        assert_eq!(
+            infinite_conformance_disposition(
+                status,
+                Some(InfiniteConformanceReason::ProviderFailure),
+            ),
+            Err(DispositionMappingError::UnexpectedReason),
+        );
+    }
+    assert_eq!(
+        infinite_conformance_disposition(InfiniteConformanceStatus::NonConclusive, None),
+        Err(DispositionMappingError::MissingReason),
+    );
 }
