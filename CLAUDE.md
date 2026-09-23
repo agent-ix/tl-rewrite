@@ -18,7 +18,7 @@ make audit-unsafe     # check that every unsafe block has a // SAFETY: comment
 make spec             # validate and cover specifications with quire
 make msrv             # check all targets and features with Rust 1.98.1
 make rustdoc          # build warning-free public documentation
-make assurance-env    # build the pinned shared-assurance interpreter
+make assurance-env    # check the installed native EA CLI
 make assurance-inputs # run the producers and write their structured results
 make pins             # classify the toolchain through the shared matrix
 make assurance-chain  # seal, retain, and verify through quoin
@@ -42,8 +42,10 @@ Since issue #9 this repository has no local evidence framework. Retention,
 integrity checking, audit, attestation, change records and receipts are owned by
 Quoin; static specification and coverage facts come from a Quire export; the
 compatibility matrix and the PGM-01 mapping come from Engineering Assurance.
-`assurance/pins.json` records the release and the digests of the artifacts read
-from it, and `assurance/README.md` explains how the pieces relate.
+`assurance/pins.json` records the planned EA release and an attestation of the
+native classifier response. The v0.3.2 matrix still awaits human acceptance;
+the local pin gate must withhold release qualification until that changes.
+`assurance/README.md` explains how the pieces relate.
 
 `make assurance-inputs` is the only target that runs a producer. Everything
 downstream consumes those files and refuses to create them.

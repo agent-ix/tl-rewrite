@@ -86,14 +86,10 @@ CI_GUARD ?= $(CARGO) run --quiet --bin ci_guard --
 # commit it.
 -include target/ci-gates/.gate-tokens.mk
 
-# The shared-assurance lane runs in its own interpreter. There is no jsonschema
-# conflict left to resolve here — every script in this repository that imported
-# jsonschema was part of the local evidence machinery this migration removed. The
-# environment exists because engineering-assurance is pinned as a git tag, and
-# resolving a git dependency into the system interpreter would make the pin
-# depend on whatever else that interpreter happens to have.
-ASSURANCE_VENV ?= .venv-assurance
-ASSURANCE_PYTHON ?= $(ASSURANCE_VENV)/bin/python
+# Engineering Assurance is a native CLI installed from its exact source tag.
+# Python remains only the repository's script runner.
+ASSURANCE_PYTHON ?= $(PYTHON)
+ENGINEERING_ASSURANCE ?= engineering-assurance
 
 ASSURANCE_DIR := target/assurance
 RULE_RESULT := $(ASSURANCE_DIR)/rule-conformance.jsonl
@@ -123,8 +119,8 @@ help:
 	@echo "  make msrv             - Check all targets and features with Rust 1.98.1"
 	@echo "  make rustdoc          - Build warning-free public documentation"
 	@echo "  make build            - Release build"
-	@echo "  make clean            - cargo clean and drop the assurance environment"
-	@echo "  make assurance-env    - Create the pinned shared-assurance interpreter"
+	@echo "  make clean            - cargo clean"
+	@echo "  make assurance-env    - Check the native Engineering Assurance CLI"
 	@echo "  make assurance-inputs - Run the producers and write their structured results"
 	@echo "  make pins             - Classify the toolchain through the shared matrix"
 	@echo "  make assurance-chain  - Seal, retain, and verify through Quoin"
@@ -190,7 +186,6 @@ build:
 .PHONY: clean
 clean:
 	$(CARGO) clean
-	rm -rf $(ASSURANCE_VENV)
 
 # =============================================================================
 # Supply chain & safety
@@ -229,22 +224,14 @@ rustdoc:
 # Shared assurance
 # =============================================================================
 
-# Rebuilt when the pin changes. Without this prerequisite, editing the pinned
-# release never rebuilds the environment and the toolchain keeps whatever it
-# already had.
-$(ASSURANCE_PYTHON): requirements-assurance.txt
-	rm -rf $(ASSURANCE_VENV)
-	$(PYTHON) -m venv $(ASSURANCE_VENV)
-	$(ASSURANCE_VENV)/bin/pip install --quiet --disable-pip-version-check \
-		-r requirements-assurance.txt
-
 .PHONY: assurance-env
-assurance-env: $(ASSURANCE_PYTHON)
+assurance-env:
+	$(ENGINEERING_ASSURANCE) --version
 
 # The only target that runs a producer. Everything downstream consumes these
 # files and refuses to create them.
 .PHONY: assurance-inputs
-assurance-inputs: assurance-env
+assurance-inputs:
 	mkdir -p $(ASSURANCE_DIR)
 	$(CARGO) run --quiet --example rule_conformance -- \
 		--manifest $(RULE_MANIFEST) > $(RULE_RESULT)
@@ -258,7 +245,7 @@ assurance-inputs: assurance-env
 
 .PHONY: pins
 pins: assurance-env
-	$(ASSURANCE_PYTHON) scripts/check_shared_pins.py
+	ENGINEERING_ASSURANCE=$(ENGINEERING_ASSURANCE) $(ASSURANCE_PYTHON) scripts/check_shared_pins.py
 
 .PHONY: assurance-chain
 assurance-chain: assurance-inputs

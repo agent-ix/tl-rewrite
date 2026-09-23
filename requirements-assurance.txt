@@ -1,28 +1,11 @@
-# The shared assurance lane (FR-006). Install this in its OWN environment.
+# Native Engineering Assurance source and installation contract.
+# The v0.3.2 tag and its human-accepted compatibility matrix are pending.
+# This file remains a tracked mirror-scan input. Historical Python requirements
+# were removed because engineering_assurance.compatibility no longer exists.
 #
-#   make assurance-env  ->  .venv-assurance, from this file
+# After the release tag is cut, install exactly:
+# cargo +1.98.1 install --git https://github.com/agent-ix/engineering-assurance --tag v0.3.2 --locked --bin engineering-assurance
 #
-# Why a separate interpreter, since this repository has only one Python lane:
-#
-# tl-syntax needed two environments because its corpus gate was written against
-# jsonschema 3.2.0 (Draft 7) while engineering-assurance declares
-# jsonschema>=4.23,<5, and neither pin could be bent to fit the other. That
-# conflict does not exist here. The scripts in this repository that imported
-# jsonschema — build_evidence_envelope.py, validate_json_schema.py,
-# test_json_schema_gate.py and test_evidence_tool.py — were all part of the local
-# evidence machinery this migration removes, so after the migration nothing in
-# tl-rewrite consumes jsonschema at all and there is no second lane to conflict
-# with.
-#
-# The environment is kept anyway, for a different and still-good reason:
-# engineering-assurance is pinned as a git tag rather than a registry release,
-# and resolving a git dependency into the system interpreter would make the
-# pinned version depend on whatever else that interpreter already has. One
-# environment per pinned release keeps the pin meaning what it says.
-#
-# The pin is the accepted release from agent-ix/engineering-assurance#8, which
-# publishes engineering-assurance as a source distribution: the git tag IS the
-# released artifact. It is not a branch head and must not be replaced by one.
-# v0.2.1 (agent-ix/engineering-assurance#47) is the release that carries the
-# recorded human acceptance and re-pins the matrix to ix-flow 0.2.3.
-engineering-assurance @ git+https://github.com/agent-ix/engineering-assurance@v0.2.1
+# The executable embeds the matrix. scripts/check_shared_pins.py observes the
+# installed CLI and attests its fixed classifier response. It must withhold the
+# gate while the matrix is pending human acceptance.

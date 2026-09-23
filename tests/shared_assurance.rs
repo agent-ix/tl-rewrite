@@ -23,19 +23,11 @@ fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-/// The interpreter `make assurance-env` builds. Its absence is an error.
+/// The repository's Python runner; Engineering Assurance is a separate native CLI.
 fn assurance_python() -> PathBuf {
-    let path = std::env::var_os("ASSURANCE_PYTHON")
+    std::env::var_os("ASSURANCE_PYTHON")
         .map(PathBuf::from)
-        .unwrap_or_else(|| root().join(".venv-assurance/bin/python"));
-    assert!(
-        path.is_file(),
-        "the pinned assurance interpreter is missing at {}. Run `make assurance-env`. \
-         This is a failure and not a skip: a gate that stands down when its dependency \
-         is absent reports the same green as one that ran.",
-        path.display()
-    );
-    path
+        .unwrap_or_else(|| PathBuf::from("python3"))
 }
 
 fn run(program: &Path, arguments: &[&str]) -> (i32, String, String) {
@@ -924,7 +916,9 @@ fn retained_output_contains(directory: &Path, expected: &[u8]) -> bool {
 fn every_shared_pin_is_classified_by_the_packaged_matrix() {
     let _inputs = assurance_inputs_guard();
     let python = assurance_python();
-    let report = json_gate(&python, &["scripts/check_shared_pins.py", "--json"]);
+    let (exit, stdout, stderr) = run(&python, &["scripts/check_shared_pins.py", "--json"]);
+    assert!(exit == 0 || exit == 1, "classifier failed: {stderr}");
+    let report: Value = serde_json::from_str(&stdout).expect("shared pin JSON");
 
     let components = report["components"].as_array().expect("components array");
     assert_eq!(
@@ -940,16 +934,18 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
             component["component"], component["verdict"], component["reason"]
         );
     }
-    assert_eq!(report["accepted"], true);
+    assert_eq!(report["accepted"], report["human_acceptance_recorded"]);
+    assert_eq!(exit == 0, report["accepted"].as_bool().unwrap());
+    assert_eq!(
+        report["installed_binary"]["sha256"].as_str().unwrap().len(),
+        64
+    );
     assert!(report["artifact_mismatches"].as_array().unwrap().is_empty());
     assert!(report["mirror_references"].as_array().unwrap().is_empty());
 
-    // Acceptance is reported and never gated on: the pinned release records
-    // `pending_human_acceptance` and ships no predicate for it
-    // (agent-ix/engineering-assurance#20). Reading an absent field as approval,
-    // in either direction, is the mistake this asserts against.
+    // Only the matrix's attributed human-acceptance bit can open the gate.
     assert_eq!(report["acceptance_recorded_here"], false);
-    assert!(report["acceptance_state"].is_string());
+    assert!(report["human_acceptance_recorded"].is_boolean());
 
     // The mirror check must be seen to refuse. Without this it is indistinguishable
     // from a check that matches nothing.
@@ -971,28 +967,15 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
         "a mirror registry reference was not detected; the check matches nothing"
     );
 
-    // The consumed-artifact digest check must be seen to refuse. Issue #13
-    // deleted the four artifacts this check used to walk — every one of them was
-    // read only by the compatibility view — and refilled the list with
-    // `engineering_assurance/compatibility.py`, the module `build_report`
-    // imports for every component verdict. This probe is what keeps that pin
-    // from being decoration.
+    // The installed native executable must be the digest-check subject.
     let (code, stdout, stderr) = run(
         &python,
         &[
             "-c",
-            // Targeted by path, not by position. `[0]` would still have
-            // reported a mismatch if the entries were reordered — it would have
-            // written a sha256 onto the deliberately undigested matrix entry and
-            // caught a file-not-found instead, which is a pass for the wrong
-            // reason.
             "import json,sys;sys.path.insert(0,'scripts');\
              import check_shared_pins as m;\
              pins=json.load(open('assurance/pins.json'));\
-             hit=[a for a in pins['consumed_artifacts'] \
-             if a['path']=='compatibility.py' and 'sha256' in a];\
-             assert len(hit)==1, 'compatibility.py is not digest-pinned';\
-             hit[0]['sha256']='0'*64;\
+             pins['classifier_attestation']['sha256']='0'*64;\
              print(json.dumps(m.artifact_digest_mismatches(pins)))",
         ],
     );
@@ -1003,9 +986,7 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
         "a changed consumed-artifact digest was not detected; the check matches nothing"
     );
 
-    // And the empty-population branch must fire, because that is the exact shape
-    // the deletion would have produced had the list simply been emptied: a
-    // re-hash of nothing, reported clean.
+    // Removing the attestation cannot make the check vacuously pass.
     let (code, stdout, stderr) = run(
         &python,
         &[
@@ -1013,8 +994,7 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
             "import json,sys;sys.path.insert(0,'scripts');\
              import check_shared_pins as m;\
              pins=json.load(open('assurance/pins.json'));\
-             pins['consumed_artifacts']=[a for a in pins['consumed_artifacts'] \
-             if 'sha256' not in a];\
+             pins.pop('classifier_attestation');\
              print(json.dumps(m.artifact_digest_mismatches(pins)))",
         ],
     );
@@ -1022,35 +1002,25 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
     let vacuous: Vec<String> = serde_json::from_str(stdout.trim()).unwrap();
     assert!(
         vacuous.iter().any(|entry| entry.contains("vacuous")),
-        "a consumed-artifact list with no digest in it re-hashed nothing and \
+        "a classifier attestation with no digest re-hashed nothing and \
          reported clean: {vacuous:?}"
     );
 
-    // The pin itself must be the live module, not a retained-evidence artifact
-    // that nothing opens. Named here so that quietly repointing it at a dead
-    // file has to move a literal in this test.
-    let pinned = digest_pinned_artifacts();
-    assert!(
-        pinned.contains("compatibility.py"),
-        "assurance/pins.json no longer digest-pins the module check_shared_pins \
-         imports for every verdict; the digest check has lost its live subject: \
-         {pinned:?}"
-    );
-}
-
-/// The digest-pinned consumed artifacts, as `assurance/pins.json` declares them.
-fn digest_pinned_artifacts() -> BTreeSet<String> {
     let pins: Value = serde_json::from_str(
-        &fs::read_to_string(root().join("assurance/pins.json")).expect("assurance/pins.json"),
+        &fs::read_to_string(root().join("assurance/pins.json")).expect("pins"),
     )
-    .expect("assurance/pins.json is JSON");
-    pins["consumed_artifacts"]
-        .as_array()
-        .expect("consumed_artifacts")
-        .iter()
-        .filter(|artifact| artifact.get("sha256").is_some())
-        .map(|artifact| artifact["path"].as_str().unwrap_or_default().to_owned())
-        .collect()
+    .expect("pins JSON");
+    assert_eq!(
+        pins["classifier_attestation"]["protocol"],
+        "engineering-assurance.compatibility-result/v1"
+    );
+    assert_eq!(
+        pins["classifier_attestation"]["sha256"]
+            .as_str()
+            .unwrap()
+            .len(),
+        64
+    );
 }
 
 // Trace: TC-024, FR-006-AC-2, NFR-003-AC-1, SUITE-004, SUITE-005, SUITE-006, SUITE-007
