@@ -2281,10 +2281,11 @@ tl-rewrite-evidence-input-v1.schema.json";
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     // The bounded V4 fuzz producer and its false-credit controls add two
-    // reviewed source files after the Stage 1 population of 249.
+    // reviewed source files after the Stage 1 population of 249; the measured
+    // report and both raw streams add three more.
     assert_eq!(
-        inspected, 251,
-        "the source census population changed from the reviewed 251 tracked files \
+        inspected, 254,
+        "the source census population changed from the reviewed 254 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
