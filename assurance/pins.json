@@ -54,13 +54,13 @@
     "statement": "Both temporal dependencies resolve to exact remote-reachable revisions. tl-rewrite hands tl_syntax::Formula values straight to tl_mltl evaluators, so the two crates must resolve the SAME tl-syntax revision; scripts/check_provenance.py requires src/lib.rs, Cargo.toml and Cargo.lock to agree for both.",
     "tl-syntax": {
       "was": "d52d89549b0a6c0c429261bab912cd5396c4a19e",
-      "now": "fed48a2fab3f5277131a7012e1a8d10993330cb1",
-      "why": "8bcbce98 is the remote-reachable Stage 1 syntax revision with the scoped release verifier, tracked-source census correction, and span-independent semantic identity. It is the exact revision consumed by tl-rewrite, the pinned tl-mltl evaluator, the dev-only tl-parse, and the dev-only tl-oracle, so one tl-syntax resolves in Cargo.lock."
+      "now": "9a4316e75d8fda6d50330d2211832c2607d6d62a",
+      "why": "9a4316e7 is the remote-reachable Stage 1 syntax revision with the scoped release verifier, tracked-source census, span-independent semantic identity, and coverage-test repair. It is the exact revision consumed by tl-rewrite, the pinned tl-mltl evaluator, the dev-only tl-parse, and the dev-only tl-oracle, so one tl-syntax resolves in Cargo.lock."
     },
     "tl-mltl": {
       "was": "c8d2c871dbb379019a58fe74fcb230f501088538",
-      "now": "cd3825f4e45644b506ed51ca6e1833ed51ebca36",
-      "why": "e7f9b1f5 is the remote-reachable Stage 1 evaluator and verification-campaign revision and carries the shared tl-syntax revision 8bcbce98. Pinning both exact revisions keeps the Formula type passed across the crate boundary identical."
+      "now": "6798fbdad884a157d039c03425574f7736a42e46",
+      "why": "6798fbda is the remote-reachable Stage 1 evaluator and verification-campaign revision and carries the shared tl-syntax revision 9a4316e7. Pinning both exact revisions keeps the Formula type passed across the crate boundary identical."
     },
     "earlier_dangling_pin": {
       "revision": "da2c7704a5347d063398c852acf6aa5bf9b5752d",

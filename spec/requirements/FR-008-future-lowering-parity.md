@@ -30,12 +30,12 @@ its own.
 ## Inputs
 
 - Formula graphs from `tl_syntax::FutureLoweringRequest::lower()` at the
-  production tl-syntax pin (v0.3.0, `fed48a2fab3f5277131a7012e1a8d10993330cb1`),
+  production tl-syntax pin (v0.3.0, `9a4316e75d8fda6d50330d2211832c2607d6d62a`),
   where
   `W[a,b](p,q)` lowers to `Or(U[a,b](p,q), G[a,b](p))` and `M[a,b](p,q)` lowers
   to `And(R[a,b](p,q), F[a,b](p))`.
 - Graphs from `tl_parse::parse_clean_ascii_v2` at tl-parse v0.3.0
-  (`225a3300963199e523958f4abe4c16cc9dcca641`), which compiles the same
+  (`4dc67dbd40c626679eced0abb3ec6c10907ef3ae`), which compiles the same
   tl-syntax revision.
 - The same graphs built by hand from primitive nodes.
 

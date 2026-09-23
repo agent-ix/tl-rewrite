@@ -47,10 +47,10 @@ pub use report::{
 };
 
 /// Exact tl-syntax source revision consumed by this candidate.
-pub const TL_SYNTAX_REVISION: &str = "fed48a2fab3f5277131a7012e1a8d10993330cb1";
+pub const TL_SYNTAX_REVISION: &str = "9a4316e75d8fda6d50330d2211832c2607d6d62a";
 
 /// Exact tl-mltl reference source revision consumed by this candidate.
-pub const TL_MLTL_REVISION: &str = "cd3825f4e45644b506ed51ca6e1833ed51ebca36";
+pub const TL_MLTL_REVISION: &str = "6798fbdad884a157d039c03425574f7736a42e46";
 
 /// Exact canonical WEST source revision from which permitted fixtures were selected.
 pub const WEST_REVISION: &str = "21cd99ab2e6095a099dd179029cfdeb54268ad3f";

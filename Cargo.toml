@@ -21,12 +21,12 @@ infinite-trace = ["tl-mltl/infinite-trace"]
 serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "=1.0.151"
 sha2 = "=0.10.9"
-tl-mltl = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-mltl.git", rev = "cd3825f4e45644b506ed51ca6e1833ed51ebca36" }
-tl-syntax = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-syntax.git", rev = "fed48a2fab3f5277131a7012e1a8d10993330cb1", default-features = false, features = ["alloc", "serde"] }
+tl-mltl = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-mltl.git", rev = "6798fbdad884a157d039c03425574f7736a42e46" }
+tl-syntax = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-syntax.git", rev = "9a4316e75d8fda6d50330d2211832c2607d6d62a", default-features = false, features = ["alloc", "serde"] }
 
 [dev-dependencies]
 criterion = { version = "=0.5.1", default-features = false }
-tl-oracle = { version = "=0.1.0", git = "https://github.com/agent-ix/tl-oracle.git", rev = "80c76669c7967186148d21b4bfa3eeb7d89c2c44" }
+tl-oracle = { version = "=0.1.0", git = "https://github.com/agent-ix/tl-oracle.git", rev = "6a2bec0137d4059400bfec080aa07cb7a96ed33e" }
 proptest = "=1.5.0"
 serde_yaml_ng = "0.10"
 tempfile = "=3.10.1"
@@ -37,7 +37,7 @@ tempfile = "=3.10.1"
 # dev-dependencies are not in scope for `src/`. scripts/check_provenance.py
 # still refuses any additional locked tl-syntax revision no
 # `[dev-dependencies]` entry declares.
-tl-parse = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-parse.git", rev = "225a3300963199e523958f4abe4c16cc9dcca641" }
+tl-parse = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-parse.git", rev = "4dc67dbd40c626679eced0abb3ec6c10907ef3ae" }
 
 [[bench]]
 name = "rewrite_rules"

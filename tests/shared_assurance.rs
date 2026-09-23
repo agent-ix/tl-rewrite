@@ -1789,12 +1789,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // FR-006-AC-7 owns this test-domain control; it is intentionally not copied
     // into the sealed change-assurance record, whose shared schema has no
     // control-metadata field.
-    let denied = |path: &str| {
-        matches!(
-            path,
-            "Cargo.lock" | "LICENSE" | "corpus/west-v1/LICENSE"
-        )
-    };
+    let denied = |path: &str| matches!(path, "Cargo.lock" | "LICENSE" | "corpus/west-v1/LICENSE");
     // The expected set below constrains the current tree. These negative cases
     // constrain the predicate itself, so restoring the old LICENSE-prefix or
     // lockfile-suffix rule is red even before such a path is committed.
@@ -1882,14 +1877,10 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // Keep this reviewed identity set independent from the executable predicate
     // above. A one-line predicate widening must change the observed side without
     // changing the expected side.
-    let expected_denied: BTreeSet<String> = [
-        "Cargo.lock",
-        "LICENSE",
-        "corpus/west-v1/LICENSE",
-    ]
-    .into_iter()
-    .map(str::to_owned)
-    .collect();
+    let expected_denied: BTreeSet<String> = ["Cargo.lock", "LICENSE", "corpus/west-v1/LICENSE"]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
     assert_eq!(
         observed_denied, expected_denied,
         "the executable census deny-list differs from its reviewed ground truth"
