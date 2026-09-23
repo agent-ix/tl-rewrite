@@ -3,6 +3,22 @@
 All notable user-visible changes to `tl-rewrite` are recorded here. The crate is
 distributed as a git source release (`publish = false`); versions are git tags.
 
+## Unreleased (0.4.0)
+
+### Breaking changes and migration
+
+- `RewriteStatus` adds `Failed` for an internal consistency or evaluator
+  failure. Exhaustive matches over `RewriteStatus` must handle `Failed` before
+  upgrading. It is a failed rewrite, not a normalized result or a resource
+  ceiling.
+- The added variant changes the enum's implicit numeric discriminants:
+  `InvalidInput` moves from 4 to 5, `UnsupportedProfile` from 5 to 6, and
+  `UnresolvedBinding` from 6 to 7. Code that casts `RewriteStatus` to an
+  integer, stores that integer, or matches on it must update its mapping.
+  Prefer matching named variants; use an explicit conversion table if a stable
+  numeric representation is required. Serde's named status values are
+  unchanged for the existing variants.
+
 ## 0.3.0
 
 `tl-rewrite` is the last of the four MLTL crates (`tl-syntax`, `tl-parse`,
