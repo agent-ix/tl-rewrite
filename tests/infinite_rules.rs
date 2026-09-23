@@ -1,7 +1,8 @@
 use tl_oracle::{evaluate_documents, Limits as OracleLimits};
 use tl_rewrite::{
     catalog, infinite_catalog, past_catalog, replay_infinite, rewrite_infinite,
-    InfiniteRewriteFailure, RewriteOptions, RewriteStatus, RuleDisposition,
+    InfiniteRewriteFailure, RecordLimits, RecordReadErrorCode, RewriteOptions, RewriteStatus,
+    RuleDisposition,
 };
 use tl_syntax::{
     FairnessPremisesDocument, InfiniteClock, InfiniteFormulaDocument, InfiniteNode,
@@ -818,6 +819,69 @@ fn tc_075_replay_refuses_identity_mutations() {
         &inconsistent_success,
         "test-source"
     ));
+}
+
+/// TC-075, NFR-005-AC-1: owner admission checks each independent record limit.
+#[test]
+fn tc_075_infinite_report_reader_refuses_noncanonical_and_over_budget_bytes() {
+    let input = fixture("bool.not.false");
+    let report = run(&input, None);
+    assert!(report.succeeded());
+    let bytes = serde_json::to_vec(&report).unwrap();
+    let exact = RecordLimits {
+        document_bytes: bytes.len(),
+        ..RecordLimits::default()
+    };
+    let admitted = tl_rewrite::InfiniteRewriteReport::from_json_bytes(&bytes, exact).unwrap();
+    assert_eq!(serde_json::to_vec(&admitted).unwrap(), bytes);
+    assert!(replay_infinite(&input, None, &admitted, "test-source"));
+
+    for limits in [
+        RecordLimits {
+            document_bytes: bytes.len() - 1,
+            ..RecordLimits::default()
+        },
+        RecordLimits {
+            json_depth: 0,
+            ..RecordLimits::default()
+        },
+        RecordLimits {
+            string_bytes: 0,
+            ..RecordLimits::default()
+        },
+    ] {
+        assert_eq!(
+            tl_rewrite::InfiniteRewriteReport::from_json_bytes(&bytes, limits)
+                .unwrap_err()
+                .code(),
+            RecordReadErrorCode::ResourceLimit
+        );
+    }
+
+    assert_eq!(
+        tl_rewrite::InfiniteRewriteReport::from_json_bytes(b"{", RecordLimits::default())
+            .unwrap_err()
+            .code(),
+        RecordReadErrorCode::Malformed
+    );
+    let mut trailing = bytes.clone();
+    trailing.push(b' ');
+    assert_eq!(
+        tl_rewrite::InfiniteRewriteReport::from_json_bytes(&trailing, RecordLimits::default())
+            .unwrap_err()
+            .code(),
+        RecordReadErrorCode::NonCanonical
+    );
+
+    // Canonical owner bytes can still carry an untrusted source revision.
+    // Exact replay, rather than a parser, must withhold credit for it.
+    let mut changed = report.clone();
+    changed.source_revision = "foreign-revision".to_owned();
+    let changed_bytes = serde_json::to_vec(&changed).unwrap();
+    let admitted =
+        tl_rewrite::InfiniteRewriteReport::from_json_bytes(&changed_bytes, RecordLimits::default())
+            .unwrap();
+    assert!(!replay_infinite(&input, None, &admitted, "test-source"));
 }
 
 /// TC-072, FR-020-AC-3: deterministic generated cases use real rewrite and oracle paths.
