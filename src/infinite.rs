@@ -903,10 +903,7 @@ pub fn check_infinite_rewrite(
     trusted_source_revision: &str,
     limit: tl_mltl::infinite::EvaluationLimit,
 ) -> InfiniteConformanceReport {
-    use tl_mltl::infinite::{
-        evaluate_lasso, Disposition, EvidenceClosure, ExecutionDisposition, InfiniteError,
-        LassoRequest, ResultReason,
-    };
+    use tl_mltl::infinite::{evaluate_lasso, EvidenceClosure, InfiniteError, LassoRequest};
 
     let refuse = |reason| InfiniteConformanceReport {
         status: InfiniteConformanceStatus::NonConclusive,
@@ -981,6 +978,25 @@ pub fn check_infinite_rewrite(
             };
         }
     };
+    let (status, nonconclusive) = classify_infinite_results(&before, &after);
+    InfiniteConformanceReport {
+        status,
+        reason: nonconclusive,
+        before: Some(before),
+        after: Some(after),
+    }
+}
+
+/// Classifies two completed provider results without claiming model-wide
+/// equivalence. Keeping this decision separate permits each typed result axis
+/// to be checked even when a sound rewrite normally yields equal outcomes.
+#[cfg(feature = "infinite-trace")]
+fn classify_infinite_results(
+    before: &tl_mltl::infinite::InfiniteResult,
+    after: &tl_mltl::infinite::InfiniteResult,
+) -> (InfiniteConformanceStatus, Option<InfiniteConformanceReason>) {
+    use tl_mltl::infinite::{Disposition, ExecutionDisposition, ResultReason};
+
     let nonconclusive = if before.disposition == Disposition::Unsupported
         || after.disposition == Disposition::Unsupported
     {
@@ -1021,10 +1037,158 @@ pub fn check_infinite_rewrite(
     } else {
         InfiniteConformanceStatus::Mismatch
     };
-    InfiniteConformanceReport {
-        status,
-        reason: nonconclusive,
-        before: Some(before),
-        after: Some(after),
+    (status, nonconclusive)
+}
+
+#[cfg(all(test, feature = "infinite-trace"))]
+mod conformance_classification_tests {
+    use super::{classify_infinite_results, InfiniteConformanceReason, InfiniteConformanceStatus};
+    use tl_mltl::infinite::{
+        Disposition, EvidenceBasis, EvidenceClosure, ExecutionDisposition, InfiniteResult,
+        ResultIdentity, ResultReason, SubjectKind, TruthAvailability,
+    };
+
+    fn completed_result() -> InfiniteResult {
+        InfiniteResult {
+            disposition: Disposition::Proved,
+            execution: ExecutionDisposition::Completed,
+            truth: TruthAvailability::True,
+            basis: EvidenceBasis::ExactTrace,
+            reason: None,
+            uncertainty: None,
+            evidence: None,
+            identity: ResultIdentity {
+                feature: "infinite-trace",
+                provider_revision: "fixture",
+                profile: "mltl.infinite-trace/v1",
+                graph_id: "graph".to_owned(),
+                proposition_map_id: "map".to_owned(),
+                subject_kind: SubjectKind::Lasso,
+                subject_id: "trace".to_owned(),
+                trace_id: Some("trace".to_owned()),
+                clock: "event_position",
+                selected_position: 0,
+                fairness: vec![],
+                evidence_closure: Some(EvidenceClosure::Closed),
+            },
+            admitted_completions: 1,
+            evaluation_steps: 1,
+        }
+    }
+
+    // Trace: TC-184, FR-047-AC-2; TC-074, FR-021-AC-2
+    #[test]
+    fn each_nonconclusive_result_axis_has_its_own_typed_reason() {
+        let baseline = completed_result();
+        for change_before in [true, false] {
+            let (mut before, mut after) = (baseline.clone(), baseline.clone());
+            let changed = if change_before {
+                &mut before
+            } else {
+                &mut after
+            };
+            changed.disposition = Disposition::Unsupported;
+            assert_eq!(
+                classify_infinite_results(&before, &after),
+                (
+                    InfiniteConformanceStatus::NonConclusive,
+                    Some(InfiniteConformanceReason::ProviderRefusal)
+                )
+            );
+
+            let (mut before, mut after) = (baseline.clone(), baseline.clone());
+            let changed = if change_before {
+                &mut before
+            } else {
+                &mut after
+            };
+            changed.disposition = Disposition::Failed;
+            assert_eq!(
+                classify_infinite_results(&before, &after),
+                (
+                    InfiniteConformanceStatus::NonConclusive,
+                    Some(InfiniteConformanceReason::ProviderFailure)
+                )
+            );
+
+            let (mut before, mut after) = (baseline.clone(), baseline.clone());
+            let changed = if change_before {
+                &mut before
+            } else {
+                &mut after
+            };
+            changed.execution = ExecutionDisposition::Failed;
+            assert_eq!(
+                classify_infinite_results(&before, &after),
+                (
+                    InfiniteConformanceStatus::NonConclusive,
+                    Some(InfiniteConformanceReason::ProviderFailure)
+                )
+            );
+
+            let (mut before, mut after) = (baseline.clone(), baseline.clone());
+            let changed = if change_before {
+                &mut before
+            } else {
+                &mut after
+            };
+            changed.execution = ExecutionDisposition::ResourceIncomplete;
+            changed.reason = Some(ResultReason::ResourceIncomplete);
+            assert_eq!(
+                classify_infinite_results(&before, &after),
+                (
+                    InfiniteConformanceStatus::NonConclusive,
+                    Some(InfiniteConformanceReason::ResourceIncomplete)
+                )
+            );
+
+            let (mut before, mut after) = (baseline.clone(), baseline.clone());
+            let changed = if change_before {
+                &mut before
+            } else {
+                &mut after
+            };
+            changed.disposition = Disposition::Inconclusive;
+            changed.reason = Some(ResultReason::EmptyFairAdmission);
+            assert_eq!(
+                classify_infinite_results(&before, &after),
+                (
+                    InfiniteConformanceStatus::NonConclusive,
+                    Some(InfiniteConformanceReason::EmptyFairAdmission)
+                )
+            );
+        }
+    }
+
+    // Trace: TC-184, FR-047-AC-2; TC-069, FR-019-AC-3
+    #[test]
+    fn every_compared_result_axis_can_prevent_false_equivalence() {
+        let before = completed_result();
+        assert_eq!(
+            classify_infinite_results(&before, &before),
+            (InfiniteConformanceStatus::Equivalent, None)
+        );
+        let mut alternatives = Vec::new();
+        let mut disposition = before.clone();
+        disposition.disposition = Disposition::Refuted;
+        alternatives.push(disposition);
+        let mut truth = before.clone();
+        truth.truth = TruthAvailability::False;
+        alternatives.push(truth);
+        let mut basis = before.clone();
+        basis.basis = EvidenceBasis::BadPrefix;
+        alternatives.push(basis);
+        let mut reason = before.clone();
+        reason.reason = Some(ResultReason::MissingObservation);
+        alternatives.push(reason);
+        let mut count = before.clone();
+        count.admitted_completions = 2;
+        alternatives.push(count);
+        for after in alternatives {
+            assert_eq!(
+                classify_infinite_results(&before, &after),
+                (InfiniteConformanceStatus::Mismatch, None)
+            );
+        }
     }
 }
