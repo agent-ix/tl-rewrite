@@ -277,6 +277,30 @@ fn tc_067_nonmatching_boolean_and_past_intervals_stay_unchanged() {
             ],
             1,
         ),
+        graph(
+            vec![
+                Kind::Proposition {
+                    proposition: PropositionId(0),
+                },
+                Kind::Once {
+                    interval: closed(0, 1),
+                    operand: NodeId(0),
+                },
+            ],
+            1,
+        ),
+        graph(
+            vec![
+                Kind::Proposition {
+                    proposition: PropositionId(0),
+                },
+                Kind::Future {
+                    interval: closed(0, 1),
+                    operand: NodeId(0),
+                },
+            ],
+            1,
+        ),
     ] {
         let report = run(&input, None);
         assert_eq!(report.status, RewriteStatus::Unchanged);
@@ -285,6 +309,27 @@ fn tc_067_nonmatching_boolean_and_past_intervals_stay_unchanged() {
         assert_eq!(report.output.as_ref(), Some(&input));
         assert!(replay_infinite(&input, None, &report, "test-source"));
     }
+}
+
+/// TC-067, FR-019-AC-1: removal of an unreachable input node is a
+/// normalized graph even when no rule application is required.
+#[test]
+fn tc_067_unreachable_node_compacts_without_a_rule_step() {
+    let input = graph(
+        vec![
+            Kind::Proposition {
+                proposition: PropositionId(0),
+            },
+            Kind::True,
+        ],
+        0,
+    );
+    let report = run(&input, None);
+    assert_eq!(report.status, RewriteStatus::Normalized);
+    assert!(report.succeeded());
+    assert!(report.steps.is_empty());
+    assert_eq!(report.output.as_ref().unwrap().nodes().len(), 1);
+    assert!(replay_infinite(&input, None, &report, "test-source"));
 }
 
 /// TC-069, FR-019-AC-3: an empty source identity refuses before traversal.
