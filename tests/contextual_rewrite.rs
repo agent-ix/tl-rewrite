@@ -243,6 +243,61 @@ fn contextual_replay_binds_the_resupplied_catalog_and_context() {
     assert_eq!(changed_catalog.status, ReplayStatus::Mismatch);
 }
 
+// Trace: TC-032, FR-007-AC-2, FR-010-AC-5: strict report admission
+// reexecutes the same contextual binding and refuses substituted evidence.
+#[test]
+fn contextual_report_reader_requires_matching_catalog_and_context() {
+    let input = document(SemanticProfile::ClosedTraceV1, vec![proposition(7)]);
+    let supplied_catalog = catalog(7);
+    let report = rewrite_with_context(
+        &input,
+        "read-contextual",
+        RewriteOptions::default(),
+        "source",
+        &supplied_catalog,
+        Some(context()),
+    );
+    let bytes = serde_json::to_vec(&report).unwrap();
+    assert_eq!(
+        tl_rewrite::report::read_with_context(
+            &bytes,
+            &input,
+            &supplied_catalog,
+            Some(context()),
+            tl_rewrite::RecordLimits::default(),
+        )
+        .unwrap(),
+        report
+    );
+    assert_eq!(
+        tl_rewrite::report::read_with_context(
+            &bytes,
+            &input,
+            &catalog_with_name(7, "changed"),
+            Some(context()),
+            tl_rewrite::RecordLimits::default(),
+        )
+        .unwrap_err()
+        .code(),
+        tl_rewrite::RecordReadErrorCode::ExpectedMismatch
+    );
+    let absent = rewrite_with_context(
+        &input,
+        "read-contextual",
+        RewriteOptions::default(),
+        "source",
+        &supplied_catalog,
+        None,
+    );
+    let replay = replay_with_context(&input, &absent, &supplied_catalog, None);
+    let encoded = serde_json::to_value(&replay).unwrap();
+    assert!(encoded["requirementContext"].is_null());
+    assert_eq!(
+        serde_json::from_value::<tl_rewrite::ReplayReport>(encoded).unwrap(),
+        replay
+    );
+}
+
 // Trace: TC-032, FR-007-AC-2
 #[test]
 fn contextual_replay_rejects_each_independent_request_substitution() {

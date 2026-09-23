@@ -245,6 +245,61 @@ fn run(
     )
 }
 
+/// TC-067, TC-075, FR-019-AC-1, NFR-005-AC-1: a fixed point has no
+/// fabricated rule step, and optional rules only match their exact shapes.
+#[test]
+fn tc_067_nonmatching_boolean_and_past_intervals_stay_unchanged() {
+    for input in [
+        graph(
+            vec![
+                Kind::Proposition {
+                    proposition: PropositionId(0),
+                },
+                Kind::Proposition {
+                    proposition: PropositionId(1),
+                },
+                Kind::Equivalent {
+                    left: NodeId(0),
+                    right: NodeId(1),
+                },
+            ],
+            2,
+        ),
+        graph(
+            vec![
+                Kind::Proposition {
+                    proposition: PropositionId(0),
+                },
+                Kind::Once {
+                    interval: closed(1, 2),
+                    operand: NodeId(0),
+                },
+            ],
+            1,
+        ),
+    ] {
+        let report = run(&input, None);
+        assert_eq!(report.status, RewriteStatus::Unchanged);
+        assert!(report.succeeded());
+        assert!(report.steps.is_empty());
+        assert_eq!(report.output.as_ref(), Some(&input));
+        assert!(replay_infinite(&input, None, &report, "test-source"));
+    }
+}
+
+/// TC-069, FR-019-AC-3: an empty source identity refuses before traversal.
+#[test]
+fn tc_069_empty_source_revision_has_no_partial_rewrite() {
+    let input = graph(vec![Kind::True], 0);
+    let report = rewrite_infinite(&input, None, RewriteOptions::default(), "", 1_000_000);
+    assert_eq!(
+        report.failure,
+        Some(InfiniteRewriteFailure::IdentityMismatch)
+    );
+    assert!(report.output.is_none() && report.steps.is_empty());
+    assert_eq!(report.work_units, 0);
+}
+
 /// TC-067, FR-019-AC-1: every enabled catalog identity executes on its fixture.
 #[test]
 fn tc_067_every_infinite_rule_has_exact_fixture() {
@@ -695,6 +750,14 @@ fn tc_075_replay_refuses_identity_mutations() {
         &input,
         Some(&fairness),
         &parsed,
+        "test-source"
+    ));
+    let mut undersized_record = report.clone();
+    undersized_record.max_report_bytes = 1;
+    assert!(!replay_infinite(
+        &input,
+        Some(&fairness),
+        &undersized_record,
         "test-source"
     ));
 }

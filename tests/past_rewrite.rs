@@ -42,6 +42,16 @@ fn once(interval: Interval) -> FormulaDocument {
     ])
 }
 
+// Trace: TC-160, FR-038-AC-1: only O[1,1] folds to strong previous.
+#[test]
+fn nonsingleton_once_keeps_its_past_interval() {
+    let input = once(Interval::new(1, 2).unwrap());
+    let report = rewrite(&input, "once-window", RewriteOptions::default(), "source");
+    assert_eq!(report.status, RewriteStatus::Unchanged);
+    assert!(report.steps.is_empty());
+    assert_eq!(report.output.as_ref(), Some(&input));
+}
+
 fn triggered_dual(interval: Interval) -> FormulaDocument {
     past_document(vec![
         proposition(0),
