@@ -31,9 +31,10 @@ converting an unavailable check into a soundness claim.
 
 An unknown profile, foreign edition/clock, unsupported interval/operator or
 absent oracle capability maps to FR-341 `unsupported`. Exhausted rewrite,
-oracle or lasso work maps to FR-341 `inconclusive` with resource-incomplete
-detail. Malformed owner bytes or an internal consistency failure maps to
-`failed` or a pre-evaluation typed refusal, never `proved`. A successful
+oracle or lasso work maps to FR-341 `failed` with execution disposition
+`resource-incomplete`; an internal consistency failure maps to `failed` with
+execution disposition `failed`. Malformed owner bytes yield a pre-evaluation
+typed refusal. These outcomes never imply `proved`. A successful
 rewrite is not itself a temporal verdict; only a provider may later claim
 `proved` or `refuted`. The mapping from every closed `RewriteStatus` and
 `ConformanceStatus` variant is exhaustive, with no message parsing or wildcard
