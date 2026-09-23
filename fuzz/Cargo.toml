@@ -10,8 +10,8 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 tl-rewrite = { path = ".." }
-tl-syntax = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-syntax.git", rev = "8bcbce984f7ec3d86a92f90d866e842cc98b39fb", default-features = false, features = ["alloc", "serde"] }
-tl-oracle = { version = "=0.1.0", git = "https://github.com/agent-ix/tl-oracle.git", rev = "1ab90f4ed6d81932c3b8b284ec3ab44592ade397" }
+tl-syntax = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-syntax.git", rev = "fed48a2fab3f5277131a7012e1a8d10993330cb1", default-features = false, features = ["alloc", "serde"] }
+tl-oracle = { version = "=0.1.0", git = "https://github.com/agent-ix/tl-oracle.git", rev = "80c76669c7967186148d21b4bfa3eeb7d89c2c44" }
 serde_json = "=1.0.151"
 
 [[bin]]
