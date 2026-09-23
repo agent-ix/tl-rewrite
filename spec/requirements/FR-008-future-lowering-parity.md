@@ -35,7 +35,7 @@ its own.
   `W[a,b](p,q)` lowers to `Or(U[a,b](p,q), G[a,b](p))` and `M[a,b](p,q)` lowers
   to `And(R[a,b](p,q), F[a,b](p))`.
 - Graphs from `tl_parse::parse_clean_ascii_v2` at tl-parse v0.3.0
-  (`76583887bd18d3ad62d2926677e6f2cf6c3a6334`), which compiles the same
+  (`89c2c1249c741bb94dc07da1eff46605af25e401`), which compiles the same
   tl-syntax revision.
 - The same graphs built by hand from primitive nodes.
 
