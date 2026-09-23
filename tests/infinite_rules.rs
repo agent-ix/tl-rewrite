@@ -663,6 +663,10 @@ fn tc_075_exact_and_one_over_budgets() {
             max_work_units: exact.budgets.max_work_units - 1,
             ..exact.budgets
         },
+        tl_rewrite::RewriteBudgets {
+            max_work_units: 0,
+            ..exact.budgets
+        },
     ] {
         let attempt = rewrite_infinite(
             &input,
@@ -758,6 +762,15 @@ fn tc_075_replay_refuses_identity_mutations() {
         &input,
         Some(&fairness),
         &undersized_record,
+        "test-source"
+    ));
+    let mut inconsistent_success = report.clone();
+    inconsistent_success.failure = Some(InfiniteRewriteFailure::Internal);
+    assert!(!inconsistent_success.succeeded());
+    assert!(!replay_infinite(
+        &input,
+        Some(&fairness),
+        &inconsistent_success,
         "test-source"
     ));
 }
