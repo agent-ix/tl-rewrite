@@ -1785,14 +1785,14 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // listed), so a reintroduced reader named `reintroduced_reader` or
     // `reintroduced_reader.yaml` was invisible too.
     //
-    // Everything tracked is scanned except these exact lock and licence files.
+    // Everything tracked is scanned except these exact lock and license files.
     // FR-006-AC-7 owns this test-domain control; it is intentionally not copied
     // into the sealed change-assurance record, whose shared schema has no
     // control-metadata field.
     let denied = |path: &str| {
         matches!(
             path,
-            "Cargo.lock" | "LICENSE-APACHE" | "LICENSE-MIT" | "corpus/west-v1/LICENSE"
+            "Cargo.lock" | "LICENSE" | "corpus/west-v1/LICENSE"
         )
     };
     // The expected set below constrains the current tree. These negative cases
@@ -1884,8 +1884,7 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // changing the expected side.
     let expected_denied: BTreeSet<String> = [
         "Cargo.lock",
-        "LICENSE-APACHE",
-        "LICENSE-MIT",
+        "LICENSE",
         "corpus/west-v1/LICENSE",
     ]
     .into_iter()
@@ -2231,10 +2230,9 @@ tl-rewrite-evidence-input-v1.schema.json";
     // SR-064 reviews that landed on main between this branch's last
     // main-merge at 033a687 and current main, and was never a live
     // measurement of that state; it is superseded by this measurement rather
-    // than reconciled with it. The 198 are 202 tracked in total, minus the 4
-    // the
-    // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
-    // `corpus/west-v1/LICENSE`). All four are named here, because an earlier
+    // than reconciled with it. The 198 are 201 tracked in total, minus the 3
+    // deny-list drops (`Cargo.lock`, `LICENSE` and
+    // `corpus/west-v1/LICENSE`). All three are named here, because an earlier
     // version of this comment enumerated four exclusions for a count of five and
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.

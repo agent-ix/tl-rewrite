@@ -104,8 +104,8 @@ or make an automated release, accreditation, or certification decision.
 
 ## License
 
-Licensed under either of Apache License, Version 2.0 or MIT license at your
-option. Since tl-mltl 0.2.0 (TL-179) the dependency graph carries no
+Licensed under the MIT license. See [LICENSE](LICENSE). Since tl-mltl 0.2.0
+(TL-179) the dependency graph carries no
 Quire Observation (or other AGPL-3.0-or-later) component, direct or
 transitive: this crate, and every crate it depends on for its production
 build, stay entirely independent of the agent-ix/Quire ecosystem, per the

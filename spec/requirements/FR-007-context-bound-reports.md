@@ -100,7 +100,7 @@ not the truth or suitability of a caller's declaration.
   assurance path, but tl-rewrite imports or executes no Quoin, Quire,
   Engineering Assurance, contract-IR, parser, evaluator replacement, runner,
   collector, or retention runtime.
-- The crate manifest remains `publish = false` and `MIT OR Apache-2.0`; this
+- The crate manifest remains `publish = false` and `MIT`; this
   work makes no release, qualification, accreditation, or certification claim.
 
 ## Acceptance Criteria
@@ -112,7 +112,7 @@ not the truth or suitability of a caller's declaration.
 | FR-007-AC-3 | Contextual rewrite validates input and successful output formulas against one shared catalog, preserves every surviving proposition binding, and reports the first unresolved input or output proposition as a typed non-success without successful output. | Test (TC-033) |
 | FR-007-AC-4 | Contextual bounded equivalence carries the same context identities and refuses an unresolved original or rewritten proposition as a distinct non-conclusive reason before enumeration. | Test (TC-034) |
 | FR-007-AC-5 | Existing context-free APIs retain their fields, statuses, and v1 schemas; identical calls against one exact dependency set return exact serialized bytes. A reviewed exact dependency advance may establish a new pinned candidate baseline because dependency revisions are report fields; it may not conceal the compiled revision or change schema/status meaning. Contextual v2 records round-trip strictly and reject v1/v2 field smuggling, missing identities, unknown fields, and unsupported versions. | Test (TC-035) |
-| FR-007-AC-6 | Contextual native results serialize as producer-owned domain records usable by the existing Quoin intake without Quoin or Quire executing the producer; no local generic evidence or execution machinery is added, and the crate remains unpublished under its dual license. | Test (TC-036) |
+| FR-007-AC-6 | Contextual native results serialize as producer-owned domain records usable by the existing Quoin intake without Quoin or Quire executing the producer; no local generic evidence or execution machinery is added, and the crate remains unpublished under its MIT license. | Test (TC-036) |
 
 ## Dependencies
 

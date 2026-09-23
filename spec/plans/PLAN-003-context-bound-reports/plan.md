@@ -129,7 +129,7 @@ manual-only and is not dispatched by this plan.
 5. A contextual native result traverses the existing producer-to-Quoin intake
    boundary without Quoin or Quire executing a producer and without new generic
    infrastructure.
-6. The crate remains `publish = false` and `MIT OR Apache-2.0`; no report or
+6. The crate remains `publish = false` and `MIT`; no report or
    assurance text claims provenance truth, universal equivalence, downstream
    qualification, accreditation, certification, or release.
 7. The exact-head full local gate passes, code review and gap analysis contain
