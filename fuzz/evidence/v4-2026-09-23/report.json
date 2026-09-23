@@ -12,30 +12,30 @@
     "--sanitizer",
     "address",
     "infinite_rewrite",
-    "/private/tmp/tl-v4-fuzz-04adj_z0/corpus",
+    "/private/tmp/tl-v4-fuzz-s7folb3d/corpus",
     "--",
     "-runs=1000",
     "-seed=181",
     "-max_total_time=30",
     "-max_len=4096",
-    "-artifact_prefix=/private/tmp/tl-v4-final-rewrite-0ff29f6/artifacts/"
+    "-artifact_prefix=/private/tmp/tl-rewrite-v4-ea032-e48/artifacts/"
   ],
   "crash_artifacts_sha256": {},
   "crate": "tl-rewrite",
   "engine": "libFuzzer",
-  "fuzz_lock_sha256": "5c0fbbed3e7c02405c114c975cec32d01accf727b3fc080429e2bf9351442a24",
+  "fuzz_lock_sha256": "8ab8d374944593f7f3f944bd81a126ff9607a3c60a72e1c2e111abc1eece0eed",
   "observed": {
-    "elapsed_seconds": 22.666,
+    "elapsed_seconds": 18.195,
     "executions": 1000,
     "exit_code": 0,
     "stop_reason": "run_budget"
   },
   "raw_output_sha256": {
-    "stderr.log.gz": "6626c8a8467898a11e992b0397c2ce8289e2cb1af0952d460dc6760eac7e7c25",
+    "stderr.log.gz": "075a05d063d7b24fcd4ea5877fcf74d699a2d9f3b34fddc4417a78ab2669b640",
     "stdout.log.gz": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
   },
   "raw_stream_sha256": {
-    "stderr": "272a7734187f98ad5fc9ba550c882dc4d929cd5bd48c71c837c65b2a77f839c7",
+    "stderr": "7ada92a6b49da72503c05667f8dec652e2e40102b8542419fd97751c6f488f43",
     "stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   },
   "replay": {
@@ -43,7 +43,7 @@
     "minimized_artifact_sha256": null,
     "required": false
   },
-  "root_lock_sha256": "88a698debe7c09b77c033fa4a629aa08921cbe79d87bfa7b22b934e351620267",
+  "root_lock_sha256": "5a6760ff0110d2a46eba3960258ee23286dec6b8f4b00675d40e74bb83f64957",
   "sanitizer": "address",
   "schema": "tl-v4.libfuzzer-campaign/v1",
   "scope": "bounded observation; no four-crate V4 or correctness claim",
@@ -52,7 +52,7 @@
     "future-true": "198fb8afab86bd3c4670a1dda57246705854b2006d10188597c83531b872b81d",
     "past-history": "5b947fe5fb6ab053f6d80b0e2fb228da80693ed3e9bf50bbde11a22822d58dc3"
   },
-  "source_revision": "0ff29f65bd954ea4d6ae558a29f2dbc74e9030cb",
+  "source_revision": "e48c14206e83fae5d7e916db399f740a95e4b275",
   "starting_corpus_sha256": "afe706a16f68f6c489171217621fd6bcaa10e36e02046e56f68eb7011d7ba21c",
   "status": "bounded_no_crash",
   "target": "infinite_rewrite",
