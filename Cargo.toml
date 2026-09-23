@@ -2,7 +2,7 @@
 name = "tl-rewrite"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.98"
+rust-version = "1.98.1"
 description = "Deterministic semantics-preserving rewrites for Mission-time Linear Temporal Logic."
 authors = ["Peter Krenesky <kreneskyp@gmail.com>"]
 license = "MIT OR Apache-2.0"
@@ -17,35 +17,21 @@ path = "src/lib.rs"
 serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "=1.0.151"
 sha2 = "=0.10.9"
-tl-mltl = { version = "=0.2.0", git = "https://github.com/agent-ix/tl-mltl.git", rev = "c8d2c871dbb379019a58fe74fcb230f501088538" }
-tl-syntax = { version = "=0.1.0", git = "https://github.com/agent-ix/tl-syntax.git", rev = "d52d89549b0a6c0c429261bab912cd5396c4a19e", default-features = false, features = ["alloc", "serde"] }
+tl-mltl = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-mltl.git", rev = "452f013a3168512603d427bce3360bc14c1175a6" }
+tl-syntax = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-syntax.git", rev = "4a5614193d21e5ae99950ae683b04ba0ec931358", default-features = false, features = ["alloc", "serde"] }
 
 [dev-dependencies]
 proptest = "=1.5.0"
 serde_yaml_ng = "0.10"
 tempfile = "=3.10.1"
-tl-parse = { version = "=0.1.0", git = "https://github.com/agent-ix/tl-parse.git", rev = "2bc030dae8fdb30c9ddc967434c6c9902a3905dc" }
-# Test-only W/M lowering lane (FR-008, agent-ix/tl-rewrite#35). These preserve
-# the exact historical dependencies against which the future-lowering parity
-# corpus was authored. The rename is required because Cargo cannot hold two
-# revisions of one package under one name; crate code cannot reach either
-# because dev-dependencies are not in scope for `src/`. Lowered graphs cross
-# into the current production tl-syntax type only through formula-v1 wire bytes.
-# scripts/check_provenance.py enforces that every additional locked revision is
-# explicitly declared here and cannot masquerade as the production dependency.
-tl-parse-derived = { version = "=0.1.0", package = "tl-parse", git = "https://github.com/agent-ix/tl-parse.git", rev = "9ca856b4c040fc2c3329b6defd26a1c9b57de748" }
-tl-syntax-lowering = { version = "=0.1.0", package = "tl-syntax", git = "https://github.com/agent-ix/tl-syntax.git", rev = "8dc18eec5af227f484170362c9e8894b8531a27d", default-features = false, features = ["alloc", "serde"] }
-# tl-parse's own Cargo.toml (both its v0.1.0 tag and its main branch tip) pins
-# tl-syntax at this revision, independently of the production pin above; it
-# has not yet advanced to track tl-syntax past 842d8255 (tracked upstream as
-# agent-ix/tl-parse#45). `tests/rewrite.rs`'s parser-to-rewriter seam test
-# therefore crosses from tl-parse's own tl-syntax instance into this crate's
-# through canonical wire bytes, same as the `tl-syntax-lowering` crossing
-# above; code cannot reach this alias because dev-dependencies are not in
-# scope for `src/`. scripts/check_provenance.py enforces that every
-# additional locked revision is explicitly declared here and cannot
-# masquerade as the production dependency.
-tl-syntax-parser-seam = { version = "=0.1.0", package = "tl-syntax", git = "https://github.com/agent-ix/tl-syntax.git", rev = "842d82553f045eb69a7f38745756d968254fc25e", default-features = false, features = ["alloc", "serde"] }
+# The parser feeds two test seams: tests/rewrite.rs (parser-to-rewriter,
+# FR-002-AC-4) and tests/future_lowering_parity.rs (clean-ascii/v2 W/M graphs,
+# FR-008). tl-parse v0.3.0 compiles the same tl-syntax revision as the
+# production pin, so exactly one tl-syntax and one tl-parse resolve.
+# dev-dependencies are not in scope for `src/`. scripts/check_provenance.py
+# still refuses any additional locked tl-syntax revision no
+# `[dev-dependencies]` entry declares.
+tl-parse = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-parse.git", rev = "496020aad5595b870f141b88995cdc2ea6a5994e" }
 
 [profile.release]
 lto = "thin"

@@ -3037,34 +3037,46 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
         "dependency:tl-mltl",
     );
 
-    // Issue #35 locks a second tl-syntax revision for the test-only lowering
-    // lane. Pointing the production pin and the wire constant at that
-    // development revision leaves both present in Cargo.lock, which a check that
-    // only asks "is the pin locked somewhere" accepts, while tl-mltl still
-    // compiles the other revision.
+    // Issue #35 once locked a second tl-syntax revision for a test-only lane.
+    // Since the 0.3.0 release every dependency resolves one tl-syntax, so the
+    // probes below synthesize that shape in a scratch copy: a renamed
+    // dev-dependency declaring a second revision, and a Cargo.lock that locks
+    // both with every production consumer qualified onto the production one.
+    let lockfile = fs::read_to_string(root().join("Cargo.lock")).unwrap();
     let production = library
         .lines()
         .find(|line| line.contains("TL_SYNTAX_REVISION"))
         .and_then(|line| line.split('"').nth(1))
         .expect("TL_SYNTAX_REVISION is a quoted source identity");
-    let development = manifest
-        .lines()
-        .find(|line| line.starts_with("tl-syntax-lowering = "))
-        .and_then(|line| line.split("rev = \"").nth(1))
-        .and_then(|rest| rest.split('"').next())
-        .expect("the renamed development tl-syntax is pinned by revision");
-    assert_ne!(
-        production, development,
-        "the two tl-syntax revisions are one revision"
+    let development = "d".repeat(40);
+    assert_ne!(production, development);
+    let (two_manifest, two_lock) = with_second_tl_syntax(&manifest, &lockfile, &development);
+
+    // Control: a declared second revision that no production consumer compiles
+    // is accepted, so the refusals below are caused by their mutation alone.
+    let control = provenance_probe_run(&[
+        ("Cargo.toml", two_manifest.clone()),
+        ("Cargo.lock", two_lock.clone()),
+    ]);
+    assert_eq!(
+        control.status.code(),
+        Some(0),
+        "a declared development revision was refused:\n{}",
+        String::from_utf8_lossy(&control.stdout)
     );
-    let moved_library = library.replacen(production, development, 1);
-    let moved_manifest = manifest.replacen(production, development, 1);
+
+    // Pointing the production pin and the wire constant at the development
+    // revision leaves both present in Cargo.lock, which a check that only asks
+    // "is the pin locked somewhere" accepts, while tl-mltl still compiles the
+    // other revision.
+    let moved_library = library.replacen(production, &development, 1);
+    let moved_manifest = two_manifest.replacen(production, &development, 1);
     assert_ne!(
         moved_library, library,
         "the probe's library mutation did not apply"
     );
     assert_ne!(
-        moved_manifest, manifest,
+        moved_manifest, two_manifest,
         "the probe's manifest mutation did not apply"
     );
     provenance_probe_refuses(
@@ -3072,26 +3084,85 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
         &[
             ("src/lib.rs", moved_library),
             ("Cargo.toml", moved_manifest),
+            ("Cargo.lock", two_lock.clone()),
         ],
         "dependency:tl-syntax",
     );
 
     // A second locked revision that no manifest entry declares is refused too.
-    let undeclared = manifest
-        .lines()
-        .filter(|line| !line.starts_with("tl-syntax-lowering = "))
-        .collect::<Vec<_>>()
-        .join("\n");
     provenance_probe_refuses(
         "a locked tl-syntax revision no dependency declares",
-        &[("Cargo.toml", undeclared)],
+        &[("Cargo.toml", manifest.clone()), ("Cargo.lock", two_lock)],
         "dependency:tl-syntax",
     );
+}
+
+/// Declares a renamed dev-only tl-syntax at `development` and locks it beside
+/// the production revision, qualifying every existing consumer onto the
+/// production entry as Cargo does once two entries share a name.
+fn with_second_tl_syntax(manifest: &str, lockfile: &str, development: &str) -> (String, String) {
+    let header = "[dev-dependencies]\n";
+    assert!(
+        manifest.contains(header),
+        "Cargo.toml has no dev-dependencies"
+    );
+    let alias = format!(
+        "tl-syntax-historical = {{ version = \"=0.0.0\", package = \"tl-syntax\", \
+         git = \"https://github.com/agent-ix/tl-syntax.git\", rev = \"{development}\" }}\n"
+    );
+    let manifest = manifest.replacen(header, &format!("{header}{alias}"), 1);
+
+    let table = lockfile
+        .split("[[package]]\n")
+        .find(|table| table.starts_with("name = \"tl-syntax\"\n"))
+        .expect("Cargo.lock locks tl-syntax");
+    let version = table
+        .lines()
+        .find_map(|line| line.strip_prefix("version = \""))
+        .and_then(|rest| rest.strip_suffix('"'))
+        .expect("the tl-syntax entry has a version");
+    let source = table
+        .lines()
+        .find_map(|line| line.strip_prefix("source = \""))
+        .and_then(|rest| rest.strip_suffix('"'))
+        .expect("the tl-syntax entry has a git source");
+    let production_source = source.split('#').next().unwrap();
+    let qualified = format!(" \"tl-syntax {version} ({production_source})\",");
+    assert!(
+        lockfile.contains(" \"tl-syntax\",\n"),
+        "no consumer names tl-syntax unqualified"
+    );
+    let mut lockfile = lockfile.replace(" \"tl-syntax\",", &qualified);
+    lockfile.push_str(&format!(
+        "\n[[package]]\nname = \"tl-syntax\"\nversion = \"0.0.0\"\n\
+         source = \"git+https://github.com/agent-ix/tl-syntax.git?rev={development}#{development}\"\n"
+    ));
+    (manifest, lockfile)
 }
 
 /// Runs the provenance check over the repository with `replaced` files
 /// substituted, and requires it to exit 1 naming `symbol`.
 fn provenance_probe_refuses(what: &str, replaced: &[(&str, String)], symbol: &str) {
+    let output = provenance_probe_run(replaced);
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "{what} was not detected:\n{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout
+            .lines()
+            .any(|line| line.starts_with(&format!("{symbol}: fail"))),
+        "the refusal of {what} did not fail {symbol}:\n{stdout}"
+    );
+}
+
+/// Runs the provenance check over the repository with `replaced` files
+/// substituted into a scratch copy.
+fn provenance_probe_run(replaced: &[(&str, String)]) -> std::process::Output {
     let scratch = root().join("target/provenance-probe");
     clear_scratch_directory(&scratch, "provenance probe scratch");
     fs::create_dir_all(scratch.join("src")).unwrap();
@@ -3129,23 +3200,9 @@ fn provenance_probe_refuses(what: &str, replaced: &[(&str, String)], symbol: &st
         fs::write(scratch.join(relative), bytes).unwrap();
     }
 
-    let output = Command::new("python3")
+    Command::new("python3")
         .args(["scripts/check_provenance.py"])
         .current_dir(&scratch)
         .output()
-        .expect("failed to run the mutated provenance check");
-    assert_eq!(
-        output.status.code(),
-        Some(1),
-        "{what} was not detected:\n{}\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout
-            .lines()
-            .any(|line| line.starts_with(&format!("{symbol}: fail"))),
-        "the refusal of {what} did not fail {symbol}:\n{stdout}"
-    );
+        .expect("failed to run the mutated provenance check")
 }

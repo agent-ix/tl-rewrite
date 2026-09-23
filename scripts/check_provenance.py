@@ -19,10 +19,11 @@ emits names them as the revisions the comparison ran against. Before this change
 while `Cargo.toml` pinned `fe1c620d` — so every conformance report in the
 repository attributed its verdicts to an evaluator that did not produce them.
 Nothing noticed, because the only test compared the constant to itself. The
-constants, `Cargo.toml` and `Cargo.lock` are now required to agree. Since issue
-#35 a renamed dev-dependency locks a second tl-syntax revision, so agreement
-means: the `[dependencies]` pin is locked, every other locked revision is one a
-`[dev-dependencies]` entry declares, and tl-mltl compiles the pinned tl-syntax.
+constants, `Cargo.toml` and `Cargo.lock` are now required to agree. Issue #35
+once locked a second tl-syntax revision through a renamed dev-dependency (one
+revision resolves since 0.3.0), so agreement means: the `[dependencies]` pin is
+locked, every other locked revision is one a `[dev-dependencies]` entry
+declares, and tl-mltl compiles the pinned tl-syntax.
 
 **The corpus revision is the declared upstream revision.** `WEST_REVISION` and
 `corpus/west-v1/manifest.json` name the same upstream commit.

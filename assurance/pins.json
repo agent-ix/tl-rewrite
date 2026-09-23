@@ -48,14 +48,14 @@
   "upstream_dependencies": {
     "statement": "Both temporal dependencies resolve to revisions reachable from their own main. tl-rewrite hands tl_syntax::Formula values straight to tl_mltl evaluators, so the two crates must resolve the SAME tl-syntax revision; that is why the past rewrite feature could not land until the origin-complete evaluator merged, and why scripts/check_provenance.py requires src/lib.rs, Cargo.toml and Cargo.lock to agree for both.",
     "tl-syntax": {
-      "was": "740182f13b84858008d6f176f75136737d405c1b",
-      "now": "e70f2379a752117c79603bc399a86c26feed7716",
-      "why": "The old pin predated formula-v2 and the closed past-time node vocabulary. e70f2379 is the merged tl-syntax past/profile feature from PR #55 and is the exact revision consumed by tl-rewrite and the pinned tl-mltl evaluator. agent-ix/tl-syntax#53."
+      "was": "d52d89549b0a6c0c429261bab912cd5396c4a19e",
+      "now": "4a5614193d21e5ae99950ae683b04ba0ec931358",
+      "why": "4a561419 is the tl-syntax v0.3.0 tag, the first coordinated MLTL crate release. It is the exact revision consumed by tl-rewrite, the pinned tl-mltl evaluator and the dev-only tl-parse, so one tl-syntax resolves in Cargo.lock."
     },
     "tl-mltl": {
-      "was": "fe1c620d7baa743d9c6b4dda27f40d207721fcc9",
-      "now": "b346cd0902794633e862f644a5575fc9776c34fb",
-      "why": "b346cd09 is tl-mltl main after PR #64, provides the origin-complete past evaluator, and carries the shared tl-syntax revision e70f2379. Pinning both exact revisions keeps the Formula type passed across the crate boundary identical and leaves every production dependency reachable from main."
+      "was": "c8d2c871dbb379019a58fe74fcb230f501088538",
+      "now": "452f013a3168512603d427bce3360bc14c1175a6",
+      "why": "452f013a is the tl-mltl v0.3.0 tag and carries the shared tl-syntax revision 4a561419. Pinning both exact revisions keeps the Formula type passed across the crate boundary identical and leaves every production dependency on a release tag."
     },
     "earlier_dangling_pin": {
       "revision": "da2c7704a5347d063398c852acf6aa5bf9b5752d",
