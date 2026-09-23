@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, fs, path::Path};
 
 use sha2::{Digest, Sha256};
 use tl_rewrite::{rewrite_infinite, RewriteOptions};
-use tl_syntax::InfiniteFormulaDocument;
+use tl_syntax::{InfiniteFormulaDocument, SyntaxArtifactLimits};
 
 // Trace: TC-072, FR-020-AC-3, FR-046-AC-1.
 #[test]
@@ -21,7 +21,9 @@ fn checked_fuzz_seeds_reach_real_infinite_rewrite_rules() {
     for (name, expected_hash) in pins {
         let bytes = fs::read(root.join(name)).unwrap();
         assert_eq!(format!("{:x}", Sha256::digest(&bytes)), expected_hash);
-        let input: InfiniteFormulaDocument = serde_json::from_slice(&bytes).unwrap();
+        let input =
+            InfiniteFormulaDocument::from_json_bytes(&bytes, SyntaxArtifactLimits::default())
+                .unwrap();
         let report = rewrite_infinite(
             &input,
             None,

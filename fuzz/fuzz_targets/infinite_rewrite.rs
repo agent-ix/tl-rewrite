@@ -47,16 +47,10 @@ fuzz_target!(|data: &[u8]| {
     if data.len() > 4096 {
         return;
     }
-    // Deserialize through the owner's validating wire type, then exercise its
-    // bounded canonical reader before any rewrite operation.
-    let Ok(parsed) = serde_json::from_slice::<InfiniteFormulaDocument>(data) else {
-        return;
-    };
-    let Ok(canonical) = parsed.canonical_json_bytes() else {
-        return;
-    };
+    // The public strict reader owns admission; do not normalize an arbitrary
+    // JSON value through a separate decoder before this boundary.
     let Ok(input) =
-        InfiniteFormulaDocument::from_json_bytes(&canonical, SyntaxArtifactLimits::default())
+        InfiniteFormulaDocument::from_json_bytes(data, SyntaxArtifactLimits::default())
     else {
         return;
     };
