@@ -44,12 +44,12 @@
     "statement": "Both temporal dependencies resolve to exact remote-reachable revisions. tl-rewrite hands tl_syntax::Formula values straight to tl_mltl evaluators, so the two crates must resolve the SAME tl-syntax revision; scripts/check_provenance.py requires src/lib.rs, Cargo.toml and Cargo.lock to agree for both.",
     "tl-syntax": {
       "was": "d52d89549b0a6c0c429261bab912cd5396c4a19e",
-      "now": "b923fd4fdf2a2bafe66fe7d20f951e50bea2210f",
+      "now": "66d012cb37508d9ed9e8a91b5b92ef440cbe81a7",
       "why": "The exact 0.4.0 Stage 1 syntax candidate supplies the shared formula owner for rewrite, mlTL, parser, and oracle. Cargo.lock resolves one tl-syntax source revision across these dependencies."
     },
     "tl-mltl": {
       "was": "c8d2c871dbb379019a58fe74fcb230f501088538",
-      "now": "b83710906f262063957738bfcf9ac59adad09413",
+      "now": "2ba6d5fbc41348bb54a966dfb222ad5fdb17f357",
       "why": "The exact 0.4.0 Stage 1 evaluator candidate consumes the same syntax revision as rewrite. This preserves one Formula type across the production boundary."
     },
     "earlier_dangling_pin": {
