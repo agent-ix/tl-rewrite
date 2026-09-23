@@ -471,7 +471,7 @@ fn hosted_workflow_control_errors(source: &str) -> Vec<String> {
     // These are authored expected literals, not values extracted from the
     // workflow. Independent review of `.github/workflows/ci.yml` is the second
     // control against a coordinated edit of this census and its expected side.
-    const EXPECTED_PACKAGE: &str = "@agent-ix/ix-flow@0.0.4";
+    const EXPECTED_PACKAGE: &str = "@agent-ix/ix-flow@0.2.3";
     const EXPECTED_TRIGGER: &str = "workflow_dispatch";
 
     let (packages, mut errors) = workflow_ix_flow_packages(source);
@@ -2885,9 +2885,9 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
     );
 
     for (label, replacement) in [
-        ("unscoped", "ix-flow@0.0.4"),
+        ("unscoped", "ix-flow@0.2.3"),
         ("unversioned", "@agent-ix/ix-flow"),
-        ("npm alias", "ix-flow@npm:@agent-ix/ix-flow@0.0.4"),
+        ("npm alias", "ix-flow@npm:@agent-ix/ix-flow@0.2.3"),
         ("GitHub shorthand", "github:agent-ix/ix-flow#v0.2.3"),
         (
             "mixed-case GitHub shorthand",
@@ -2899,14 +2899,14 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
         ),
         (
             "registry tarball URL",
-            "https://registry.npmjs.org/@agent-ix/ix-flow/-/ix-flow-0.0.4.tgz",
+            "https://registry.npmjs.org/@agent-ix/ix-flow/-/ix-flow-0.2.3.tgz",
         ),
         ("file", "file:../ix-flow"),
-        ("tarball path", "../ix-flow-0.0.4.tgz"),
+        ("tarball path", "../ix-flow-0.2.3.tgz"),
         ("workspace", "workspace:ix-flow"),
         ("link", "link:../ix-flow"),
     ] {
-        let mutated = workflow.replacen("@agent-ix/ix-flow@0.0.4", replacement, 1);
+        let mutated = workflow.replacen("@agent-ix/ix-flow@0.2.3", replacement, 1);
         let errors = hosted_workflow_control_errors(&mutated);
         assert!(
             !errors.is_empty(),
@@ -2919,8 +2919,8 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
     }
 
     let alias_duplicate = workflow.replacen(
-        "'@agent-ix/ix-flow@0.0.4'",
-        "'@agent-ix/ix-flow@0.0.4' 'ix-flow@npm:@agent-ix/ix-flow@0.0.4'",
+        "'@agent-ix/ix-flow@0.2.3'",
+        "'@agent-ix/ix-flow@0.2.3' 'ix-flow@npm:@agent-ix/ix-flow@0.2.3'",
         1,
     );
     assert!(
@@ -2928,8 +2928,8 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
         "an executable alias-form duplicate was accepted"
     );
     let unversioned_duplicate = workflow.replacen(
-        "'@agent-ix/ix-flow@0.0.4'",
-        "'@agent-ix/ix-flow@0.0.4' '@agent-ix/ix-flow'",
+        "'@agent-ix/ix-flow@0.2.3'",
+        "'@agent-ix/ix-flow@0.2.3' '@agent-ix/ix-flow'",
         1,
     );
     assert!(
@@ -2945,7 +2945,7 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
         "\"${{ env.IX_FLOW_PACKAGE }}\"",
         "<(printf ix-flow-package)",
     ] {
-        let dynamic = workflow.replacen("'@agent-ix/ix-flow@0.0.4'", expression, 1);
+        let dynamic = workflow.replacen("'@agent-ix/ix-flow@0.2.3'", expression, 1);
         let errors = hosted_workflow_control_errors(&dynamic);
         let marker = if expression.contains("IX_FLOW_PACKAGE") {
             "IX_FLOW_PACKAGE"
@@ -2989,7 +2989,7 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
     assert_eq!(code, 0, "ix-flow --version failed: {stderr}");
     assert_eq!(
         stdout.trim(),
-        "0.0.4",
+        "0.2.3",
         "the released local ix-flow executable is not the pinned version"
     );
 }
