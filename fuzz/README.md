@@ -27,7 +27,7 @@ python3 fuzz/run_v4_campaign.py --output fuzz/evidence/v4-2026-09-23 \
   --runs 1000 --seed 181 --seconds 30
 ```
 
-The runner copies seeds to scratch and retains raw streams, exact source,
+The runner copies seeds to scratch and retains lossless gzip raw streams, exact source,
 toolchain and lock identities, budget, actual executions, stop reason, and
 crash artifact hashes. A crash remains incomplete until its input is minimized
 and replayed on the same revision. A clean finite run is bounded evidence.
