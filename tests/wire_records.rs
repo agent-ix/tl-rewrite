@@ -91,6 +91,10 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
     // dropped the quire-observation dev-dependency): only the compiled
     // TL_SYNTAX_REVISION/TL_MLTL_REVISION report fields changed, so only the
     // digests derived from them move here.
+    // Updated for the 0.3.0 release pins (tl-syntax 4a561419, tl-mltl 452f013a):
+    // substituting the prior revisions back into these bytes reproduces the
+    // prior rewrite and conformance digests exactly; the replay digest moves
+    // only because it embeds the rewrite report's digest.
     assert_eq!(
         [
             digest(&rewrite_bytes),
@@ -98,9 +102,9 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
             digest(&conformance_bytes),
         ],
         [
-            "a45ed5125ff8c79e69381eeb2aca38cfb88ae100097a6c6a6113b87fd13a858b",
-            "d1ddd8aad30bde4eab954b58a9da36e8fc5c0f4f27d0be1fc2a59d6a88773281",
-            "55d446877b30606ea39e1b7cdae1c0c468a0d3aa3a81f13243a4aa87abebaf8b",
+            "c8fe4d212a4173a2a5df392ca436f3a26ed7addb445d5237d5451c8c761c77a5",
+            "ec6ddfd6d93ffe64c86bef9c7eebdcb54d64e3717d95136fd744788aed221691",
+            "08c91da590db33ef54528e2647cdc5716d4e5272ce2c8565f53da319b4f1f1b7",
         ]
     );
     assert_eq!(rewrite_report.schema_version, "tl-rewrite.report/v1");

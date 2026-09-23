@@ -3,8 +3,10 @@
 //! `W[a,b](p,q)` and `M[a,b](p,q)` exist only as tl-syntax lowering. The engine
 //! consumes the primitive F/G/U/R and Boolean graph they lower to, so every
 //! rewrite outcome of a lowered graph must equal the outcome of the same graph
-//! built by hand. The lowering crates are dev-only and renamed; a lowered graph
-//! reaches the production `tl_syntax` type only through the formula v1 wire.
+//! built by hand. The lowering runs on the released tl-syntax the engine is
+//! pinned to (tl-parse, which supplies the v2 parser, is dev-only), and every
+//! lowered graph still enters the engine through the formula v1 wire, byte for
+//! byte.
 
 mod common;
 
@@ -16,11 +18,11 @@ use tl_rewrite::{
     ConformanceReport, ConformanceStatus, RewriteBudgets, RewriteOptions, RewriteReport,
     RewriteStatus,
 };
+use tl_syntax as lowering;
 use tl_syntax::{
     FormulaDocument, Interval, Node, NodeId, NodeKind, OwnedSignalDeclaration, PropositionBinding,
     PropositionId, SemanticProfile, SignalCatalogDocument, SignalDomain, SignalId,
 };
-use tl_syntax_lowering as lowering;
 
 const FORMULA_ID: &str = "future-lowering-parity";
 const SOURCE_REVISION: &str = "source";
@@ -472,7 +474,7 @@ fn lowered(expr: &Expr, profile: SemanticProfile, mutation: Mutation) -> Formula
     wire(&source)
 }
 
-/// Serializes a lowering-lane document and decodes it as the production type.
+/// Serializes a lowered document and decodes it through the formula v1 wire.
 fn wire(source: &lowering::FormulaDocument) -> FormulaDocument {
     let bytes = serde_json::to_vec(source).unwrap();
     let decoded: FormulaDocument = serde_json::from_slice(&bytes).unwrap();
@@ -811,12 +813,9 @@ fn lowered_graphs_preserve_profile_resource_and_refusal_identities() {
 #[test]
 fn clean_ascii_v2_parses_rewrite_like_direct_primitive_graphs() {
     use lowering::SemanticProfile as LoweringProfile;
-    use tl_parse_derived::{parse_clean_ascii_v2, DerivedOperator, ParseLimits};
+    use tl_parse::{parse_clean_ascii_v2, DerivedOperator, ParseLimits};
 
-    assert_eq!(
-        tl_parse_derived::TL_SYNTAX_REVISION,
-        "8dc18eec5af227f484170362c9e8894b8531a27d"
-    );
+    assert_eq!(tl_parse::TL_SYNTAX_REVISION, tl_rewrite::TL_SYNTAX_REVISION);
     let parsed = [
         (
             "p0 W[0,3] p1",
@@ -1176,7 +1175,7 @@ fn engine_source_has_no_derived_operator_branch() {
         }
     }
 
-    // The lowering lane is reachable from tests only: no non-dev dependency
+    // The tl-parse lane is reachable from tests only: no non-dev dependency
     // section, in any table form, names it, and the production tl-syntax pin is
     // the revision the crate publishes.
     let manifest =
@@ -1187,12 +1186,7 @@ fn engine_source_has_no_derived_operator_branch() {
         joined.contains(&format!("rev = \"{}\"", tl_rewrite::TL_SYNTAX_REVISION)),
         "{joined}"
     );
-    for lane in [
-        "tl-parse",
-        "tl-syntax-lowering",
-        "8dc18eec5af227f484170362c9e8894b8531a27d",
-        "9ca856b4c040fc2c3329b6defd26a1c9b57de748",
-    ] {
+    for lane in ["tl-parse", "496020aad5595b870f141b88995cdc2ea6a5994e"] {
         assert!(!joined.contains(lane), "production dependency on {lane}");
     }
     let synthetic_manifest = "[package]\nname = \"x\"\n\n[dependencies]\ntl-syntax = \"1\"\n\n\

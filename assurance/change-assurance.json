@@ -181,7 +181,7 @@
         },
         {
           "id": "NFR-003-AC-7",
-          "statement": "For every YAML run script, the multiset of literal ix-flow package specifications consumed by npm install or npm i is exactly [@agent-ix/ix-flow@0.0.4].",
+          "statement": "For every YAML run script, the multiset of literal ix-flow package specifications consumed by npm install or npm i is exactly [@agent-ix/ix-flow@0.2.3].",
           "source_ids": [
             "NFR-003",
             "hosted-ci",
@@ -214,7 +214,7 @@
         },
         {
           "id": "NFR-003-AC-11",
-          "statement": "Under the released local toolchain, ix-flow --version reports exactly 0.0.4.",
+          "statement": "Under the released local toolchain, ix-flow --version reports exactly 0.2.3.",
           "source_ids": [
             "NFR-003",
             "assurance-pins"
@@ -410,8 +410,9 @@
       "unknowns": [
         {
           "id": "UNKNOWN-ea-acceptance-not-in-a-release",
-          "statement": "engineering-assurance v0.2.0 records accepted.state = pending_human_acceptance and ships no human_acceptance_recorded predicate; the human acceptance exists only on main. This repository reports the state the release records and does not gate on it. Filed as agent-ix/engineering-assurance#20.",
-          "disposition": "open",
+          "statement": "engineering-assurance v0.2.0 recorded accepted.state = pending_human_acceptance and shipped no human_acceptance_recorded predicate; the human acceptance existed only on main (agent-ix/engineering-assurance#20). This repository now pins v0.2.1, which carries the acceptance.",
+          "disposition": "resolved",
+          "resolution": "engineering-assurance v0.2.1 (agent-ix/engineering-assurance#47), pinned for the 0.3.0 release, records accepted.state = accepted with accepted_by and accepted_at populated.",
           "owner": "agent-ix/engineering-assurance"
         },
         {

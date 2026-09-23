@@ -29,12 +29,14 @@ its own.
 
 ## Inputs
 
-- Formula graphs from `tl_syntax::FutureLoweringRequest::lower()` at tl-syntax
-  `8dc18eec5af227f484170362c9e8894b8531a27d`, where
+- Formula graphs from `tl_syntax::FutureLoweringRequest::lower()` at the
+  production tl-syntax pin (v0.3.0, `4a5614193d21e5ae99950ae683b04ba0ec931358`),
+  where
   `W[a,b](p,q)` lowers to `Or(U[a,b](p,q), G[a,b](p))` and `M[a,b](p,q)` lowers
   to `And(R[a,b](p,q), F[a,b](p))`.
-- Graphs from `tl_parse::parse_clean_ascii_v2` at tl-parse
-  `9ca856b4c040fc2c3329b6defd26a1c9b57de748`.
+- Graphs from `tl_parse::parse_clean_ascii_v2` at tl-parse v0.3.0
+  (`496020aad5595b870f141b88995cdc2ea6a5994e`), which compiles the same
+  tl-syntax revision.
 - The same graphs built by hand from primitive nodes.
 
 ## Behavior
@@ -51,10 +53,11 @@ its own.
   and with an incomplete signal catalog.
 - A graph parsed from clean-ascii/v2 text carries source spans. Its
   span-insensitive identities (FR-002-AC-4) equal those of the direct graph.
-- The lowering and v2 parser crates are dev-only dependencies under renamed
-  package aliases. A lowered graph reaches the production `tl_syntax` type only
-  through the formula v1 wire document, byte for byte. The production tl-syntax
-  pin moves to the lowering revision only together with tl-mltl.
+- The v2 parser crate is a dev-only dependency. A lowered or parsed graph
+  reaches the engine only through the formula v1 wire document, byte for byte.
+  The lowering runs on the production tl-syntax pin, which moves only together
+  with tl-mltl, so the parity is established against the lowering consumers of
+  this crate actually compile.
 
 ## Acceptance Criteria
 
@@ -63,7 +66,7 @@ its own.
 | FR-008-AC-1 | For W and M over `[0,0]`, `[0,3]`, `[2,5]`, `[1,4]` and `[u32::MAX,u32::MAX]` intervals, distinct and shared operands, constant operands, negation, and both nesting orders, the lowered graph is identical to the direct primitive graph, and its rewrite report and bounded conformance report are therefore equal to the direct graph's. | Test (TC-041) |
 | FR-008-AC-2 | The lowered graph is identical to the direct graph under each exhausted budget kind, the online-prefix profile refusal, and complete and incomplete signal catalogs, and the reports are equal, so profile, resource, and refusal identities are preserved. | Test (TC-042) |
 | FR-008-AC-3 | A clean-ascii/v2 parse of W/M text, including a nested W-over-M source, lowers to the direct graph's semantic view, names the expected lowering records, gives span-insensitive rewrite and conformance identities equal to the direct graph's, and an unparenthesized W/M chain does not equal the right-associated direct graph. | Test (TC-043) |
-| FR-008-AC-4 | Inspection of `src/` and `examples/` finds only the 12 canonical node kinds, only canonical rule families (confirmed against `catalog()`), and no derived-operator, lowering, Quire-language, FRETish, or text front-end token, and the lowering crates are absent from every production dependency section; the scanner flags each synthetic violation and passes a clean control. | Test (TC-044) |
+| FR-008-AC-4 | Inspection of `src/` and `examples/` finds only the 12 canonical node kinds, only canonical rule families (confirmed against `catalog()`), and no derived-operator, lowering, Quire-language, FRETish, or text front-end token, and the dev-only v2 parser crate (tl-parse) is absent from every production dependency section; the scanner flags each synthetic violation and passes a clean control. | Test (TC-044) |
 | FR-008-AC-5 | Lowering mutants that swap Until/Release, Or/And, Globally/Future, or the U/R operands, retarget, widen, narrow, or drop the unary node, change the profile, reorder generated nodes, add a node, or attribute spans each fail parity; semantic mutants reach a bounded counterexample, shape mutants change the input identity, and the span mutant keeps it. | Test (TC-045) |
 
 ## Dependencies

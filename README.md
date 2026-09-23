@@ -12,9 +12,9 @@ make guarded-ci
 make spec
 ```
 
-The library requires Rust 1.98 and consumes validated `tl-syntax.formula/v1` and
+The library requires Rust 1.98.1 and consumes validated `tl-syntax.formula/v1` and
 `tl-syntax.formula/v2` documents pinned to revision
-`d52d89549b0a6c0c429261bab912cd5396c4a19e`. Its immutable future catalog
+`4a5614193d21e5ae99950ae683b04ba0ec931358` (v0.3.0). Its immutable future catalog
 enables 38 closed-trace rules with stable identity, revision, profile,
 precondition, and derivation metadata. Two
 growth-sensitive nested Until/Release transformations from WEST paper Theorem 3
@@ -35,7 +35,7 @@ Only a fixed point carries a normalized formula. `replay` detects substituted
 inputs, catalog/options, steps, intermediates, or output. `check_equivalence`
 enumerates every valuation in a horizon-complete bounded closed-trace domain
 and delegates verdicts to pinned `tl-mltl` revision
-`c8d2c871dbb379019a58fe74fcb230f501088538`. This future-only conformance API
+`452f013a3168512603d427bce3360bc14c1175a6` (v0.3.0). This future-only conformance API
 continues to return a typed non-conclusive refusal for past profiles. Past-fold
 tests and `check_past_equivalence` compare two `PastEvaluationContext`s -- a
 formula paired with the exact history, anchor, and proposition-map identity it

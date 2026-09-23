@@ -186,14 +186,10 @@ fn span_distinct_inputs_keep_budget_partial_identity_semantic() {
 // Trace: TC-040, FR-002-AC-4
 #[test]
 fn parser_to_rewriter_seam_preserves_semantic_identity() {
-    // tl-parse pins its own tl-syntax revision independently of this crate's
-    // (see Cargo.toml), so `tl_parse::tl_syntax::FormulaDocument` and this
-    // crate's `tl_syntax::FormulaDocument` are not guaranteed to be the same
-    // compiled type -- tracked as agent-ix/tl-parse#45. A parsed formula
-    // crosses into this crate's own tl-syntax type through canonical wire
-    // bytes -- the same boundary the `tl-syntax-lowering` dev-dependency
-    // already crosses for the same reason (see the `tl-parse-derived` /
-    // `tl-syntax-lowering` comment in Cargo.toml).
+    // A parsed formula crosses into this crate's tl-syntax type through
+    // canonical wire bytes, the boundary every external formula crosses. tl-parse
+    // v0.3.0 compiles the same tl-syntax revision as this crate, so the crossing
+    // is an identity here, and the test still holds if the two pins ever diverge.
     let parsed = |source| {
         let document = parse(
             source,

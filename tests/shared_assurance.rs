@@ -471,7 +471,7 @@ fn hosted_workflow_control_errors(source: &str) -> Vec<String> {
     // These are authored expected literals, not values extracted from the
     // workflow. Independent review of `.github/workflows/ci.yml` is the second
     // control against a coordinated edit of this census and its expected side.
-    const EXPECTED_PACKAGE: &str = "@agent-ix/ix-flow@0.0.4";
+    const EXPECTED_PACKAGE: &str = "@agent-ix/ix-flow@0.2.3";
     const EXPECTED_TRIGGER: &str = "workflow_dispatch";
 
     let (packages, mut errors) = workflow_ix_flow_packages(source);
@@ -1439,7 +1439,14 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
-    // 126: measured directly against `origin/main` `cecb9f4` plus issue #27's
+    // 144: the 126 below plus #48's NFR-004-AC-1 through NFR-004-AC-9 and
+    // TC-057 through TC-063 (16 rows), #49's TC-064, and TC-065, the automated
+    // inspection the 0.3.0 release added so NFR-004-AC-8 is backed like every
+    // other Inspection-verified criterion here. #48 and #49 left this pin at 126.
+    // The release also restores the matrix's `Coverage Status` headers, which
+    // the installed spec-artifacts-process TestMatrix archetype asserts (see
+    // the #35 rename below); the header moves no row.
+    // Superseded: 126, measured directly against `origin/main` `cecb9f4` plus issue #27's
     // TC-054 row (moved from TC-046, whose id the rebase's unrelated upstream
     // past-profile and profile-subsystem work had since claimed). The prior
     // pin of 99 predates all of that upstream growth (FR-009, FR-010, and the
@@ -1470,9 +1477,9 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // removing exactly FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4, and TC-026 with
     // the retained-evidence claims they owned.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 126, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 144, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 126,
+        totals["backed"], 144,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );
@@ -2224,7 +2231,15 @@ tl-rewrite-evidence-input-v1.schema.json";
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **198** scanned tracked files, measured
+    // Population at the 0.3.0 release head: **225** scanned tracked files: the
+    // 198 below plus the 26 that #48 and #49 added without moving this control
+    // (NFR-004, the PLAN-007 bundle's 10 files, the 12 SR-069..076 and
+    // SR-080..083 reviews, `src/ci_guard.rs`, `src/bin/ci_guard.rs` and
+    // `tests/ci_guard.rs`), plus the release's `CHANGELOG.md`. By area: 14
+    // `<root>`, 162 `spec`, 15 `tests`, 6 `corpus`, 12 `src`, 5 `scripts`,
+    // 3 `examples`, 3 `assurance`, 3 `.github`, 1 `docs`, 1 `.agent`.
+    //
+    // Superseded: **198** scanned tracked files, measured
     // directly against `origin/main` `cecb9f4` plus issue #27's four SR-065
     // through SR-068 review artifacts under `spec/reviews` (renumbered from
     // SR-048 through SR-051 during the rebase, whose ids the rebase's
@@ -2258,8 +2273,8 @@ tl-rewrite-evidence-input-v1.schema.json";
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 198,
-        "the source census population changed from the reviewed 198 tracked files \
+        inspected, 225,
+        "the source census population changed from the reviewed 225 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
@@ -2885,9 +2900,9 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
     );
 
     for (label, replacement) in [
-        ("unscoped", "ix-flow@0.0.4"),
+        ("unscoped", "ix-flow@0.2.3"),
         ("unversioned", "@agent-ix/ix-flow"),
-        ("npm alias", "ix-flow@npm:@agent-ix/ix-flow@0.0.4"),
+        ("npm alias", "ix-flow@npm:@agent-ix/ix-flow@0.2.3"),
         ("GitHub shorthand", "github:agent-ix/ix-flow#v0.2.3"),
         (
             "mixed-case GitHub shorthand",
@@ -2899,14 +2914,14 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
         ),
         (
             "registry tarball URL",
-            "https://registry.npmjs.org/@agent-ix/ix-flow/-/ix-flow-0.0.4.tgz",
+            "https://registry.npmjs.org/@agent-ix/ix-flow/-/ix-flow-0.2.3.tgz",
         ),
         ("file", "file:../ix-flow"),
-        ("tarball path", "../ix-flow-0.0.4.tgz"),
+        ("tarball path", "../ix-flow-0.2.3.tgz"),
         ("workspace", "workspace:ix-flow"),
         ("link", "link:../ix-flow"),
     ] {
-        let mutated = workflow.replacen("@agent-ix/ix-flow@0.0.4", replacement, 1);
+        let mutated = workflow.replacen("@agent-ix/ix-flow@0.2.3", replacement, 1);
         let errors = hosted_workflow_control_errors(&mutated);
         assert!(
             !errors.is_empty(),
@@ -2919,8 +2934,8 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
     }
 
     let alias_duplicate = workflow.replacen(
-        "'@agent-ix/ix-flow@0.0.4'",
-        "'@agent-ix/ix-flow@0.0.4' 'ix-flow@npm:@agent-ix/ix-flow@0.0.4'",
+        "'@agent-ix/ix-flow@0.2.3'",
+        "'@agent-ix/ix-flow@0.2.3' 'ix-flow@npm:@agent-ix/ix-flow@0.2.3'",
         1,
     );
     assert!(
@@ -2928,8 +2943,8 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
         "an executable alias-form duplicate was accepted"
     );
     let unversioned_duplicate = workflow.replacen(
-        "'@agent-ix/ix-flow@0.0.4'",
-        "'@agent-ix/ix-flow@0.0.4' '@agent-ix/ix-flow'",
+        "'@agent-ix/ix-flow@0.2.3'",
+        "'@agent-ix/ix-flow@0.2.3' '@agent-ix/ix-flow'",
         1,
     );
     assert!(
@@ -2945,7 +2960,7 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
         "\"${{ env.IX_FLOW_PACKAGE }}\"",
         "<(printf ix-flow-package)",
     ] {
-        let dynamic = workflow.replacen("'@agent-ix/ix-flow@0.0.4'", expression, 1);
+        let dynamic = workflow.replacen("'@agent-ix/ix-flow@0.2.3'", expression, 1);
         let errors = hosted_workflow_control_errors(&dynamic);
         let marker = if expression.contains("IX_FLOW_PACKAGE") {
             "IX_FLOW_PACKAGE"
@@ -2989,7 +3004,7 @@ fn hosted_ix_flow_identity_and_manual_trigger_are_exact() {
     assert_eq!(code, 0, "ix-flow --version failed: {stderr}");
     assert_eq!(
         stdout.trim(),
-        "0.0.4",
+        "0.2.3",
         "the released local ix-flow executable is not the pinned version"
     );
 }
@@ -3037,34 +3052,46 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
         "dependency:tl-mltl",
     );
 
-    // Issue #35 locks a second tl-syntax revision for the test-only lowering
-    // lane. Pointing the production pin and the wire constant at that
-    // development revision leaves both present in Cargo.lock, which a check that
-    // only asks "is the pin locked somewhere" accepts, while tl-mltl still
-    // compiles the other revision.
+    // Issue #35 once locked a second tl-syntax revision for a test-only lane.
+    // Since the 0.3.0 release every dependency resolves one tl-syntax, so the
+    // probes below synthesize that shape in a scratch copy: a renamed
+    // dev-dependency declaring a second revision, and a Cargo.lock that locks
+    // both with every production consumer qualified onto the production one.
+    let lockfile = fs::read_to_string(root().join("Cargo.lock")).unwrap();
     let production = library
         .lines()
         .find(|line| line.contains("TL_SYNTAX_REVISION"))
         .and_then(|line| line.split('"').nth(1))
         .expect("TL_SYNTAX_REVISION is a quoted source identity");
-    let development = manifest
-        .lines()
-        .find(|line| line.starts_with("tl-syntax-lowering = "))
-        .and_then(|line| line.split("rev = \"").nth(1))
-        .and_then(|rest| rest.split('"').next())
-        .expect("the renamed development tl-syntax is pinned by revision");
-    assert_ne!(
-        production, development,
-        "the two tl-syntax revisions are one revision"
+    let development = "d".repeat(40);
+    assert_ne!(production, development);
+    let (two_manifest, two_lock) = with_second_tl_syntax(&manifest, &lockfile, &development);
+
+    // Control: a declared second revision that no production consumer compiles
+    // is accepted, so the refusals below are caused by their mutation alone.
+    let control = provenance_probe_run(&[
+        ("Cargo.toml", two_manifest.clone()),
+        ("Cargo.lock", two_lock.clone()),
+    ]);
+    assert_eq!(
+        control.status.code(),
+        Some(0),
+        "a declared development revision was refused:\n{}",
+        String::from_utf8_lossy(&control.stdout)
     );
-    let moved_library = library.replacen(production, development, 1);
-    let moved_manifest = manifest.replacen(production, development, 1);
+
+    // Pointing the production pin and the wire constant at the development
+    // revision leaves both present in Cargo.lock, which a check that only asks
+    // "is the pin locked somewhere" accepts, while tl-mltl still compiles the
+    // other revision.
+    let moved_library = library.replacen(production, &development, 1);
+    let moved_manifest = two_manifest.replacen(production, &development, 1);
     assert_ne!(
         moved_library, library,
         "the probe's library mutation did not apply"
     );
     assert_ne!(
-        moved_manifest, manifest,
+        moved_manifest, two_manifest,
         "the probe's manifest mutation did not apply"
     );
     provenance_probe_refuses(
@@ -3072,26 +3099,85 @@ fn the_published_revision_constants_are_the_resolved_revisions() {
         &[
             ("src/lib.rs", moved_library),
             ("Cargo.toml", moved_manifest),
+            ("Cargo.lock", two_lock.clone()),
         ],
         "dependency:tl-syntax",
     );
 
     // A second locked revision that no manifest entry declares is refused too.
-    let undeclared = manifest
-        .lines()
-        .filter(|line| !line.starts_with("tl-syntax-lowering = "))
-        .collect::<Vec<_>>()
-        .join("\n");
     provenance_probe_refuses(
         "a locked tl-syntax revision no dependency declares",
-        &[("Cargo.toml", undeclared)],
+        &[("Cargo.toml", manifest.clone()), ("Cargo.lock", two_lock)],
         "dependency:tl-syntax",
     );
+}
+
+/// Declares a renamed dev-only tl-syntax at `development` and locks it beside
+/// the production revision, qualifying every existing consumer onto the
+/// production entry as Cargo does once two entries share a name.
+fn with_second_tl_syntax(manifest: &str, lockfile: &str, development: &str) -> (String, String) {
+    let header = "[dev-dependencies]\n";
+    assert!(
+        manifest.contains(header),
+        "Cargo.toml has no dev-dependencies"
+    );
+    let alias = format!(
+        "tl-syntax-historical = {{ version = \"=0.0.0\", package = \"tl-syntax\", \
+         git = \"https://github.com/agent-ix/tl-syntax.git\", rev = \"{development}\" }}\n"
+    );
+    let manifest = manifest.replacen(header, &format!("{header}{alias}"), 1);
+
+    let table = lockfile
+        .split("[[package]]\n")
+        .find(|table| table.starts_with("name = \"tl-syntax\"\n"))
+        .expect("Cargo.lock locks tl-syntax");
+    let version = table
+        .lines()
+        .find_map(|line| line.strip_prefix("version = \""))
+        .and_then(|rest| rest.strip_suffix('"'))
+        .expect("the tl-syntax entry has a version");
+    let source = table
+        .lines()
+        .find_map(|line| line.strip_prefix("source = \""))
+        .and_then(|rest| rest.strip_suffix('"'))
+        .expect("the tl-syntax entry has a git source");
+    let production_source = source.split('#').next().unwrap();
+    let qualified = format!(" \"tl-syntax {version} ({production_source})\",");
+    assert!(
+        lockfile.contains(" \"tl-syntax\",\n"),
+        "no consumer names tl-syntax unqualified"
+    );
+    let mut lockfile = lockfile.replace(" \"tl-syntax\",", &qualified);
+    lockfile.push_str(&format!(
+        "\n[[package]]\nname = \"tl-syntax\"\nversion = \"0.0.0\"\n\
+         source = \"git+https://github.com/agent-ix/tl-syntax.git?rev={development}#{development}\"\n"
+    ));
+    (manifest, lockfile)
 }
 
 /// Runs the provenance check over the repository with `replaced` files
 /// substituted, and requires it to exit 1 naming `symbol`.
 fn provenance_probe_refuses(what: &str, replaced: &[(&str, String)], symbol: &str) {
+    let output = provenance_probe_run(replaced);
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "{what} was not detected:\n{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout
+            .lines()
+            .any(|line| line.starts_with(&format!("{symbol}: fail"))),
+        "the refusal of {what} did not fail {symbol}:\n{stdout}"
+    );
+}
+
+/// Runs the provenance check over the repository with `replaced` files
+/// substituted into a scratch copy.
+fn provenance_probe_run(replaced: &[(&str, String)]) -> std::process::Output {
     let scratch = root().join("target/provenance-probe");
     clear_scratch_directory(&scratch, "provenance probe scratch");
     fs::create_dir_all(scratch.join("src")).unwrap();
@@ -3129,23 +3215,9 @@ fn provenance_probe_refuses(what: &str, replaced: &[(&str, String)], symbol: &st
         fs::write(scratch.join(relative), bytes).unwrap();
     }
 
-    let output = Command::new("python3")
+    Command::new("python3")
         .args(["scripts/check_provenance.py"])
         .current_dir(&scratch)
         .output()
-        .expect("failed to run the mutated provenance check");
-    assert_eq!(
-        output.status.code(),
-        Some(1),
-        "{what} was not detected:\n{}\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout
-            .lines()
-            .any(|line| line.starts_with(&format!("{symbol}: fail"))),
-        "the refusal of {what} did not fail {symbol}:\n{stdout}"
-    );
+        .expect("failed to run the mutated provenance check")
 }

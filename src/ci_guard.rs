@@ -657,7 +657,7 @@ fn mint_one_token(run_id: &str, gate: &str, counter: u64) -> String {
 /// human-edited, so unlike the Makefile itself, the fragment this writes is
 /// not re-scanned for execution-control surfaces after being written.
 /// Refuses (without writing anything) if any gate name fails
-/// [`is_valid_gate_name`] — defense in depth matching [`write_record`]'s own
+/// `is_valid_gate_name` — defense in depth matching [`write_record`]'s own
 /// default, even though every caller passes a set already drawn from parsed
 /// Makefile text.
 pub fn write_gate_tokens(dir: &Path, tokens: &GateTokens) -> std::io::Result<()> {

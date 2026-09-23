@@ -26,10 +26,12 @@ PGM-01 governs compatibility, provenance, evidence, human authority, and
 qualification boundaries. Formula/profile identities come from the exact
 tl-syntax revision; semantic comparison comes from the exact tl-mltl revision
 that `Cargo.toml`, `Cargo.lock` and `src/lib.rs` all resolve, which
-`scripts/check_provenance.py` requires to agree on every run. Since issue #35 a
-renamed dev-dependency locks a second tl-syntax revision for test-only lowering
-controls; the check requires the production pin to be the revision tl-mltl
-compiles and every other locked revision to be one a dev-dependency declares.
+`scripts/check_provenance.py` requires to agree on every run. Since the 0.3.0
+release every dependency, including the dev-only tl-parse, resolves one
+tl-syntax revision. Issue #35 once locked a second revision for test-only
+lowering controls, so the check still requires the production pin to be the
+revision tl-mltl compiles and any other locked revision to be one a
+dev-dependency declares.
 
 That revision used to be named by retained evidence instead. It is not any more:
 issue #13 deleted the retained records under the authority of
