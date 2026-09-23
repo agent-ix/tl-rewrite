@@ -30,7 +30,7 @@ introducing a shared future/past rule authority.
 ## Architecture
 
 The implementation SHALL be organized as `catalog`,
-`engine::{future,past}`, `equivalence`, `report`, and `replay`. Existing public
+`engine::{future,past,infinite}`, `equivalence`, `report`, and `replay`. Existing public
 paths remain compatibility re-exports. The shared engine owns deterministic
 topological traversal and resource accounting only. Future and past modules own
 their disjoint rule admission/preconditions; neither may match a foreign profile
@@ -48,6 +48,15 @@ catalog. Only already proved folds are applied; all other valid shapes remain
 unchanged. Future, mixed, weak-previous, unknown-profile and unsupported
 equivalence requests yield their typed non-conclusive/refused outcome and no
 partial rewritten graph.
+
+The `infinite` arm admits only `mltl.infinite-trace/v1` and
+`tl-syntax.formula-unbounded/v1`. It uses a distinct catalog under FR-019 and
+never turns on an infinite-trace feature in the tl-mltl bounded evaluator.
+Qualification uses the independent `tl-oracle` as a dev dependency.
+tl-rewrite does not enable tl-mltl's non-default `infinite-trace` feature on
+its production dependency, avoiding Cargo feature unification into the
+bounded runtime dependency. A runtime comparison remains a diagnostic rather
+than a soundness proof.
 
 Reports and replay retain exact input/output formula owner contracts and
 identities, catalog/rule revisions, application trace, source context,
@@ -89,8 +98,9 @@ still detects every wrong fold, and still claims no universal proof.
 | FR-010-AC-1 | Every existing future and past rule dispatches only through its selected profile catalog; cross-profile, mixed and unknown inputs never reach a rule body. | Test (TC-053) |
 | FR-010-AC-2 | Every successful graph passes the real tl-syntax strict reader and preserves contract/profile/source/proposition identity; unproved past forms remain byte-identical. | Test (TC-053) |
 | FR-010-AC-3 | Existing canonical graph, schema, status, diagnostic and work-accounting bytes remain unchanged across the source reorganization and public re-exports; only mandatory dependency-revision fields and report/replay digests derived from them advance. | Test (TC-053) |
-| FR-010-AC-4 | Past equivalence invokes only the pinned tl-mltl owner API, detects every wrong O/H/Y/S/T fold across both clocks and anchors, and claims no universal proof. | Test (TC-053) |
+| FR-010-AC-4 | Past runtime equivalence invokes only the pinned tl-mltl owner API as a diagnostic, detects every wrong O/H/Y/S/T fold across both clocks and anchors, and claims no universal proof; qualification rule evidence uses `tl-oracle`. | Test (TC-053, TC-066) |
 | FR-010-AC-5 | Exact and one-over iteration/node/application/work/report/replay bounds preserve existing typed outcomes and expose no partial graph or report. | Test (TC-053) |
+| FR-010-AC-6 | Infinite inputs dispatch only through the infinite catalog, keep their profile/edition/fairness identities, and add no production feature edge to the bounded evaluator. | Test (TC-067) |
 
 ## Dependencies
 
