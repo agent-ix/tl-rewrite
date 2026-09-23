@@ -8,6 +8,7 @@
 
 pub mod catalog;
 pub mod ci_guard;
+mod disposition;
 pub mod engine;
 pub mod equivalence;
 mod hash;
@@ -18,6 +19,9 @@ pub mod report;
 pub use catalog::{
     catalog, infinite_catalog, past_catalog, CatalogDocument, Provenance, ProvenanceKind,
     RuleClass, RuleDefinition, RuleDisposition,
+};
+pub use disposition::{
+    conformance_disposition, rewrite_disposition, DispositionMappingError, Fr341Disposition,
 };
 pub use engine::{rewrite, rewrite_with_context};
 pub use equivalence::{
