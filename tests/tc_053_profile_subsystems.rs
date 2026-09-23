@@ -184,9 +184,9 @@ fn tc_053_profile_dispatch_owner_admission_and_legacy_bytes_are_preserved() {
     );
     assert_eq!(
         TL_SYNTAX_REVISION,
-        "9a4316e75d8fda6d50330d2211832c2607d6d62a"
+        "9de638dc4d14d0ae62a6825473a3a9bb6a9e57ac"
     );
-    assert_eq!(TL_MLTL_REVISION, "6798fbdad884a157d039c03425574f7736a42e46");
+    assert_eq!(TL_MLTL_REVISION, "79f7fa938849b2248e4b9f9acb16d9e79797e30c");
 
     let future = FormulaDocument::new(
         SemanticProfile::ClosedTraceV1,

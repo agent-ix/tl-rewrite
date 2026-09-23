@@ -96,7 +96,7 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
     // prior rewrite and conformance digests exactly; the replay digest moves
     // only because it embeds the rewrite report's digest.
     // The following bytes were measured again on the final Stage 1 MIT graph:
-    // tl-syntax 9a4316e7 and tl-mltl 6798fbda, with the exact graph revisions
+    // tl-syntax 9de638dc and tl-mltl 79f7fa93, with the exact graph revisions
     // asserted in the profile-subsystem and provenance tests.
     assert_eq!(
         [
@@ -105,9 +105,9 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
             digest(&conformance_bytes),
         ],
         [
-            "13b45840c30d12c212e18af795203b77a6fb0445a7462962169769c735162363",
-            "0c18a75db775097567357a130dc8af80d90f80876d7f2b7336abbc7e7b3ada69",
-            "3cf0073cc7ab2fc924c6f243f0474be277b245b2af644ab2028e559da5faf748",
+            "0ac6fcd1e53c400bcf034d3bb56e167f0379b95f870e2d25cbb0d8dd45fcf390",
+            "0297c3cd4c295c84364adb21065b3d9c420ebabb315b8d5f2126f5e41c674b7a",
+            "16660a48c6d6c98ed724fb40fcb770de20446f9c1e2e0ca547a132ba0b148e81",
         ]
     );
     assert_eq!(rewrite_report.schema_version, "tl-rewrite.report/v1");

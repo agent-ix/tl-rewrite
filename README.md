@@ -14,7 +14,7 @@ make spec
 
 The library requires Rust 1.98.1 and consumes validated `tl-syntax.formula/v1` and
 `tl-syntax.formula/v2` documents pinned to revision
-`9a4316e75d8fda6d50330d2211832c2607d6d62a` (v0.3.0). Its immutable future catalog
+`9de638dc4d14d0ae62a6825473a3a9bb6a9e57ac` (v0.3.0). Its immutable future catalog
 enables 38 closed-trace rules with stable identity, revision, profile,
 precondition, and derivation metadata. Two
 growth-sensitive nested Until/Release transformations from WEST paper Theorem 3
@@ -35,7 +35,7 @@ Only a fixed point carries a normalized formula. `replay` detects substituted
 inputs, catalog/options, steps, intermediates, or output. `check_equivalence`
 enumerates every valuation in a horizon-complete bounded closed-trace domain
 and delegates verdicts to pinned `tl-mltl` revision
-`6798fbdad884a157d039c03425574f7736a42e46` (v0.3.0). This future-only conformance API
+`79f7fa938849b2248e4b9f9acb16d9e79797e30c` (v0.3.0). This future-only conformance API
 continues to return a typed non-conclusive refusal for past profiles. Past-fold
 tests and `check_past_equivalence` compare two `PastEvaluationContext`s -- a
 formula paired with the exact history, anchor, and proposition-map identity it
