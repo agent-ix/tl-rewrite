@@ -258,7 +258,7 @@ dependencies = [
 [[package]]
 name = "tl-mltl"
 version = "0.3.0"
-source = "git+https://github.com/agent-ix/tl-mltl.git?rev=c69a2d003f891edba1908dfe327cae03488dcd5f#c69a2d003f891edba1908dfe327cae03488dcd5f"
+source = "git+https://github.com/agent-ix/tl-mltl.git?rev=26902f03e00c674152633d99b00dee4e7aa07600#26902f03e00c674152633d99b00dee4e7aa07600"
 dependencies = [
  "serde",
  "serde_json",

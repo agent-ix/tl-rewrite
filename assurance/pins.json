@@ -59,8 +59,8 @@
     },
     "tl-mltl": {
       "was": "c8d2c871dbb379019a58fe74fcb230f501088538",
-      "now": "c69a2d003f891edba1908dfe327cae03488dcd5f",
-      "why": "c69a2d00 is the remote-reachable Stage 1 evaluator and verification-campaign revision and carries the shared tl-syntax revision 9de638dc. Pinning both exact revisions keeps the Formula type passed across the crate boundary identical."
+      "now": "26902f03e00c674152633d99b00dee4e7aa07600",
+      "why": "26902f03 is the remote-reachable Stage 1 evaluator and verification-campaign revision, including the bounded V2 exit correction and retained V5 mutation evidence, and carries the shared tl-syntax revision 9de638dc. Pinning both exact revisions keeps the Formula type passed across the crate boundary identical."
     },
     "earlier_dangling_pin": {
       "revision": "da2c7704a5347d063398c852acf6aa5bf9b5752d",

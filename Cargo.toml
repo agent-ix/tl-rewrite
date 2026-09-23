@@ -21,7 +21,7 @@ infinite-trace = ["tl-mltl/infinite-trace"]
 serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "=1.0.151"
 sha2 = "=0.10.9"
-tl-mltl = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-mltl.git", rev = "c69a2d003f891edba1908dfe327cae03488dcd5f" }
+tl-mltl = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-mltl.git", rev = "26902f03e00c674152633d99b00dee4e7aa07600" }
 tl-syntax = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-syntax.git", rev = "9de638dc4d14d0ae62a6825473a3a9bb6a9e57ac", default-features = false, features = ["alloc", "serde"] }
 
 [dev-dependencies]
