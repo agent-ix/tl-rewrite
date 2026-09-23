@@ -1439,47 +1439,13 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
-    // 144: the 126 below plus #48's NFR-004-AC-1 through NFR-004-AC-9 and
-    // TC-057 through TC-063 (16 rows), #49's TC-064, and TC-065, the automated
-    // inspection the 0.3.0 release added so NFR-004-AC-8 is backed like every
-    // other Inspection-verified criterion here. #48 and #49 left this pin at 126.
-    // The release also restores the matrix's `Coverage Status` headers, which
-    // the installed spec-artifacts-process TestMatrix archetype asserts (see
-    // the #35 rename below); the header moves no row.
-    // Superseded: 126, measured directly against `origin/main` `cecb9f4` plus issue #27's
-    // TC-054 row (moved from TC-046, whose id the rebase's unrelated upstream
-    // past-profile and profile-subsystem work had since claimed). The prior
-    // pin of 99 predates all of that upstream growth (FR-009, FR-010, and the
-    // SR-048 through SR-064 past-profile/profile-subsystem reviews landed
-    // between this branch's last main-merge at 033a687 and current main) and
-    // was never a live measurement of that state; it is superseded by this
-    // measurement rather than reconciled with it.
-    // 99: issue #35 added FR-008-AC-1 through FR-008-AC-5 and TC-041 through
-    // TC-045. The Quire released in the tl-release toolchain that `make ci`
-    // uses measures main at 89 (51 criteria plus 38 test-case rows), so this is
-    // 89 plus those 10 rows. The same #35 change renamed the matrix's
-    // `Coverage Status` headers to `Status`; measured at this head, the count is
-    // 99 under either spelling, so the rename moves no row. The prior pin of 96
-    // was 7 above the released Quire's measurement of main, and a differently
-    // installed Quire module set measures a different total, so the history
-    // below records what earlier pins claimed and is superseded by this
-    // measurement rather than reconciled with it. Main's Functional Requirement
-    // Coverage table also has 7 rows, but that match is not a confirmed cause.
-    // Superseded history. 96: the prior 94 plus FR-002-AC-4 and TC-040, which bind semantic
-    // identity independently of diagnostic source spans. The prior 94 was the
-    // prior 89 plus the five atomic NFR-003 criteria split from the
-    // original bundled AC-7 by issue #33. TC-039 backs AC-7 through AC-12. The
-    // prior 89 was 85 plus FR-006-AC-8, the original NFR-003-AC-7, TC-038, and
-    // TC-039. The
-    // earlier 85 was the 83 contextual-report rows plus NFR-003-AC-6 and TC-037's
-    // review-identity control. The contextual 83 was the audited post-deletion
-    // 68 plus 15 context-bound report rows. Issue #13 had reduced 72 to 68 by
-    // removing exactly FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4, and TC-026 with
-    // the retained-evidence claims they owned.
+    // V1 rewrite criteria and matrix rows raise the exact measured population
+    // to 164; all 164 carry native trace backing at this revision.
+    // A changed count requires review against the Quire export.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 144, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 164, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 144,
+        totals["backed"], 164,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );
