@@ -904,8 +904,8 @@ pub fn check_infinite_rewrite(
     limit: tl_mltl::infinite::EvaluationLimit,
 ) -> InfiniteConformanceReport {
     use tl_mltl::infinite::{
-        evaluate_lasso, Disposition, ExecutionDisposition, InfiniteError, LassoRequest,
-        ResultReason,
+        evaluate_lasso, Disposition, EvidenceClosure, ExecutionDisposition, InfiniteError,
+        LassoRequest, ResultReason,
     };
 
     let refuse = |reason| InfiniteConformanceReport {
@@ -944,6 +944,7 @@ pub fn check_infinite_rewrite(
         formula: input,
         trace,
         fairness,
+        evidence_closure: EvidenceClosure::Closed,
         graph_id: &report.input_identity,
         trace_id: &trace_id,
         selected_position,
@@ -953,6 +954,7 @@ pub fn check_infinite_rewrite(
         formula: output,
         trace,
         fairness: report.output_fairness.as_ref(),
+        evidence_closure: EvidenceClosure::Closed,
         graph_id: output_identity,
         trace_id: &trace_id,
         selected_position,

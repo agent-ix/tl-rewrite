@@ -8,7 +8,9 @@ use std::{fs, path::Path};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use tl_mltl::infinite::{Disposition, EvaluationLimit};
-use tl_parse::{format_clean_ascii_v4, parse_clean_ascii_v4, FormatLimits, ParseLimits};
+use tl_parse::{
+    format_clean_ascii_v4, parse_clean_ascii_v4, FormatErrorCode, FormatLimits, ParseLimits,
+};
 use tl_rewrite::{
     check_infinite_rewrite, rewrite_infinite, InfiniteConformanceReason, InfiniteConformanceStatus,
     RewriteOptions,
@@ -132,29 +134,52 @@ fn pinned_owner_cases_cross_parser_rewriter_and_provider() {
         )
         .unwrap();
         let formatted = format_clean_ascii_v4(&formula, Some(&fairness), FormatLimits::default());
-        let text = formatted
-            .text
-            .unwrap_or_else(|| panic!("{id}: formatter refused {:?}", formatted.error));
-        let parsed = parse_clean_ascii_v4(
-            &text,
-            SemanticProfile::InfiniteTraceV1,
-            "event_position",
-            ParseLimits::default(),
-        );
-        let input = parsed
-            .document
-            .as_ref()
-            .unwrap_or_else(|| panic!("{id}: parser refused {:?}", parsed.diagnostics));
-        let input_fairness = parsed.fairness.as_ref();
-        assert_eq!(
-            input_fairness
-                .map(|premises| premises.roots().len())
-                .unwrap_or(0),
-            fairness.roots().len(),
-            "{id}"
-        );
-        let reformatted = format_clean_ascii_v4(input, input_fairness, FormatLimits::default());
-        assert_eq!(reformatted.text.as_deref(), Some(text.as_str()), "{id}");
+        let parsed = if id == "fair-loop-satisfies-premise" {
+            // This owner graph has topology V4 text cannot reproduce exactly.
+            // The formatter must refuse rather than change its node identity;
+            // the strict owner graph remains valid for rewrite and evaluation.
+            assert!(formatted.text.is_none(), "{id}");
+            assert_eq!(
+                formatted.error.as_ref().map(|error| error.code),
+                Some(FormatErrorCode::UnrepresentableGraph),
+                "{id}"
+            );
+            None
+        } else {
+            let text = formatted
+                .text
+                .unwrap_or_else(|| panic!("{id}: formatter refused {:?}", formatted.error));
+            let parsed = parse_clean_ascii_v4(
+                &text,
+                SemanticProfile::InfiniteTraceV1,
+                "event_position",
+                ParseLimits::default(),
+            );
+            let input = parsed
+                .document
+                .as_ref()
+                .unwrap_or_else(|| panic!("{id}: parser refused {:?}", parsed.diagnostics));
+            assert_eq!(
+                parsed
+                    .fairness
+                    .as_ref()
+                    .map(|premises| premises.roots().len())
+                    .unwrap_or(0),
+                fairness.roots().len(),
+                "{id}"
+            );
+            let reformatted =
+                format_clean_ascii_v4(input, parsed.fairness.as_ref(), FormatLimits::default());
+            assert_eq!(reformatted.text.as_deref(), Some(text.as_str()), "{id}");
+            Some(parsed)
+        };
+        let (input, input_fairness) = match parsed.as_ref() {
+            Some(parsed) => (
+                parsed.document.as_ref().expect("admitted parser output"),
+                parsed.fairness.as_ref(),
+            ),
+            None => (&formula, Some(&fairness)),
+        };
 
         let map = PropositionMapDocument::new(wire.proposition_map).unwrap();
         let map_id = map.content_identity().unwrap();

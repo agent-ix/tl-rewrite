@@ -1,6 +1,6 @@
 #![cfg(feature = "infinite-trace")]
 
-use tl_mltl::infinite::EvaluationLimit;
+use tl_mltl::infinite::{EvaluationLimit, EvidenceClosure};
 use tl_rewrite::infinite::{
     check_infinite_rewrite, InfiniteConformanceReason, InfiniteConformanceStatus,
 };
@@ -101,7 +101,16 @@ fn fr019_complete_and_missing_evidence_compare_both_graphs() {
         );
         assert_eq!(check.status, InfiniteConformanceStatus::Equivalent);
         assert_eq!(check.reason, None);
-        assert!(check.before.is_some() && check.after.is_some());
+        let before = check.before.expect("original lasso result");
+        let after = check.after.expect("rewritten lasso result");
+        assert_eq!(
+            before.identity.evidence_closure,
+            Some(EvidenceClosure::Closed)
+        );
+        assert_eq!(
+            after.identity.evidence_closure,
+            Some(EvidenceClosure::Closed)
+        );
     }
 }
 
