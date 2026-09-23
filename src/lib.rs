@@ -11,18 +11,23 @@ pub mod ci_guard;
 pub mod engine;
 pub mod equivalence;
 mod hash;
+pub mod infinite;
 pub mod replay;
 pub mod report;
 
 pub use catalog::{
-    catalog, past_catalog, CatalogDocument, Provenance, ProvenanceKind, RuleClass, RuleDefinition,
-    RuleDisposition,
+    catalog, infinite_catalog, past_catalog, CatalogDocument, Provenance, ProvenanceKind,
+    RuleClass, RuleDefinition, RuleDisposition,
 };
 pub use engine::{rewrite, rewrite_with_context};
 pub use equivalence::{
     check_equivalence, check_equivalence_with_context, check_past_equivalence, ConformanceOptions,
     ConformanceReason, ConformanceReport, ConformanceStatus, PastConformanceReason,
     PastConformanceReport, PastEvaluationContext,
+};
+pub use infinite::{
+    replay_infinite, rewrite_infinite, InfiniteRewriteFailure, InfiniteRewriteReport,
+    MAX_INFINITE_REPORT_BYTES,
 };
 pub use replay::{replay, replay_with_context, ReplayReport, ReplayStatus};
 pub use report::{
