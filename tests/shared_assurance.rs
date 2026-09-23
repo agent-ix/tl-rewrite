@@ -1439,7 +1439,14 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
-    // 126: measured directly against `origin/main` `cecb9f4` plus issue #27's
+    // 144: the 126 below plus #48's NFR-004-AC-1 through NFR-004-AC-9 and
+    // TC-057 through TC-063 (16 rows), #49's TC-064, and TC-065, the automated
+    // inspection the 0.3.0 release added so NFR-004-AC-8 is backed like every
+    // other Inspection-verified criterion here. #48 and #49 left this pin at 126.
+    // The release also restores the matrix's `Coverage Status` headers, which
+    // the installed spec-artifacts-process TestMatrix archetype asserts (see
+    // the #35 rename below); the header moves no row.
+    // Superseded: 126, measured directly against `origin/main` `cecb9f4` plus issue #27's
     // TC-054 row (moved from TC-046, whose id the rebase's unrelated upstream
     // past-profile and profile-subsystem work had since claimed). The prior
     // pin of 99 predates all of that upstream growth (FR-009, FR-010, and the
@@ -1470,9 +1477,9 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // removing exactly FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4, and TC-026 with
     // the retained-evidence claims they owned.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 126, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 144, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 126,
+        totals["backed"], 144,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );

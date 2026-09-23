@@ -11,7 +11,7 @@ relationships:
 
 ## Functional Requirement Coverage
 
-| Functional Req | Acceptance Criteria | Test Cases | Status |
+| Functional Req | Acceptance Criteria | Test Cases | Coverage Status |
 |---|---|---|---|
 | FR-001 | FR-001-AC-1 through FR-001-AC-3 | TC-001 through TC-004, TC-054 | ✅ covered |
 | FR-002 | FR-002-AC-1 through FR-002-AC-4 | TC-005 through TC-008, TC-020, TC-021, TC-040 | ✅ covered |
@@ -26,7 +26,7 @@ relationships:
 
 ## Stakeholder Requirement Coverage
 
-| Stakeholder Req | Trace to US/FR | Test/Validation | Status |
+| Stakeholder Req | Trace to US/FR | Test/Validation | Coverage Status |
 |---|---|---|---|
 | StR-001 | FR-001, FR-003, FR-005, FR-009 | TC-001, TC-009, TC-010, TC-019, TC-046, TC-049 | ✅ covered |
 | StR-002 | FR-002, FR-004, FR-006, FR-008, FR-009 | TC-005, TC-006, TC-013, TC-016, TC-028, TC-041, TC-042, TC-047, TC-052 | ✅ covered |
@@ -39,7 +39,7 @@ relationships:
 | NFR-001 | deterministic and resource-bound tests | TC-004 through TC-008, TC-015, TC-017, TC-021, TC-031, TC-035, TC-047, TC-049, TC-050 | ✅ covered |
 | NFR-002 | catalog, corpus, context, and provenance inspection | TC-001, TC-002, TC-016, TC-019, TC-030, TC-031, TC-034, TC-036, TC-046, TC-052 | ✅ covered |
 | NFR-003 | producer-boundary, outcome-distinguishability, identity, and mutation probes | TC-024, TC-027, TC-030, TC-037, TC-039 | ✅ implemented |
-| NFR-004 | static Makefile/environment inspection, per-gate completion records, declared/executed reconciliation, and per-gate record binding | TC-057 through TC-064 | ✅ implemented |
+| NFR-004 | static Makefile/environment inspection, per-gate completion records, declared/executed reconciliation, and per-gate record binding | TC-057 through TC-065 | ✅ implemented |
 
 ## Test Case Summary
 
@@ -105,3 +105,4 @@ relationships:
 | TC-062 | Reproduce the tracked TL-64/agent-ix/tl-rewrite#11 measurement directly: an `.IGNORE:`-prepended Makefile copy is refused via static inspection, and an all-failing-recipe skeleton with no execution-control directive is refused via reconciliation | Integration | P0 | NFR-004-AC-6 | ✅ implemented |
 | TC-063 | An unmodified Makefile, clean environment, and genuinely passing gates yield a zero exit with no violation reported | Integration | P0 | NFR-004-AC-7 | ✅ implemented |
 | TC-064 | Reproduce Linear TL-202 directly: a gate's own recipe (or a subprocess it spawns, including one whose failure is invisible to that recipe's own exit code) cannot write a completion record for a different declared gate using only `CI_GUARD_RUN_ID` and that gate's public name, because it lacks the token Make scoped to that gate's own recipe; reconciliation correctly names the affected gate as missing rather than being deceived by the forged record, and the legitimate, correctly-scoped call is unaffected. Also covers the missing-soft-include exemption's own scope: a soft-include naming a not-yet-existing target that a Make rule elsewhere in the file could build with `.IGNORE:` is still refused before Make ever runs, closing an independently-reviewed regression in the first version of that exemption. | Integration | P0 | NFR-004-AC-9 | ✅ implemented |
+| TC-065 | Inspect README, CLAUDE.md, and `.github/workflows/*.yml` for every reference to running the full local gate set; each names the entry point (`make guarded-ci`), not a bare `make ci`, and a bare `make ci` substituted into each is reported | Integration | P1 | NFR-004-AC-8 | ✅ implemented |

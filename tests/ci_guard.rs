@@ -445,3 +445,100 @@ fn a_missing_soft_include_with_a_build_rule_cannot_smuggle_ignore_past_the_scan(
          rule that builds generated.mk"
     );
 }
+
+/// Command lines in `text` that run the full local gate set through a bare
+/// `make ci` rather than the `make guarded-ci` entry point. For Markdown only
+/// fenced code blocks are commands; for workflow YAML every non-comment line
+/// is. A line documenting `make ci` as the unguarded alternative is not an
+/// invocation of the gate set and is exempt only when it says so.
+fn bare_ci_invocations(text: &str, fenced_only: bool) -> Vec<String> {
+    let mut fenced = false;
+    let mut found = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("```") {
+            fenced = !fenced;
+            continue;
+        }
+        if (fenced_only && !fenced) || trimmed.starts_with('#') {
+            continue;
+        }
+        let command = trimmed.strip_prefix("run:").map_or(trimmed, str::trim);
+        let bare = command == "make ci"
+            || command.starts_with("make ci ")
+            || command.contains("&& make ci");
+        if bare && !command.contains("unguarded") {
+            found.push(line.to_owned());
+        }
+    }
+    found
+}
+
+// Trace: TC-065, NFR-004-AC-8
+#[test]
+fn documented_and_hosted_gate_invocations_name_the_entry_point() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let read = |relative: &str| fs::read_to_string(root.join(relative)).unwrap();
+    let readme = read("README.md");
+    let claude = read("CLAUDE.md");
+    let workflows: Vec<(String, String)> = fs::read_dir(root.join(".github/workflows"))
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "yml" || extension == "yaml")
+        })
+        .map(|path| {
+            (
+                path.display().to_string(),
+                fs::read_to_string(&path).unwrap(),
+            )
+        })
+        .collect();
+    assert!(!workflows.is_empty(), "no hosted workflow to inspect");
+
+    for (name, text, fenced_only) in [("README.md", &readme, true), ("CLAUDE.md", &claude, true)]
+        .into_iter()
+        .chain(
+            workflows
+                .iter()
+                .map(|(name, text)| (name.as_str(), text, false)),
+        )
+    {
+        assert_eq!(
+            bare_ci_invocations(text, fenced_only),
+            Vec::<String>::new(),
+            "{name} runs the gate set through a bare `make ci`"
+        );
+    }
+    assert!(
+        readme.contains("\nmake guarded-ci\n"),
+        "README names no entry point"
+    );
+    assert!(
+        claude.contains("**Run `make guarded-ci`, not a bare `make ci`.**"),
+        "CLAUDE.md does not direct contributors to the entry point"
+    );
+    assert!(
+        workflows
+            .iter()
+            .any(|(_, text)| text.contains("run: make guarded-ci")),
+        "no hosted workflow dispatches the entry point"
+    );
+
+    // Control: the inspection can fail. Each document with its entry point
+    // replaced by a bare `make ci` is reported.
+    let mutated_readme = readme.replace("\nmake guarded-ci\n", "\nmake ci\n");
+    assert_ne!(mutated_readme, readme);
+    assert_eq!(bare_ci_invocations(&mutated_readme, true), ["make ci"]);
+    for (name, text) in workflows
+        .iter()
+        .filter(|(_, text)| text.contains("run: make guarded-ci"))
+    {
+        let mutated = text.replace("run: make guarded-ci", "run: make ci");
+        assert!(
+            !bare_ci_invocations(&mutated, false).is_empty(),
+            "{name}: a hosted bare `make ci` went unreported"
+        );
+    }
+}
