@@ -23,4 +23,5 @@ are `SR-072` through `SR-079` in `tl-mltl/spec/reviews/`.
 |---|---|---|---|
 | FND-001 | low | The rewrite resource failure mapping was corrected to `failed` / `resource-incomplete` at 67edaa4; the combined review has no remaining tl-rewrite-specific finding. | FR-341, TL-209 |
 
-TL-215 is validated but not human-accepted. Its open high finding is in TL-212.
+TL-215 is validated but not human-accepted. The initial high TL-212 finding
+was resolved by aligning that ticket with FR-044.
