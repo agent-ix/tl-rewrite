@@ -2231,7 +2231,15 @@ tl-rewrite-evidence-input-v1.schema.json";
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
-    // Population at this review head: **198** scanned tracked files, measured
+    // Population at the 0.3.0 release head: **225** scanned tracked files: the
+    // 198 below plus the 26 that #48 and #49 added without moving this control
+    // (NFR-004, the PLAN-007 bundle's 10 files, the 12 SR-069..076 and
+    // SR-080..083 reviews, `src/ci_guard.rs`, `src/bin/ci_guard.rs` and
+    // `tests/ci_guard.rs`), plus the release's `CHANGELOG.md`. By area: 14
+    // `<root>`, 162 `spec`, 15 `tests`, 6 `corpus`, 12 `src`, 5 `scripts`,
+    // 3 `examples`, 3 `assurance`, 3 `.github`, 1 `docs`, 1 `.agent`.
+    //
+    // Superseded: **198** scanned tracked files, measured
     // directly against `origin/main` `cecb9f4` plus issue #27's four SR-065
     // through SR-068 review artifacts under `spec/reviews` (renumbered from
     // SR-048 through SR-051 during the rebase, whose ids the rebase's
@@ -2265,8 +2273,8 @@ tl-rewrite-evidence-input-v1.schema.json";
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 198,
-        "the source census population changed from the reviewed 198 tracked files \
+        inspected, 225,
+        "the source census population changed from the reviewed 225 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
