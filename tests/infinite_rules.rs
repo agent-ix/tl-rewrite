@@ -398,6 +398,31 @@ fn tc_068_fairness_remap_preserves_order_and_identity() {
     assert_eq!(remapped.roots(), &[output.root()]);
     assert_eq!(output.semantic_profile(), SemanticProfile::InfiniteTraceV1);
     assert_eq!(output.clock(), InfiniteClock::EventPosition);
+    for value in [
+        PartialValue::False,
+        PartialValue::True,
+        PartialValue::Missing,
+        PartialValue::Conflicting,
+    ] {
+        let word = trace(&[], &[[value, PartialValue::True]]);
+        let before = evaluate_documents(
+            &input,
+            &word,
+            input.root(),
+            fairness.roots(),
+            0,
+            OracleLimits::default(),
+        );
+        let after = evaluate_documents(
+            output,
+            &word,
+            output.root(),
+            remapped.roots(),
+            0,
+            OracleLimits::default(),
+        );
+        assert_eq!(before, after, "fairness value={value:?}");
+    }
     assert!(replay_infinite(
         &input,
         Some(&fairness),

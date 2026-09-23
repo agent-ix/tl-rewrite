@@ -91,9 +91,8 @@ impl InfiniteRewriteReport {
             InfiniteRewriteFailure::Budget(_) | InfiniteRewriteFailure::ReportBytes => {
                 RewriteStatus::BudgetExhausted
             }
-            InfiniteRewriteFailure::Internal | InfiniteRewriteFailure::NonConvergent => {
-                RewriteStatus::NonConvergent
-            }
+            InfiniteRewriteFailure::Internal => RewriteStatus::Failed,
+            InfiniteRewriteFailure::NonConvergent => RewriteStatus::NonConvergent,
         };
         self.failure = Some(reason);
         self.work_units = work;
