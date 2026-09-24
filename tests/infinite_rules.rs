@@ -660,7 +660,7 @@ fn tc_071_oracle_is_dev_only() {
     let development = manifest.split("[dev-dependencies]").nth(1).unwrap();
     assert!(!production.contains("tl-oracle"));
     assert!(development.contains("https://github.com/agent-ix/tl-oracle.git"));
-    assert!(development.contains("7a90f8d4f88637a63decb921829bc61ab3099314"));
+    assert!(development.contains("9bf3994d4c67ee0a9a53dc31316404b9edf14df9"));
     let tree = std::process::Command::new("cargo")
         .args(["tree", "--offline", "-e", "normal", "-p", "tl-oracle"])
         .output()
