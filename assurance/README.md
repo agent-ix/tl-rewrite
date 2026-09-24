@@ -5,7 +5,7 @@ manifest, no verdict, and no store.
 
 | File | What it is |
 |---|---|
-| `pins.json` | The proposed Engineering Assurance source tag and a digest of the installed native classifier's response to a fixed request. The embedded matrix is the component-version authority. The v0.3.2 tag and human acceptance are pending. |
+| `pins.json` | The proposed Engineering Assurance source tag and declared native classifier version. The embedded matrix is the component-version authority. The v0.4.1 tag and human acceptance are pending. |
 | `change-assurance.json` | The author's cumulative statement about the changes under issues #9, #13, #19, #31, and #33, in the shape Quoin's FR-063 record requires. |
 
 ## How the pieces relate

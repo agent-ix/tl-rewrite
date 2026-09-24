@@ -940,7 +940,7 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
         report["installed_binary"]["sha256"].as_str().unwrap().len(),
         64
     );
-    assert!(report["artifact_mismatches"].as_array().unwrap().is_empty());
+    assert!(report["pin_mismatches"].as_array().unwrap().is_empty());
     assert!(report["mirror_references"].as_array().unwrap().is_empty());
 
     // Only the matrix's attributed human-acceptance bit can open the gate.
@@ -967,7 +967,8 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
         "a mirror registry reference was not detected; the check matches nothing"
     );
 
-    // The installed native executable must be the digest-check subject.
+    // An older self-compatible classifier must not satisfy the declared
+    // Engineering Assurance 0.4.1 release pin.
     let (code, stdout, stderr) = run(
         &python,
         &[
@@ -975,18 +976,19 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
             "import json,sys;sys.path.insert(0,'scripts');\
              import check_shared_pins as m;\
              pins=json.load(open('assurance/pins.json'));\
-             pins['classifier_attestation']['sha256']='0'*64;\
-             print(json.dumps(m.artifact_digest_mismatches(pins)))",
+             pins['engineering_assurance']['version']='0.0.0';\
+             observed=[{'component':'engineering-assurance','version':'0.4.1'}];\
+             print(json.dumps(m.declared_version_mismatches(pins,observed)))",
         ],
     );
-    assert_eq!(code, 0, "the consumed-artifact probe failed: {stderr}");
+    assert_eq!(code, 0, "the declared-version probe failed: {stderr}");
     let problems: Vec<String> = serde_json::from_str(stdout.trim()).unwrap();
     assert!(
         !problems.is_empty(),
-        "a changed consumed-artifact digest was not detected; the check matches nothing"
+        "a changed declared EA version was not detected; the check matches nothing"
     );
 
-    // Removing the attestation cannot make the check vacuously pass.
+    // Removing the release declaration cannot make the check vacuously pass.
     let (code, stdout, stderr) = run(
         &python,
         &[
@@ -994,33 +996,27 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
             "import json,sys;sys.path.insert(0,'scripts');\
              import check_shared_pins as m;\
              pins=json.load(open('assurance/pins.json'));\
-             pins.pop('classifier_attestation');\
-             print(json.dumps(m.artifact_digest_mismatches(pins)))",
+             pins.pop('engineering_assurance');\
+             observed=[{'component':'engineering-assurance','version':'0.4.1'}];\
+             print(json.dumps(m.declared_version_mismatches(pins,observed)))",
         ],
     );
     assert_eq!(code, 0, "the empty-population probe failed: {stderr}");
     let vacuous: Vec<String> = serde_json::from_str(stdout.trim()).unwrap();
     assert!(
-        vacuous.iter().any(|entry| entry.contains("vacuous")),
-        "a classifier attestation with no digest re-hashed nothing and \
-         reported clean: {vacuous:?}"
+        vacuous.iter().any(|entry| entry.contains("absent")),
+        "a missing EA release declaration reported clean: {vacuous:?}"
     );
 
     let pins: Value = serde_json::from_str(
         &fs::read_to_string(root().join("assurance/pins.json")).expect("pins"),
     )
     .expect("pins JSON");
-    assert_eq!(
-        pins["classifier_attestation"]["protocol"],
-        "engineering-assurance.compatibility-result/v1"
-    );
-    assert_eq!(
-        pins["classifier_attestation"]["sha256"]
-            .as_str()
-            .unwrap()
-            .len(),
-        64
-    );
+    assert_eq!(pins["engineering_assurance"]["version"], "0.4.1");
+    assert!(pins["engineering_assurance"]["requirement"]
+        .as_str()
+        .unwrap()
+        .contains("--tag v0.4.1"));
 }
 
 // Trace: TC-024, FR-006-AC-2, NFR-003-AC-1, SUITE-004, SUITE-005, SUITE-006, SUITE-007

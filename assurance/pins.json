@@ -1,19 +1,20 @@
 {
   "schema_version": "tl-rewrite.assurance-pins/v1",
-  "purpose": "The Engineering Assurance release this repository adopts, and the digests of the artifacts it actually reads from that release. Component version pins are NOT restated here: the packaged compatibility matrix is their authority and a second copy would drift from it.",
+  "purpose": "The Engineering Assurance release this repository adopts. The packaged compatibility matrix is the component-version authority; this repository checks the installed native classifier and its declared EA version without restating a matrix.",
   "matrix_authority": "The native engineering-assurance compatibility CLI embeds the reviewed matrix; scripts/check_shared_pins.py submits explicit observations and consumes only the CLI result.",
   "registry": "Every npm component resolves from the public npm registry (registry.npmjs.org). The internal npm.ix mirror must not appear in any requirement, pin, lockfile, or .npmrc, and is not an oracle for whether a release landed. Querying an @agent-ix package needs --@agent-ix:registry=https://registry.npmjs.org; a bare --registry does not override the scoped .npmrc entry.",
   "engineering_assurance": {
-    "version": "0.3.2",
-    "requirement": "cargo +1.98.1 install --git https://github.com/agent-ix/engineering-assurance --tag v0.3.2 --locked --bin engineering-assurance",
-    "release_form": "planned git tag v0.3.2; source distribution and native Rust executable; release/acceptance pending",
-    "declared_in": "requirements-assurance.txt"
+    "version": "0.4.1",
+    "requirement": "cargo +1.98.1 install --git https://github.com/agent-ix/engineering-assurance --tag v0.4.1 --locked --bin engineering-assurance",
+    "release_form": "planned git tag v0.4.1; source distribution and native Rust executable; release and named human acceptance pending",
+    "declared_in": "requirements-assurance.txt",
+    "module_install": "quoin module install github:agent-ix/engineering-assurance//engineering_assurance@v0.4.1"
   },
   "repinned_workflow_component": {
     "component": "quoin",
     "was": "0.23.1",
     "now": "0.24.1",
-    "why": "Stage 1 adopts the current Quoin evidence CLI from the pending EA 0.3.2 compatibility matrix. Historical 0.22.5 and 0.23.0 failures remain documented in prior change records."
+    "why": "Stage 1 adopts the current Quoin evidence CLI from the pending EA 0.4.1 compatibility matrix. Historical 0.22.5 and 0.23.0 failures remain documented in prior change records."
   },
   "repinned_ix_flow": {
     "component": "ix-flow",
@@ -21,7 +22,7 @@
     "now": "0.2.3",
     "why": "The packaged compatibility matrix classifies ix-flow strictly at its exact pinned version, so the installed 0.2.3 against the v0.2.0 matrix (which pins 0.0.4) classified as unknown and failed the local qualification gate. engineering-assurance v0.2.1 (release: accept ix-flow 0.2.3 matrix, agent-ix/engineering-assurance#47) re-pins the matrix to ix-flow 0.2.3 with the human acceptance recorded, so this repository's engineering_assurance pin moved from v0.2.0 to v0.2.1 together with the hosted workflow literal, mirroring tl-syntax, tl-parse and tl-mltl. quire-cli and quoin stay at their already-accepted versions."
   },
-  "consumed_artifacts_note": "The old compatibility.py module no longer ships. The native CLI embeds the matrix, so this repository attests its exact response to a fixed four-component request instead of pretending to read a Python module or pinning a platform-specific executable hash. The digest must be refreshed and reviewed after v0.3.2 acceptance/tagging.",
+  "consumed_artifacts_note": "The native CLI embeds the compatibility matrix. This repository validates its structured response and reports the installed executable digest as an observation; it does not claim a fixed EA 0.4.1 classifier-response digest before the tagged accepted release exists.",
   "deleted_legacy_evidence": {
     "authority": "agent-ix/engineering-assurance#7, section 'Preservation constraint released for the pre-stable phase'. Decided by the repository owner on 2026-09-02. Tracked as agent-ix/tl-rewrite#13.",
     "deleted": "582 files and 3,720,647 bytes under evidence/ (11 records, ANCHORS, RETRACTIONS.json, a README and 11 .sha256 manifests); scripts/legacy_evidence_view.py; 8 files under tests/fixtures/legacy-compat/; 3 files under schemas/.",
@@ -38,7 +39,7 @@
   "known_drift": [
     "Resolved by the bump to v0.2.1: engineering-assurance v0.2.0 packaged compatibility-matrix.json with accepted.state = pending_human_acceptance and shipped no human_acceptance_recorded predicate (agent-ix/engineering-assurance#20). v0.2.1 (release: accept ix-flow 0.2.3 matrix, #47) carries accepted.state = accepted with accepted_by and accepted_at populated, so the record this repository reads is a release carrying the acceptance rather than a branch head.",
     "map_pgm01_bytes at the pinned release covers quire.pgm01-evidence v1 and v2 only. It has no mapping for quire.derivation-evidence/v1, which is the family this repository and its temporal siblings retained. Filed as agent-ix/engineering-assurance#21, reported and never worked around. It is no longer drift for this repository: the envelopes it applied to were deleted under agent-ix/tl-rewrite#13, so nothing here is affected either way. The upstream gap itself is unchanged.",
-    "The EA 0.3.2 compatibility matrix is pending human acceptance and its git tag has not yet been cut. Candidate classifier output is attested for preparation only; make pins must remain withheld until the accepted tagged release is installed and this attestation is refreshed."
+    "The EA 0.4.1 compatibility matrix is pending named human acceptance and its git tag has not yet been cut. The source candidate is preparation only; make pins must withhold release qualification until the accepted tagged release is installed."
   ],
   "upstream_dependencies": {
     "statement": "Both temporal dependencies resolve to exact remote-reachable revisions. tl-rewrite hands tl_syntax::Formula values straight to tl_mltl evaluators, so the two crates must resolve the SAME tl-syntax revision; scripts/check_provenance.py requires src/lib.rs, Cargo.toml and Cargo.lock to agree for both.",
@@ -56,30 +57,5 @@
       "revision": "da2c7704a5347d063398c852acf6aa5bf9b5752d",
       "statement": "This repository's eleven retained evidence records named tl-mltl da2c7704, a commit reachable from no remote ref and from no tag, so it existed only on one disk. agent-ix/tl-mltl pushed origin/retain/tl-mltl-v0.1-da2c7704 to keep it fetchable while those records stood. They no longer stand: agent-ix/tl-rewrite#13 deleted all eleven. tl-mltl's own deletion, merged as 58f858e, had already removed the eight files on its side that named the revision, so these eleven records were the last references to da2c7704 anywhere in the campaign. Nothing now requires it fetchable. This change neither deletes the retention branch nor closes agent-ix/tl-mltl#11; both are handled once all eight deletions have landed. What this repository states is only that it has removed the last reference. It never pinned the revision for the build: the constant that used to name it was stale against Cargo.toml and is corrected below."
     }
-  },
-  "classifier_attestation": {
-    "protocol": "engineering-assurance.compatibility-result/v1",
-    "matrix_version": "engineering-assurance.compatibility-matrix/v1",
-    "observed": [
-      {
-        "component": "quire-cli",
-        "version": "0.33.0"
-      },
-      {
-        "component": "quoin",
-        "version": "0.24.1"
-      },
-      {
-        "component": "ix-flow",
-        "version": "0.2.3"
-      },
-      {
-        "component": "engineering-assurance",
-        "version": "0.3.2"
-      }
-    ],
-    "sha256": "5a6ee00e7f46fbab47de9c6485e06a03737975d01117795a1801e4ef187b876e",
-    "state": "candidate_pending_human_acceptance",
-    "why": "SHA256 of exact UTF-8 JSON line returned by the EA 0.3.2 candidate native classifier to the fixed request. make pins invokes that installed executable again and compares its real output. The current response has versions_compatible=true and gate_satisfied=false."
   }
 }

@@ -1,11 +1,11 @@
 # Native Engineering Assurance source and installation contract.
-# The v0.3.2 tag and its human-accepted compatibility matrix are pending.
+# The v0.4.1 tag and its human-accepted compatibility matrix are pending.
 # This file remains a tracked mirror-scan input. Historical Python requirements
 # were removed because engineering_assurance.compatibility no longer exists.
 #
 # After the release tag is cut, install exactly:
-# cargo +1.98.1 install --git https://github.com/agent-ix/engineering-assurance --tag v0.3.2 --locked --bin engineering-assurance
+# cargo +1.98.1 install --git https://github.com/agent-ix/engineering-assurance --tag v0.4.1 --locked --bin engineering-assurance
 #
 # The executable embeds the matrix. scripts/check_shared_pins.py observes the
-# installed CLI and attests its fixed classifier response. It must withhold the
+# installed CLI and validates its classification against the declared release. It must withhold the
 # gate while the matrix is pending human acceptance.

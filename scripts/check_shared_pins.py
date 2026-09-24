@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Observe local tools and classify them with native Engineering Assurance.
 
-The executable embeds the reviewed matrix. A fixed response digest attests the
-classifier actually invoked; no removed Python module is treated as consumed.
+The executable embeds the reviewed matrix. This gate checks its structured
+response and the installed EA version against the declared release. No removed
+Python module or pre-release response digest is treated as consumed.
 """
 
 from __future__ import annotations
@@ -100,16 +101,24 @@ def classify(observed: list[dict[str, str | None]]) -> tuple[dict[str, Any], byt
         raise PinError("Engineering Assurance classifier result is not a JSON object")
     components = result.get("components")
     if (
-        result.get("protocol") != RESULT_PROTOCOL
-        or not isinstance(result.get("matrix_version"), str)
-        or not isinstance(result.get("versions_compatible"), bool)
-        or not isinstance(result.get("human_acceptance_recorded"), bool)
-        or not isinstance(result.get("gate_satisfied"), bool)
+        set(result) != {"protocol", "matrix_version", "outcome", "versions_compatible",
+                        "human_acceptance_recorded", "gate_satisfied", "components"}
+        or result.get("protocol") != RESULT_PROTOCOL
+        or result.get("matrix_version") != "engineering-assurance.compatibility-matrix/v1"
+        or type(result.get("versions_compatible")) is not bool
+        or type(result.get("human_acceptance_recorded")) is not bool
+        or type(result.get("gate_satisfied")) is not bool
         or not isinstance(components, list)
         or len(components) != len(COMPONENTS)
         or any(not isinstance(item, dict) for item in components)
         or {item.get("component") for item in components} != set(COMPONENTS)
         or any(
+            set(item) != {"component", "observed", "expected", "verdict", "reason"}
+            or not isinstance(item.get("expected"), str)
+            or not item["expected"]
+            or not isinstance(item.get("reason"), str)
+            or not item["reason"]
+            or
             item.get("verdict") not in ("compatible", "incompatible", "unknown")
             or item.get("observed") != next(
                 observation["version"]
@@ -118,8 +127,14 @@ def classify(observed: list[dict[str, str | None]]) -> tuple[dict[str, Any], byt
             )
             for item in components
         )
+        or result["versions_compatible"] != all(
+            item["verdict"] == "compatible" for item in components
+        )
         or result["gate_satisfied"] != (
             result["versions_compatible"] and result["human_acceptance_recorded"]
+        )
+        or result["outcome"] != (
+            "compatible" if result["gate_satisfied"] else "withheld"
         )
         or (completed.returncode == 0) != result["gate_satisfied"]
     ):
@@ -127,29 +142,28 @@ def classify(observed: list[dict[str, str | None]]) -> tuple[dict[str, Any], byt
     return result, completed.stdout.encode("utf-8"), completed.returncode
 
 
-def artifact_digest_mismatches(pins: dict[str, Any]) -> list[str]:
-    """Attest the exact native response to a fixed, reviewed request."""
-    attestation = pins.get("classifier_attestation")
-    if not isinstance(attestation, dict) or not attestation.get("sha256"):
-        return ["no digest-pinned classifier response; an empty check would be vacuous"]
-    if attestation.get("protocol") != RESULT_PROTOCOL:
-        return ["classifier attestation names the wrong result protocol"]
-    observed = attestation.get("observed")
-    if (
-        not isinstance(observed, list)
-        or len(observed) != len(COMPONENTS)
-        or any(not isinstance(item, dict) for item in observed)
-        or {item.get("component") for item in observed} != set(COMPONENTS)
-    ):
-        return ["classifier attestation does not exercise every reviewed component"]
-    result, raw, _ = classify(observed)
-    actual = hashlib.sha256(raw).hexdigest()
-    expected = attestation["sha256"]
-    if actual != expected:
-        return [f"native classifier response: {actual}, pins record {expected}"]
-    if result["matrix_version"] != attestation.get("matrix_version"):
-        return ["native classifier matrix version differs from the attested matrix"]
-    return []
+def declared_version_mismatches(
+    pins: dict[str, Any], observed: list[dict[str, str | None]]
+) -> list[str]:
+    """Bind the classifier observed on PATH to this repository's EA release pin."""
+    declared = pins.get("engineering_assurance")
+    if not isinstance(declared, dict):
+        return ["engineering_assurance release declaration is absent"]
+    version = declared.get("version")
+    if not isinstance(version, str) or re.fullmatch(r"\d+\.\d+\.\d+", version) is None:
+        return ["engineering_assurance version is absent or malformed"]
+    mismatches = []
+    installed = next((item["version"] for item in observed
+                      if item["component"] == "engineering-assurance"), None)
+    if installed != version:
+        mismatches.append(f"installed Engineering Assurance {installed}, declared {version}")
+    requirement = declared.get("requirement")
+    if not isinstance(requirement, str) or f"--tag v{version}" not in requirement:
+        mismatches.append("Engineering Assurance install command disagrees with declared version")
+    module_install = declared.get("module_install")
+    if not isinstance(module_install, str) or not module_install.endswith(f"@v{version}"):
+        mismatches.append("Quoin module install command disagrees with declared version")
+    return mismatches
 
 
 def mirror_references(pins: dict[str, Any]) -> list[str]:
@@ -168,6 +182,8 @@ def mirror_references(pins: dict[str, Any]) -> list[str]:
                 offenders.append(f"{name}:{number}")
     if FORBIDDEN_REGISTRY in pins["engineering_assurance"]["requirement"]:
         offenders.append("assurance/pins.json:engineering_assurance.requirement")
+    if FORBIDDEN_REGISTRY in pins["engineering_assurance"]["module_install"]:
+        offenders.append("assurance/pins.json:engineering_assurance.module_install")
     return offenders
 
 
@@ -180,18 +196,18 @@ def build_report() -> dict[str, Any]:
         {"component": "engineering-assurance", "version": observe_semver([cli_path(), "--version"])},
     ]
     result, _, _ = classify(observed)
-    mismatches = artifact_digest_mismatches(pins)
+    mismatches = declared_version_mismatches(pins, observed)
     offenders = mirror_references(pins)
     gate_satisfied = result["gate_satisfied"] and not mismatches and not offenders
     return {
-        "schemaVersion": "tl-rewrite.shared-pin-report/v2",
+        "schemaVersion": "tl-rewrite.shared-pin-report/v3",
         "installed_binary": binary_attestation(),
         "matrix_version": result["matrix_version"],
         "human_acceptance_recorded": result["human_acceptance_recorded"],
         "acceptance_recorded_here": False,
         "components_classified": len(result["components"]),
         "versions_compatible": result["versions_compatible"],
-        "artifact_mismatches": mismatches,
+        "pin_mismatches": mismatches,
         "mirror_references": offenders,
         "gate_satisfied": gate_satisfied,
         "accepted": gate_satisfied,
@@ -215,8 +231,8 @@ def main(argv: list[str]) -> int:
         print(f"Engineering Assurance binary SHA256: {report['installed_binary']['sha256']}")
         for item in report["components"]:
             print(f"{item['component']}: {item['observed']} -> {item['verdict']} ({item['reason']})")
-        for mismatch in report["artifact_mismatches"]:
-            print(f"classifier attestation mismatch: {mismatch}", file=sys.stderr)
+        for mismatch in report["pin_mismatches"]:
+            print(f"declared release mismatch: {mismatch}", file=sys.stderr)
         for offender in report["mirror_references"]:
             print(f"mirror registry reference: {offender}", file=sys.stderr)
         print(
