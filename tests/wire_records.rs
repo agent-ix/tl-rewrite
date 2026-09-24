@@ -96,7 +96,7 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
     // prior rewrite and conformance digests exactly; the replay digest moves
     // only because it embeds the rewrite report's digest.
     // The prior Stage 1 MIT graph used syntax 9de638dc and mlTL 26902f03.
-    // The 0.4.0 candidate uses syntax 08c23fa and mlTL fb9afe0. All three
+    // The 0.4.0 candidate uses syntax 87a5024 and mlTL be79f7e. All three
     // current report digests move with those exact source-identity fields;
     // the release gate separately replays the previous release's wire bytes.
     assert_eq!(
@@ -106,9 +106,9 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
             digest(&conformance_bytes),
         ],
         [
-            "c3774115390608f24d5f0ce2bb32d2e6f0f1881ecfa86dcdd247c8d230b149bb",
-            "9fc9d8b9cad11e7d79a735dffae0c0593d12e1078ef5b9d771815c04d67eb127",
-            "e7603ddcd62fb81cd808352589b4ac126ae33a1108b9c28f3c3c7ea49e77dfba",
+            "3ad4ed5b268d41cb9ff2e3f05539278342f3abf20723633bcfc3618ba049f7cd",
+            "d2627a1fa105a836bb15b9e69a094bbb852906975e6232c485fe06040a0fa976",
+            "94aee2fdb5b8f1f9c842b7be6ffe610de583613783d4f8b3aa02a4d9d95de5cc",
         ]
     );
     assert_eq!(rewrite_report.schema_version, "tl-rewrite.report/v1");

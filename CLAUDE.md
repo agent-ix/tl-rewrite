@@ -42,9 +42,10 @@ Since issue #9 this repository has no local evidence framework. Retention,
 integrity checking, audit, attestation, change records and receipts are owned by
 Quoin; static specification and coverage facts come from a Quire export; the
 compatibility matrix and the PGM-01 mapping come from Engineering Assurance.
-`assurance/pins.json` records the planned EA release. The native pin gate checks
-its installed version and structured classification. The v0.4.1 matrix still awaits human acceptance;
-the local pin gate must withhold release qualification until that changes.
+`assurance/pins.json` records the accepted EA v0.4.1 release. The native pin gate
+checks its installed version and structured classification. The tagged matrix
+records Peter Krenesky's acceptance on 2026-09-23; the local gate withholds
+release qualification for missing, unknown, or incompatible tools.
 `assurance/README.md` explains how the pieces relate.
 
 `make assurance-inputs` is the only target that runs a producer. Everything
