@@ -37,7 +37,7 @@ tempfile = "=3.10.1"
 # dev-dependencies are not in scope for `src/`. scripts/check_provenance.py
 # still refuses any additional locked tl-syntax revision no
 # `[dev-dependencies]` entry declares.
-tl-parse = { version = "=0.4.0", git = "https://github.com/agent-ix/tl-parse.git", rev = "e8b1a9cc844a9846b6638b8f2ad8949b1f49677f" }
+tl-parse = { version = "=0.4.0", git = "https://github.com/agent-ix/tl-parse.git", rev = "22c17ccf97d1050c25d6a3ed04636e18279d04d9" }
 
 [[bench]]
 name = "rewrite_rules"

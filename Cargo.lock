@@ -673,7 +673,7 @@ dependencies = [
 [[package]]
 name = "tl-parse"
 version = "0.4.0"
-source = "git+https://github.com/agent-ix/tl-parse.git?rev=e8b1a9cc844a9846b6638b8f2ad8949b1f49677f#e8b1a9cc844a9846b6638b8f2ad8949b1f49677f"
+source = "git+https://github.com/agent-ix/tl-parse.git?rev=22c17ccf97d1050c25d6a3ed04636e18279d04d9#22c17ccf97d1050c25d6a3ed04636e18279d04d9"
 dependencies = [
  "serde",
  "serde_json",
