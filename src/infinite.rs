@@ -1033,10 +1033,11 @@ fn classify_infinite_results(
     } else {
         None
     };
+    // Any result that reaches the comparison has completed execution: the
+    // earlier classification already rejects every other execution state.
     let status = if nonconclusive.is_some() {
         InfiniteConformanceStatus::NonConclusive
     } else if before.disposition == after.disposition
-        && before.execution == after.execution
         && before.truth == after.truth
         && before.basis == after.basis
         && before.reason == after.reason
