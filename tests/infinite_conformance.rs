@@ -57,6 +57,29 @@ fn trace(value: PartialValue) -> LassoTraceDocument {
     .unwrap()
 }
 
+fn trace_with_prefix_conflict() -> LassoTraceDocument {
+    let proposition = PropositionId(0);
+    let propositions = vec![proposition];
+    let observation = |position, value| TraceObservation {
+        position,
+        valuation: PartialValuation::new(
+            "map".to_owned(),
+            &propositions,
+            vec![ValuationEntry { proposition, value }],
+        )
+        .unwrap(),
+    };
+    LassoTraceDocument::new(
+        SemanticProfile::InfiniteTraceV1,
+        InfiniteClock::EventPosition,
+        "map".to_owned(),
+        propositions.clone(),
+        vec![observation(0, PartialValue::Conflicting)],
+        vec![observation(1, PartialValue::True)],
+    )
+    .unwrap()
+}
+
 // Trace: TC-069, FR-019-AC-3.
 #[test]
 fn fr019_conflict_is_classified_before_fold_can_hide_it() {
@@ -76,6 +99,62 @@ fn fr019_conflict_is_classified_before_fold_can_hide_it() {
     assert_eq!(
         check.reason,
         Some(InfiniteConformanceReason::ConflictingObservation)
+    );
+    assert!(check.before.is_none() && check.after.is_none());
+}
+
+// Trace: TC-069, FR-019-AC-3. The entire admitted lasso, including its
+// prefix, must be checked even when the root folds to false and the loop is
+// conflict-free.
+#[test]
+fn fr019_prefix_conflict_is_classified_before_both_provider_calls() {
+    let input = graph();
+    let rewrite = rewrite_infinite(&input, None, RewriteOptions::default(), REVISION, 1_000_000);
+    assert!(rewrite.succeeded());
+    let check = check_infinite_rewrite(
+        &input,
+        None,
+        &trace_with_prefix_conflict(),
+        &rewrite,
+        1,
+        REVISION,
+        EvaluationLimit::default(),
+    );
+    assert_eq!(check.status, InfiniteConformanceStatus::NonConclusive);
+    assert_eq!(
+        check.reason,
+        Some(InfiniteConformanceReason::ConflictingObservation)
+    );
+    assert!(check.before.is_none() && check.after.is_none());
+}
+
+// Trace: TC-075, NFR-005-AC-1. A successful graph-only report cannot be
+// reused with newly supplied fairness premises to claim equivalence.
+#[test]
+fn nfr005_new_fairness_refuses_before_either_provider_call() {
+    let input = graph();
+    let rewrite = rewrite_infinite(&input, None, RewriteOptions::default(), REVISION, 1_000_000);
+    assert!(rewrite.succeeded());
+    let fairness = FairnessPremisesDocument::new(
+        &input,
+        input.content_identity().unwrap(),
+        InfiniteClock::EventPosition,
+        vec![NodeId(1)],
+    )
+    .unwrap();
+    let check = check_infinite_rewrite(
+        &input,
+        Some(&fairness),
+        &trace(PartialValue::True),
+        &rewrite,
+        0,
+        REVISION,
+        EvaluationLimit::default(),
+    );
+    assert_eq!(check.status, InfiniteConformanceStatus::NonConclusive);
+    assert_eq!(
+        check.reason,
+        Some(InfiniteConformanceReason::InvalidRewrite)
     );
     assert!(check.before.is_none() && check.after.is_none());
 }
