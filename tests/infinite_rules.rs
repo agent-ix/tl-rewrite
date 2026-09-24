@@ -612,6 +612,40 @@ fn tc_069_unmappable_fairness_refuses() {
     assert!(report.steps.is_empty());
 }
 
+/// TC-069, FR-019-AC-3; TC-075, NFR-005-AC-1: a public serde decode can
+/// produce a fairness root that was never bound to the formula. Refuse it
+/// before traversal, even when its graph identity matches.
+#[test]
+fn tc_069_foreign_fairness_root_refuses_before_rewrite() {
+    let input = graph(vec![Kind::True], 0);
+    let valid = FairnessPremisesDocument::new(
+        &input,
+        input.content_identity().unwrap(),
+        InfiniteClock::EventPosition,
+        vec![NodeId(0)],
+    )
+    .unwrap();
+    let mut wire = serde_json::to_value(valid).unwrap();
+    wire["roots"] = serde_json::json!([99]);
+    let foreign: FairnessPremisesDocument = serde_json::from_value(wire).unwrap();
+    assert!(FairnessPremisesDocument::from_json_bytes(
+        &foreign.canonical_json_bytes().unwrap(),
+        tl_syntax::SyntaxArtifactLimits::default(),
+        &input,
+    )
+    .is_err());
+
+    let report = run(&input, Some(&foreign));
+    assert_eq!(report.status, RewriteStatus::InvalidInput);
+    assert_eq!(
+        report.failure,
+        Some(InfiniteRewriteFailure::UnmappableFairness)
+    );
+    assert_eq!(report.work_units, 0);
+    assert_eq!(report.iterations, 0);
+    assert!(report.output.is_none() && report.steps.is_empty());
+}
+
 /// TC-069, FR-010-AC-6, FR-019-AC-3: foreign identities refuse before infinite dispatch.
 #[test]
 fn tc_069_foreign_profile_clock_and_premises_refuse_before_rewrite() {

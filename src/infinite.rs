@@ -28,7 +28,7 @@ pub const MAX_INFINITE_REPORT_BYTES: usize = 64 * 1024 * 1024;
 pub enum InfiniteRewriteFailure {
     /// Formula or fairness owner identity did not match the request.
     IdentityMismatch,
-    /// Distinct premise roots could not be represented after rewriting.
+    /// Premise roots could not be represented by the input or rewritten graph.
     UnmappableFairness,
     /// An internal candidate violated the syntax owner's graph invariants.
     Internal,
@@ -629,6 +629,15 @@ pub fn rewrite_infinite(
         })
     {
         report.fail(InfiniteRewriteFailure::IdentityMismatch, 0, 0);
+        return report;
+    }
+    if fairness.is_some_and(|premises| {
+        premises
+            .roots()
+            .iter()
+            .any(|root| input.formula().node(*root).is_none())
+    }) {
+        report.fail(InfiniteRewriteFailure::UnmappableFairness, 0, 0);
         return report;
     }
     let mut current = input.clone();
