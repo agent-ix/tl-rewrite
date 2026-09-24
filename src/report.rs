@@ -497,16 +497,14 @@ fn value_usage(value: &serde_json::Value) -> (usize, usize) {
 struct BoundedWriter {
     bytes: Vec<u8>,
     limit: usize,
+    overflow: Option<usize>,
 }
 
 impl Write for BoundedWriter {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        let length = self
-            .bytes
-            .len()
-            .checked_add(bytes.len())
-            .ok_or_else(|| std::io::Error::other("canonical record length overflow"))?;
+        let length = self.bytes.len().saturating_add(bytes.len());
         if length > self.limit {
+            self.overflow = Some(length);
             return Err(std::io::Error::other(
                 "canonical record exceeds the effective byte limit",
             ));
@@ -546,8 +544,13 @@ where
     let mut writer = BoundedWriter {
         bytes: Vec::new(),
         limit: limits.document_bytes,
+        overflow: None,
     };
-    serde_json::to_writer(&mut writer, &document)
+    let encoded = serde_json::to_writer(&mut writer, &document);
+    if let Some(actual) = writer.overflow {
+        return Err(resource("documentBytes", actual, limits.document_bytes));
+    }
+    encoded
         .map_err(|error| malformed(format!("record cannot be serialized canonically: {error}")))?;
     if writer.bytes != bytes {
         return Err(noncanonical());
