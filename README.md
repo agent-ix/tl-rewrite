@@ -35,7 +35,7 @@ Only a fixed point carries a normalized formula. `replay` detects substituted
 inputs, catalog/options, steps, intermediates, or output. `check_equivalence`
 enumerates every valuation in a horizon-complete bounded closed-trace domain
 and delegates verdicts to pinned `tl-mltl` revision
-`7a232c0a895f6d42de3a19b8dbb86e6871cd12dd` (v0.4.0 candidate). This future-only conformance API
+`fb9afe042cb34ffc9e3df836e9baaf3fdf0f6cd2` (v0.4.0 candidate). This future-only conformance API
 continues to return a typed non-conclusive refusal for past profiles. Past-fold
 tests and `check_past_equivalence` compare two `PastEvaluationContext`s -- a
 formula paired with the exact history, anchor, and proposition-map identity it

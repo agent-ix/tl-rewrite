@@ -50,7 +50,7 @@ pub use report::{
 pub const TL_SYNTAX_REVISION: &str = "08c23fa319a0ed2cf4535367b3670aa1f2033acd";
 
 /// Exact tl-mltl reference source revision consumed by this candidate.
-pub const TL_MLTL_REVISION: &str = "7a232c0a895f6d42de3a19b8dbb86e6871cd12dd";
+pub const TL_MLTL_REVISION: &str = "fb9afe042cb34ffc9e3df836e9baaf3fdf0f6cd2";
 
 /// Exact canonical WEST source revision from which permitted fixtures were selected.
 pub const WEST_REVISION: &str = "21cd99ab2e6095a099dd179029cfdeb54268ad3f";
