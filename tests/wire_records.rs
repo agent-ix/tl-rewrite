@@ -96,7 +96,7 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
     // prior rewrite and conformance digests exactly; the replay digest moves
     // only because it embeds the rewrite report's digest.
     // The prior Stage 1 MIT graph used syntax 9de638dc and mlTL 26902f03.
-    // The 0.4.0 candidate uses syntax 6e2fc17 and mlTL 788c53e. This
+    // The 0.4.0 candidate uses syntax 6e2fc17 and mlTL 7006386. This
     // evaluator-only repin changes the conformance digest; rewrite and replay
     // bytes remain unchanged. The release gate separately replays the
     // previous release's wire bytes.

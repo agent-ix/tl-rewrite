@@ -50,7 +50,7 @@
     },
     "tl-mltl": {
       "was": "c8d2c871dbb379019a58fe74fcb230f501088538",
-      "now": "788c53e5bba68ad3e4bafc3f9518a34e20b19c30",
+      "now": "7006386d18d1a52700007b1174adc530511b33f1",
       "why": "The exact 0.4.0 Stage 1 evaluator candidate consumes the same syntax revision as rewrite. This preserves one Formula type across the production boundary."
     },
     "earlier_dangling_pin": {

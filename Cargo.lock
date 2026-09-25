@@ -670,7 +670,7 @@ dependencies = [
 [[package]]
 name = "tl-mltl"
 version = "0.4.0"
-source = "git+https://github.com/agent-ix/tl-mltl.git?rev=788c53e5bba68ad3e4bafc3f9518a34e20b19c30#788c53e5bba68ad3e4bafc3f9518a34e20b19c30"
+source = "git+https://github.com/agent-ix/tl-mltl.git?rev=7006386d18d1a52700007b1174adc530511b33f1#7006386d18d1a52700007b1174adc530511b33f1"
 dependencies = [
  "regex",
  "serde",
