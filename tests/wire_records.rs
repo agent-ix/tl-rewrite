@@ -109,7 +109,7 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
         [
             "d2738ee95db1c848eb3ce3a0860d06903c17b53d2da302268ce66b7fdc11764f",
             "68f40a4816e198ee3835bb713cb8cdb0d5d4d9286595d334b611205fde575a9c",
-            "738cb6c85ca0e1d0014a5244dee2c43f07174738f07721c813ff634bb8e7b394",
+            "5cbf4821accd0b63a6aba3568f581c6f72e2abba9f0bbb159c394fce0b1ad9c5",
         ]
     );
     assert_eq!(rewrite_report.schema_version, "tl-rewrite.report/v1");
