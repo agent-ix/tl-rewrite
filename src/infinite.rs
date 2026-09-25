@@ -1054,8 +1054,14 @@ fn classify_infinite_results(
 mod conformance_classification_tests {
     use super::{classify_infinite_results, InfiniteConformanceReason, InfiniteConformanceStatus};
     use tl_mltl::infinite::{
-        Disposition, EvidenceBasis, EvidenceClosure, ExecutionDisposition, InfiniteResult,
-        ResultIdentity, ResultReason, SubjectKind, TruthAvailability,
+        evaluate_lasso, Disposition, EvaluationLimit, EvidenceBasis, EvidenceClosure,
+        ExecutionDisposition, InfiniteResult, LassoRequest, ResultIdentity, ResultReason,
+        SubjectKind, TruthAvailability,
+    };
+    use tl_syntax::{
+        InfiniteClock, InfiniteFormulaDocument, InfiniteNode, InfiniteNodeKind, LassoTraceDocument,
+        NodeId, PartialValuation, PartialValue, PropositionId, SemanticProfile, TraceObservation,
+        ValuationEntry,
     };
 
     fn completed_result() -> InfiniteResult {
@@ -1168,6 +1174,62 @@ mod conformance_classification_tests {
                 )
             );
         }
+    }
+
+    // Trace: TC-184, FR-047-AC-2; TC-074, FR-021-AC-2
+    #[test]
+    fn matching_missing_observations_do_not_claim_empty_fair_admission() {
+        let proposition = PropositionId(0);
+        let formula = InfiniteFormulaDocument::new(
+            SemanticProfile::InfiniteTraceV1,
+            InfiniteClock::EventPosition,
+            NodeId(0),
+            vec![InfiniteNode::new(InfiniteNodeKind::Proposition {
+                proposition,
+            })],
+        )
+        .unwrap();
+        let propositions = vec![proposition];
+        let trace = LassoTraceDocument::new(
+            SemanticProfile::InfiniteTraceV1,
+            InfiniteClock::EventPosition,
+            "map".to_owned(),
+            propositions.clone(),
+            Vec::new(),
+            vec![TraceObservation {
+                position: 0,
+                valuation: PartialValuation::new(
+                    "map".to_owned(),
+                    &propositions,
+                    vec![ValuationEntry {
+                        proposition,
+                        value: PartialValue::Missing,
+                    }],
+                )
+                .unwrap(),
+            }],
+        )
+        .unwrap();
+        let graph_id = formula.content_identity().unwrap();
+        let trace_id = trace.content_identity().unwrap();
+        let missing = evaluate_lasso(&LassoRequest {
+            formula: &formula,
+            trace: &trace,
+            fairness: None,
+            evidence_closure: EvidenceClosure::Closed,
+            graph_id: &graph_id,
+            trace_id: &trace_id,
+            selected_position: 0,
+            limit: EvaluationLimit::default(),
+        })
+        .unwrap();
+        assert_eq!(missing.disposition, Disposition::Inconclusive);
+        assert_eq!(missing.reason, Some(ResultReason::MissingObservation));
+
+        assert_eq!(
+            classify_infinite_results(&missing, &missing),
+            (InfiniteConformanceStatus::Equivalent, None)
+        );
     }
 
     // Trace: TC-184, FR-047-AC-2; TC-069, FR-019-AC-3
