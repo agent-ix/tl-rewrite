@@ -21,7 +21,7 @@ infinite-trace = ["tl-mltl/infinite-trace"]
 serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "=1.0.151"
 sha2 = "=0.10.9"
-tl-mltl = { version = "=0.4.0", git = "https://github.com/agent-ix/tl-mltl.git", rev = "814806705d84eff102f6ef97094dfa7fada49105" }
+tl-mltl = { version = "=0.4.0", git = "https://github.com/agent-ix/tl-mltl.git", rev = "788c53e5bba68ad3e4bafc3f9518a34e20b19c30" }
 tl-syntax = { version = "=0.4.0", git = "https://github.com/agent-ix/tl-syntax.git", rev = "6e2fc17fcfba60c33ab264772bb25550a9c81853", default-features = false, features = ["alloc", "serde"] }
 
 [dev-dependencies]
@@ -37,7 +37,7 @@ tempfile = "=3.10.1"
 # dev-dependencies are not in scope for `src/`. scripts/check_provenance.py
 # still refuses any additional locked tl-syntax revision no
 # `[dev-dependencies]` entry declares.
-tl-parse = { version = "=0.4.0", git = "https://github.com/agent-ix/tl-parse.git", rev = "6ce728472474a2a3835d93745331ec70f3d9197f" }
+tl-parse = { version = "=0.4.0", git = "https://github.com/agent-ix/tl-parse.git", rev = "5ca6f76936c95232a3a8b86ce33f6f16c4aab606" }
 
 [[bench]]
 name = "rewrite_rules"
