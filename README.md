@@ -14,7 +14,7 @@ make spec
 
 The library requires Rust 1.98.1 and consumes validated `tl-syntax.formula/v1` and
 `tl-syntax.formula/v2` documents pinned to revision
-`4a5614193d21e5ae99950ae683b04ba0ec931358` (v0.3.0). Its immutable future catalog
+`6e2fc17fcfba60c33ab264772bb25550a9c81853` (v0.4.0 candidate). Its immutable future catalog
 enables 38 closed-trace rules with stable identity, revision, profile,
 precondition, and derivation metadata. Two
 growth-sensitive nested Until/Release transformations from WEST paper Theorem 3
@@ -35,7 +35,7 @@ Only a fixed point carries a normalized formula. `replay` detects substituted
 inputs, catalog/options, steps, intermediates, or output. `check_equivalence`
 enumerates every valuation in a horizon-complete bounded closed-trace domain
 and delegates verdicts to pinned `tl-mltl` revision
-`452f013a3168512603d427bce3360bc14c1175a6` (v0.3.0). This future-only conformance API
+`29cea002008f4a6855f54b73ecd63c234499fa3c` (v0.4.0 candidate). This future-only conformance API
 continues to return a typed non-conclusive refusal for past profiles. Past-fold
 tests and `check_past_equivalence` compare two `PastEvaluationContext`s -- a
 formula paired with the exact history, anchor, and proposition-map identity it
@@ -44,7 +44,17 @@ evaluator over event-position and exact fixed-sample histories. Evaluator
 refusal, including a resource limit, remains a typed non-conclusive result and
 is never coerced to a verdict.
 
-The public subsystem layout is `catalog`, `engine::{future,past}`,
+`rewrite_infinite` applies the separate `mltl.infinite-trace/v1` catalog to
+validated unbounded graphs. It remaps same-graph fairness roots, enforces
+iteration, node, application, work, and report-byte limits, and exposes an
+output only after a fixed point. With the `infinite-trace` feature,
+`check_infinite_rewrite` replays the exact rewrite and compares both graphs on
+one validated lasso through the pinned tl-mltl provider. It classifies
+conflicting observations before evaluation. Provider comparison is
+trace-scoped evidence; dev-only `tl-oracle` independently qualifies enabled
+rules on complete and partial lassos.
+
+The public subsystem layout is `catalog`, `engine::{future,past}`, `infinite`,
 `equivalence`, `report`, and `replay`, with the established root API retained as
 compatibility re-exports. Shared engine code owns deterministic traversal and
 resource charging; profile modules select disjoint rule domains. Every
@@ -94,8 +104,8 @@ or make an automated release, accreditation, or certification decision.
 
 ## License
 
-Licensed under either of Apache License, Version 2.0 or MIT license at your
-option. Since tl-mltl 0.2.0 (TL-179) the dependency graph carries no
+Licensed under the MIT license. See [LICENSE](LICENSE). Since tl-mltl 0.2.0
+(TL-179) the dependency graph carries no
 Quire Observation (or other AGPL-3.0-or-later) component, direct or
 transitive: this crate, and every crate it depends on for its production
 build, stay entirely independent of the agent-ix/Quire ecosystem, per the

@@ -5,7 +5,7 @@ manifest, no verdict, and no store.
 
 | File | What it is |
 |---|---|
-| `pins.json` | The Engineering Assurance release this repository adopts, and the digests of the artifacts it reads from that release. Component versions are deliberately not restated: the packaged compatibility matrix is their authority. |
+| `pins.json` | The Engineering Assurance v0.4.1 source tag and declared native classifier version. The embedded matrix is the component-version authority and records Peter Krenesky's acceptance on 2026-09-23. |
 | `change-assurance.json` | The author's cumulative statement about the changes under issues #9, #13, #19, #31, and #33, in the shape Quoin's FR-063 record requires. |
 
 ## How the pieces relate
@@ -20,6 +20,13 @@ make assurance-inputs        the ONLY target that runs a producer
 ```
 
 Two rules make this different from what it replaced.
+
+`make pins` sends observed versions to `engineering-assurance compatibility`
+and treats exit 1 as a withheld matrix decision. It also submits the fixed
+four-component request in `pins.json` and re-hashes the executable's exact
+response. The report also records the installed executable's SHA256 and path.
+The fixed response digest is the portable gate; the executable digest identifies
+the exact local binary that was run. The removed Python module is not pinned.
 
 **The driver never produces.** If an input is absent, the chain says so and
 names `make assurance-inputs`. It does not run the producer itself. A driver

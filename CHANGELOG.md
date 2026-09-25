@@ -3,6 +3,18 @@
 All notable user-visible changes to `tl-rewrite` are recorded here. The crate is
 distributed as a git source release (`publish = false`); versions are git tags.
 
+## 0.4.0
+
+Stage 1 candidate. This section records API migrations against the immutable
+0.3.0 tag; the version and tag are assigned only with the coordinated release.
+
+### API migration inventory
+
+- `enum_variant_added` `RewriteStatus:Failed`: Migration: handle `Failed` in exhaustive `RewriteStatus` matches as an internal consistency or evaluator failure, rather than a successful rewrite or a resource ceiling.
+- `enum_no_repr_variant_discriminant_changed` `RewriteStatus::InvalidInput`: Migration: replace numeric casts used as stable status codes with named-variant matches or an explicit application-owned mapping; its implicit discriminant shifts from 4 to 5.
+- `enum_no_repr_variant_discriminant_changed` `RewriteStatus::UnsupportedProfile`: Migration: replace numeric casts used as stable status codes with named-variant matches or an explicit application-owned mapping; its implicit discriminant shifts from 5 to 6.
+- `enum_no_repr_variant_discriminant_changed` `RewriteStatus::UnresolvedBinding`: Migration: replace numeric casts used as stable status codes with named-variant matches or an explicit application-owned mapping; its implicit discriminant shifts from 6 to 7.
+
 ## 0.3.0
 
 `tl-rewrite` is the last of the four MLTL crates (`tl-syntax`, `tl-parse`,

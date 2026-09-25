@@ -184,9 +184,9 @@ fn tc_053_profile_dispatch_owner_admission_and_legacy_bytes_are_preserved() {
     );
     assert_eq!(
         TL_SYNTAX_REVISION,
-        "4a5614193d21e5ae99950ae683b04ba0ec931358"
+        "6e2fc17fcfba60c33ab264772bb25550a9c81853"
     );
-    assert_eq!(TL_MLTL_REVISION, "452f013a3168512603d427bce3360bc14c1175a6");
+    assert_eq!(TL_MLTL_REVISION, "29cea002008f4a6855f54b73ecd63c234499fa3c");
 
     let future = FormulaDocument::new(
         SemanticProfile::ClosedTraceV1,
@@ -251,6 +251,24 @@ fn tc_053_report_replay_and_all_work_limits_are_exact_and_fail_closed() {
         string_bytes,
     };
     assert_eq!(rewrite_report::read(&bytes, &input, exact).unwrap(), report);
+    // Serde accepts an omitted optional field, then canonical serialization
+    // restores its null value. Bound that expansion to the caller's byte cap.
+    let mut omitted = value.clone();
+    assert!(omitted.as_object_mut().unwrap().remove("detail").is_some());
+    let shorter = serde_json::to_vec(&omitted).unwrap();
+    assert!(shorter.len() < bytes.len());
+    assert_eq!(
+        rewrite_report::RewriteReport::from_json_bytes(
+            &shorter,
+            RecordLimits {
+                document_bytes: shorter.len(),
+                ..RecordLimits::default()
+            },
+        )
+        .unwrap_err()
+        .code(),
+        RecordReadErrorCode::ResourceLimit
+    );
     assert_eq!(
         rewrite_report::read(
             &bytes,

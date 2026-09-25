@@ -22,7 +22,9 @@ framework.
 
 - Component versions are classified by the compatibility matrix packaged with
   the pinned Engineering Assurance release. This repository observes what is
-  installed and restates no version rule of its own.
+  installed, sends those observations to the native compatibility CLI, and
+  restates no version rule of its own. The local gate also attests one fixed
+  classifier response and requires the matrix's attributed human acceptance.
 - One target, `make assurance-inputs`, runs the producers and writes their
   structured results. Everything downstream consumes those files and refuses to
   create them; an absent input is an error naming that target, never a skip.
@@ -54,7 +56,7 @@ framework.
 
 | ID | Criteria | Verification |
 |---|---|---|
-| FR-006-AC-1 | The adopted component versions are classified by the packaged Engineering Assurance compatibility matrix, not by a local restatement of it, and no component resolves from the internal mirror. | Test (TC-023) |
+| FR-006-AC-1 | The installed native Engineering Assurance CLI classifies all four observed components with its embedded matrix; a fixed CLI response is digest-attested, a missing or changed attestation is refused, pending human acceptance withholds the gate, and no component resolves from the internal mirror. | Test (TC-023) |
 | FR-006-AC-2 | Native rule-conformance, counterexample, normalization and provenance results are produced by this repository's tools in a declared structured format and transcribed by Quoin without Quoin or Quire executing the producer. | Test (TC-024) |
 | FR-006-AC-3 | Static specification, obligation, and coverage facts come from a Quire export that names every requirement in the repository, and Quire executes no producer. | Test (TC-025) |
 | FR-006-AC-5 | Pass, fail, unavailable, unsupported, inconclusive, not-computed, malformed, partial, stale, suspect, vacuous, and tampered remain twelve distinguishable states, each demonstrated and each negative paired with a positive control. | Test (TC-027) |

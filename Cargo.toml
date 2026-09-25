@@ -1,11 +1,11 @@
 [package]
 name = "tl-rewrite"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 rust-version = "1.98.1"
 description = "Deterministic semantics-preserving rewrites for Mission-time Linear Temporal Logic."
 authors = ["Peter Krenesky <kreneskyp@gmail.com>"]
-license = "MIT OR Apache-2.0"
+license = "MIT"
 publish = false
 repository = "https://github.com/agent-ix/tl-rewrite"
 
@@ -13,25 +13,35 @@ repository = "https://github.com/agent-ix/tl-rewrite"
 name = "tl_rewrite"
 path = "src/lib.rs"
 
+[features]
+default = []
+infinite-trace = ["tl-mltl/infinite-trace"]
+
 [dependencies]
 serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "=1.0.151"
 sha2 = "=0.10.9"
-tl-mltl = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-mltl.git", rev = "452f013a3168512603d427bce3360bc14c1175a6" }
-tl-syntax = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-syntax.git", rev = "4a5614193d21e5ae99950ae683b04ba0ec931358", default-features = false, features = ["alloc", "serde"] }
+tl-mltl = { version = "=0.4.0", git = "https://github.com/agent-ix/tl-mltl.git", rev = "29cea002008f4a6855f54b73ecd63c234499fa3c" }
+tl-syntax = { version = "=0.4.0", git = "https://github.com/agent-ix/tl-syntax.git", rev = "6e2fc17fcfba60c33ab264772bb25550a9c81853", default-features = false, features = ["alloc", "serde"] }
 
 [dev-dependencies]
+criterion = { version = "=0.5.1", default-features = false }
+tl-oracle = { version = "=0.1.0", git = "https://github.com/agent-ix/tl-oracle.git", rev = "9bf3994d4c67ee0a9a53dc31316404b9edf14df9" }
 proptest = "=1.5.0"
 serde_yaml_ng = "0.10"
 tempfile = "=3.10.1"
 # The parser feeds two test seams: tests/rewrite.rs (parser-to-rewriter,
 # FR-002-AC-4) and tests/future_lowering_parity.rs (clean-ascii/v2 W/M graphs,
-# FR-008). tl-parse v0.3.0 compiles the same tl-syntax revision as the
+# FR-008). tl-parse v0.4.0 compiles the same tl-syntax revision as the
 # production pin, so exactly one tl-syntax and one tl-parse resolve.
 # dev-dependencies are not in scope for `src/`. scripts/check_provenance.py
 # still refuses any additional locked tl-syntax revision no
 # `[dev-dependencies]` entry declares.
-tl-parse = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-parse.git", rev = "496020aad5595b870f141b88995cdc2ea6a5994e" }
+tl-parse = { version = "=0.4.0", git = "https://github.com/agent-ix/tl-parse.git", rev = "5ca6f76936c95232a3a8b86ce33f6f16c4aab606" }
+
+[[bench]]
+name = "rewrite_rules"
+harness = false
 
 [profile.release]
 lto = "thin"

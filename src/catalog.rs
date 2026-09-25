@@ -94,6 +94,10 @@ fn past_profiles() -> Vec<String> {
     vec!["mltl.origin-complete-history/v1".to_owned()]
 }
 
+fn infinite_profiles() -> Vec<String> {
+    vec!["mltl.infinite-trace/v1".to_owned()]
+}
+
 fn derived(
     id: &str,
     class: RuleClass,
@@ -272,6 +276,178 @@ pub fn past_catalog() -> CatalogDocument {
     CatalogDocument {
         schema_version: "tl-rewrite.past-catalog/v1".to_owned(),
         catalog_version: "tl-rewrite-past-rules/v1".to_owned(),
+        catalog_sha256: sha256_json(&rules),
+        rules,
+    }
+}
+
+/// Returns the separate infinite-trace rule catalog in execution priority.
+///
+/// Every enabled temporal rule has a pointwise complete-word derivation, which
+/// lifts over common partial-evidence refinements. The finite catalog and its
+/// digest are left unchanged.
+pub fn infinite_catalog() -> CatalogDocument {
+    let mut rules = definitions()
+        .into_iter()
+        .filter(|rule| rule.id.split('.').next() == Some("bool"))
+        .map(|mut rule| {
+            rule.semantic_profiles = infinite_profiles();
+            rule.provenance.uri = "ix://agent-ix/tl-rewrite/FR-019".to_owned();
+            rule.provenance.statement.push_str(
+                "; valid pointwise for every common complete refinement of partial evidence",
+            );
+            rule
+        })
+        .collect::<Vec<_>>();
+    let temporal = [
+        (
+            "neg.future.dual",
+            RuleClass::Negation,
+            "Not(F p), closed or unbounded interval",
+            "F and G are Boolean duals at every complete infinite position",
+        ),
+        (
+            "neg.globally.dual",
+            RuleClass::Negation,
+            "Not(G p), closed or unbounded interval",
+            "G and F are Boolean duals at every complete infinite position",
+        ),
+        (
+            "neg.until.dual",
+            RuleClass::Negation,
+            "Not(p U q), closed or unbounded interval",
+            "Release is the pointwise Boolean dual of Until",
+        ),
+        (
+            "neg.release.dual",
+            RuleClass::Negation,
+            "Not(p R q), closed or unbounded interval",
+            "Until is the pointwise Boolean dual of Release",
+        ),
+        (
+            "temporal.future.singleton",
+            RuleClass::Temporal,
+            "closed interval exactly [0,0]",
+            "Only the current position is quantified",
+        ),
+        (
+            "temporal.globally.singleton",
+            RuleClass::Temporal,
+            "closed interval exactly [0,0]",
+            "Only the current position is quantified",
+        ),
+        (
+            "temporal.until.singleton",
+            RuleClass::Temporal,
+            "closed interval exactly [0,0]",
+            "Right holds at the sole witness position",
+        ),
+        (
+            "temporal.release.singleton",
+            RuleClass::Temporal,
+            "closed interval exactly [0,0]",
+            "Release dual has only the current position",
+        ),
+        (
+            "temporal.future.false",
+            RuleClass::Simplification,
+            "operand is false; closed or unbounded interval",
+            "No witness satisfies false",
+        ),
+        (
+            "temporal.future.true",
+            RuleClass::Simplification,
+            "operand is true; closed or unbounded interval",
+            "Every nonempty interval has a true witness",
+        ),
+        (
+            "temporal.globally.false",
+            RuleClass::Simplification,
+            "operand is false; closed or unbounded interval",
+            "Every nonempty interval contains false",
+        ),
+        (
+            "temporal.globally.true",
+            RuleClass::Simplification,
+            "operand is true; closed or unbounded interval",
+            "True holds at every selected position",
+        ),
+        (
+            "temporal.until.true-left",
+            RuleClass::Temporal,
+            "left is true; closed or unbounded interval",
+            "Until's prefix guard is vacuous, leaving Future",
+        ),
+        (
+            "temporal.release.false-left",
+            RuleClass::Temporal,
+            "left is false; closed or unbounded interval",
+            "Release dual leaves Globally",
+        ),
+        (
+            "past.once.strong-previous",
+            RuleClass::Normalization,
+            "Once with closed interval exactly [1,1] at the event-position clock",
+            "Strong Previous has the same origin-limited truth at every position",
+        ),
+        (
+            "past.triggered.fold-dual",
+            RuleClass::Normalization,
+            "Not((Not p) Since (Not q)); closed or unbounded interval",
+            "Triggered is the pointwise Boolean dual of Since",
+        ),
+    ];
+    rules.extend(
+        temporal
+            .into_iter()
+            .map(|(id, class, precondition, statement)| RuleDefinition {
+                id: id.to_owned(),
+                revision: 1,
+                class,
+                disposition: RuleDisposition::Enabled,
+                semantic_profiles: infinite_profiles(),
+                precondition: precondition.to_owned(),
+                provenance: Provenance {
+                    kind: ProvenanceKind::StatedDerivation,
+                    uri: "ix://agent-ix/tl-rewrite/FR-019".to_owned(),
+                    locator: id.to_owned(),
+                    statement: format!("{statement}; valid for each common Boolean refinement"),
+                },
+                exclusion_reason: None,
+            }),
+    );
+    for (id, statement) in [
+        (
+            "west.nested-until-right",
+            "Nested Until decomposition is not admitted",
+        ),
+        (
+            "west.nested-release-right",
+            "Nested Release decomposition is not admitted",
+        ),
+    ] {
+        rules.push(RuleDefinition {
+            id: id.to_owned(),
+            revision: 1,
+            class: RuleClass::Temporal,
+            disposition: RuleDisposition::Excluded,
+            semantic_profiles: infinite_profiles(),
+            precondition: "requires a separately reviewed decomposition and graph-growth bound"
+                .to_owned(),
+            provenance: Provenance {
+                kind: ProvenanceKind::StatedDerivation,
+                uri: "ix://agent-ix/tl-rewrite/FR-019".to_owned(),
+                locator: id.to_owned(),
+                statement: statement.to_owned(),
+            },
+            exclusion_reason: Some(
+                "no infinite-profile derivation or growth proof is approved".to_owned(),
+            ),
+        });
+    }
+    CatalogDocument {
+        schema_version: "tl-rewrite.infinite-catalog/v1".to_owned(),
+        catalog_version: "tl-rewrite-infinite-rules/v1".to_owned(),
         catalog_sha256: sha256_json(&rules),
         rules,
     }

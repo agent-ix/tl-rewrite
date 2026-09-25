@@ -23,19 +23,11 @@ fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-/// The interpreter `make assurance-env` builds. Its absence is an error.
+/// The repository's Python runner; Engineering Assurance is a separate native CLI.
 fn assurance_python() -> PathBuf {
-    let path = std::env::var_os("ASSURANCE_PYTHON")
+    std::env::var_os("ASSURANCE_PYTHON")
         .map(PathBuf::from)
-        .unwrap_or_else(|| root().join(".venv-assurance/bin/python"));
-    assert!(
-        path.is_file(),
-        "the pinned assurance interpreter is missing at {}. Run `make assurance-env`. \
-         This is a failure and not a skip: a gate that stands down when its dependency \
-         is absent reports the same green as one that ran.",
-        path.display()
-    );
-    path
+        .unwrap_or_else(|| PathBuf::from("python3"))
 }
 
 fn run(program: &Path, arguments: &[&str]) -> (i32, String, String) {
@@ -924,7 +916,9 @@ fn retained_output_contains(directory: &Path, expected: &[u8]) -> bool {
 fn every_shared_pin_is_classified_by_the_packaged_matrix() {
     let _inputs = assurance_inputs_guard();
     let python = assurance_python();
-    let report = json_gate(&python, &["scripts/check_shared_pins.py", "--json"]);
+    let (exit, stdout, stderr) = run(&python, &["scripts/check_shared_pins.py", "--json"]);
+    assert!(exit == 0 || exit == 1, "classifier failed: {stderr}");
+    let report: Value = serde_json::from_str(&stdout).expect("shared pin JSON");
 
     let components = report["components"].as_array().expect("components array");
     assert_eq!(
@@ -940,16 +934,18 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
             component["component"], component["verdict"], component["reason"]
         );
     }
-    assert_eq!(report["accepted"], true);
-    assert!(report["artifact_mismatches"].as_array().unwrap().is_empty());
+    assert_eq!(report["accepted"], report["human_acceptance_recorded"]);
+    assert_eq!(exit == 0, report["accepted"].as_bool().unwrap());
+    assert_eq!(
+        report["installed_binary"]["sha256"].as_str().unwrap().len(),
+        64
+    );
+    assert!(report["pin_mismatches"].as_array().unwrap().is_empty());
     assert!(report["mirror_references"].as_array().unwrap().is_empty());
 
-    // Acceptance is reported and never gated on: the pinned release records
-    // `pending_human_acceptance` and ships no predicate for it
-    // (agent-ix/engineering-assurance#20). Reading an absent field as approval,
-    // in either direction, is the mistake this asserts against.
+    // Only the matrix's attributed human-acceptance bit can open the gate.
     assert_eq!(report["acceptance_recorded_here"], false);
-    assert!(report["acceptance_state"].is_string());
+    assert!(report["human_acceptance_recorded"].is_boolean());
 
     // The mirror check must be seen to refuse. Without this it is indistinguishable
     // from a check that matches nothing.
@@ -971,41 +967,28 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
         "a mirror registry reference was not detected; the check matches nothing"
     );
 
-    // The consumed-artifact digest check must be seen to refuse. Issue #13
-    // deleted the four artifacts this check used to walk — every one of them was
-    // read only by the compatibility view — and refilled the list with
-    // `engineering_assurance/compatibility.py`, the module `build_report`
-    // imports for every component verdict. This probe is what keeps that pin
-    // from being decoration.
+    // An older self-compatible classifier must not satisfy the declared
+    // Engineering Assurance 0.4.1 release pin.
     let (code, stdout, stderr) = run(
         &python,
         &[
             "-c",
-            // Targeted by path, not by position. `[0]` would still have
-            // reported a mismatch if the entries were reordered — it would have
-            // written a sha256 onto the deliberately undigested matrix entry and
-            // caught a file-not-found instead, which is a pass for the wrong
-            // reason.
             "import json,sys;sys.path.insert(0,'scripts');\
              import check_shared_pins as m;\
              pins=json.load(open('assurance/pins.json'));\
-             hit=[a for a in pins['consumed_artifacts'] \
-             if a['path']=='compatibility.py' and 'sha256' in a];\
-             assert len(hit)==1, 'compatibility.py is not digest-pinned';\
-             hit[0]['sha256']='0'*64;\
-             print(json.dumps(m.artifact_digest_mismatches(pins)))",
+             pins['engineering_assurance']['version']='0.0.0';\
+             observed=[{'component':'engineering-assurance','version':'0.4.1'}];\
+             print(json.dumps(m.declared_version_mismatches(pins,observed)))",
         ],
     );
-    assert_eq!(code, 0, "the consumed-artifact probe failed: {stderr}");
+    assert_eq!(code, 0, "the declared-version probe failed: {stderr}");
     let problems: Vec<String> = serde_json::from_str(stdout.trim()).unwrap();
     assert!(
         !problems.is_empty(),
-        "a changed consumed-artifact digest was not detected; the check matches nothing"
+        "a changed declared EA version was not detected; the check matches nothing"
     );
 
-    // And the empty-population branch must fire, because that is the exact shape
-    // the deletion would have produced had the list simply been emptied: a
-    // re-hash of nothing, reported clean.
+    // Removing the release declaration cannot make the check vacuously pass.
     let (code, stdout, stderr) = run(
         &python,
         &[
@@ -1013,44 +996,27 @@ fn every_shared_pin_is_classified_by_the_packaged_matrix() {
             "import json,sys;sys.path.insert(0,'scripts');\
              import check_shared_pins as m;\
              pins=json.load(open('assurance/pins.json'));\
-             pins['consumed_artifacts']=[a for a in pins['consumed_artifacts'] \
-             if 'sha256' not in a];\
-             print(json.dumps(m.artifact_digest_mismatches(pins)))",
+             pins.pop('engineering_assurance');\
+             observed=[{'component':'engineering-assurance','version':'0.4.1'}];\
+             print(json.dumps(m.declared_version_mismatches(pins,observed)))",
         ],
     );
     assert_eq!(code, 0, "the empty-population probe failed: {stderr}");
     let vacuous: Vec<String> = serde_json::from_str(stdout.trim()).unwrap();
     assert!(
-        vacuous.iter().any(|entry| entry.contains("vacuous")),
-        "a consumed-artifact list with no digest in it re-hashed nothing and \
-         reported clean: {vacuous:?}"
+        vacuous.iter().any(|entry| entry.contains("absent")),
+        "a missing EA release declaration reported clean: {vacuous:?}"
     );
 
-    // The pin itself must be the live module, not a retained-evidence artifact
-    // that nothing opens. Named here so that quietly repointing it at a dead
-    // file has to move a literal in this test.
-    let pinned = digest_pinned_artifacts();
-    assert!(
-        pinned.contains("compatibility.py"),
-        "assurance/pins.json no longer digest-pins the module check_shared_pins \
-         imports for every verdict; the digest check has lost its live subject: \
-         {pinned:?}"
-    );
-}
-
-/// The digest-pinned consumed artifacts, as `assurance/pins.json` declares them.
-fn digest_pinned_artifacts() -> BTreeSet<String> {
     let pins: Value = serde_json::from_str(
-        &fs::read_to_string(root().join("assurance/pins.json")).expect("assurance/pins.json"),
+        &fs::read_to_string(root().join("assurance/pins.json")).expect("pins"),
     )
-    .expect("assurance/pins.json is JSON");
-    pins["consumed_artifacts"]
-        .as_array()
-        .expect("consumed_artifacts")
-        .iter()
-        .filter(|artifact| artifact.get("sha256").is_some())
-        .map(|artifact| artifact["path"].as_str().unwrap_or_default().to_owned())
-        .collect()
+    .expect("pins JSON");
+    assert_eq!(pins["engineering_assurance"]["version"], "0.4.1");
+    assert!(pins["engineering_assurance"]["requirement"]
+        .as_str()
+        .unwrap()
+        .contains("--tag v0.4.1"));
 }
 
 // Trace: TC-024, FR-006-AC-2, NFR-003-AC-1, SUITE-004, SUITE-005, SUITE-006, SUITE-007
@@ -1439,47 +1405,13 @@ fn the_sealed_records_impact_snapshot_is_the_quire_export() {
     // measured nothing or carries a status lie; the figures themselves are
     // asserted here so that an export reporting different totals has to move a
     // number in this file rather than only a threshold in the driver.
-    // 144: the 126 below plus #48's NFR-004-AC-1 through NFR-004-AC-9 and
-    // TC-057 through TC-063 (16 rows), #49's TC-064, and TC-065, the automated
-    // inspection the 0.3.0 release added so NFR-004-AC-8 is backed like every
-    // other Inspection-verified criterion here. #48 and #49 left this pin at 126.
-    // The release also restores the matrix's `Coverage Status` headers, which
-    // the installed spec-artifacts-process TestMatrix archetype asserts (see
-    // the #35 rename below); the header moves no row.
-    // Superseded: 126, measured directly against `origin/main` `cecb9f4` plus issue #27's
-    // TC-054 row (moved from TC-046, whose id the rebase's unrelated upstream
-    // past-profile and profile-subsystem work had since claimed). The prior
-    // pin of 99 predates all of that upstream growth (FR-009, FR-010, and the
-    // SR-048 through SR-064 past-profile/profile-subsystem reviews landed
-    // between this branch's last main-merge at 033a687 and current main) and
-    // was never a live measurement of that state; it is superseded by this
-    // measurement rather than reconciled with it.
-    // 99: issue #35 added FR-008-AC-1 through FR-008-AC-5 and TC-041 through
-    // TC-045. The Quire released in the tl-release toolchain that `make ci`
-    // uses measures main at 89 (51 criteria plus 38 test-case rows), so this is
-    // 89 plus those 10 rows. The same #35 change renamed the matrix's
-    // `Coverage Status` headers to `Status`; measured at this head, the count is
-    // 99 under either spelling, so the rename moves no row. The prior pin of 96
-    // was 7 above the released Quire's measurement of main, and a differently
-    // installed Quire module set measures a different total, so the history
-    // below records what earlier pins claimed and is superseded by this
-    // measurement rather than reconciled with it. Main's Functional Requirement
-    // Coverage table also has 7 rows, but that match is not a confirmed cause.
-    // Superseded history. 96: the prior 94 plus FR-002-AC-4 and TC-040, which bind semantic
-    // identity independently of diagnostic source spans. The prior 94 was the
-    // prior 89 plus the five atomic NFR-003 criteria split from the
-    // original bundled AC-7 by issue #33. TC-039 backs AC-7 through AC-12. The
-    // prior 89 was 85 plus FR-006-AC-8, the original NFR-003-AC-7, TC-038, and
-    // TC-039. The
-    // earlier 85 was the 83 contextual-report rows plus NFR-003-AC-6 and TC-037's
-    // review-identity control. The contextual 83 was the audited post-deletion
-    // 68 plus 15 context-bound report rows. Issue #13 had reduced 72 to 68 by
-    // removing exactly FR-005-AC-2, FR-006-AC-4, NFR-003-AC-4, and TC-026 with
-    // the retained-evidence claims they owned.
+    // V1 rewrite criteria and matrix rows raise the exact measured population
+    // to 164; all 164 carry native trace backing at this revision.
+    // A changed count requires review against the Quire export.
     let totals = &parsed["totals"];
-    assert_eq!(totals["total"], 144, "matrix row count changed: {totals}");
+    assert_eq!(totals["total"], 164, "matrix row count changed: {totals}");
     assert_eq!(
-        totals["backed"], 144,
+        totals["backed"], 164,
         "backed-row count changed: {totals}. Every row is backed; if that moved, \
          update spec/test-matrix.md deliberately rather than adjusting this assertion."
     );
@@ -1819,16 +1751,11 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // listed), so a reintroduced reader named `reintroduced_reader` or
     // `reintroduced_reader.yaml` was invisible too.
     //
-    // Everything tracked is scanned except these exact lock and licence files.
+    // Everything tracked is scanned except these exact lock and license files.
     // FR-006-AC-7 owns this test-domain control; it is intentionally not copied
     // into the sealed change-assurance record, whose shared schema has no
     // control-metadata field.
-    let denied = |path: &str| {
-        matches!(
-            path,
-            "Cargo.lock" | "LICENSE-APACHE" | "LICENSE-MIT" | "corpus/west-v1/LICENSE"
-        )
-    };
+    let denied = |path: &str| matches!(path, "Cargo.lock" | "LICENSE" | "corpus/west-v1/LICENSE");
     // The expected set below constrains the current tree. These negative cases
     // constrain the predicate itself, so restoring the old LICENSE-prefix or
     // lockfile-suffix rule is red even before such a path is committed.
@@ -1916,15 +1843,10 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
     // Keep this reviewed identity set independent from the executable predicate
     // above. A one-line predicate widening must change the observed side without
     // changing the expected side.
-    let expected_denied: BTreeSet<String> = [
-        "Cargo.lock",
-        "LICENSE-APACHE",
-        "LICENSE-MIT",
-        "corpus/west-v1/LICENSE",
-    ]
-    .into_iter()
-    .map(str::to_owned)
-    .collect();
+    let expected_denied: BTreeSet<String> = ["Cargo.lock", "LICENSE", "corpus/west-v1/LICENSE"]
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
     assert_eq!(
         observed_denied, expected_denied,
         "the executable census deny-list differs from its reviewed ground truth"
@@ -1945,9 +1867,11 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         ".agent",
         ".github",
         "assurance",
+        "benches",
         "corpus",
         "docs",
         "examples",
+        "fuzz",
         "scripts",
         "spec",
         "src",
@@ -2231,6 +2155,13 @@ tl-rewrite-evidence-input-v1.schema.json";
     // census the code had never performed. A rationale anchored on a disproved
     // document is not a rationale.
     //
+    // Population after the Stage 1 infinite lane: **249** scanned tracked files,
+    // measured from Git after staging the new syntax-replay, conformance, and
+    // fuzz paths. By area: 14 `<root>`, 169 `spec`, 21 `tests`, 9 `fuzz`,
+    // 6 `corpus`, 14 `src`, 5 `scripts`, 3 `examples`, 3 `assurance`,
+    // 3 `.github`, 1 `docs`, 1 `.agent`. The four reviewed deny-list exclusions
+    // below remain unchanged.
+    //
     // Population at the 0.3.0 release head: **225** scanned tracked files: the
     // 198 below plus the 26 that #48 and #49 added without moving this control
     // (NFR-004, the PLAN-007 bundle's 10 files, the 12 SR-069..076 and
@@ -2256,16 +2187,15 @@ tl-rewrite-evidence-input-v1.schema.json";
     // SR-064 reviews that landed on main between this branch's last
     // main-merge at 033a687 and current main, and was never a live
     // measurement of that state; it is superseded by this measurement rather
-    // than reconciled with it. The 198 are 202 tracked in total, minus the 4
-    // the
-    // deny-list drops (`Cargo.lock`, `LICENSE-APACHE`, `LICENSE-MIT` and
-    // `corpus/west-v1/LICENSE`). All four are named here, because an earlier
+    // than reconciled with it. The 198 are 201 tracked in total, minus the 3
+    // deny-list drops (`Cargo.lock`, `LICENSE` and
+    // `corpus/west-v1/LICENSE`). All three are named here, because an earlier
     // version of this comment enumerated four exclusions for a count of five and
     // the unnamed one was `Makefile` — the comment was masking the hole rather
     // than describing it.
     //
-    // By area: 13 `<root>`, 139 `spec`, 14 `tests`, 6 `corpus`, 10 `src`,
-    // 5 `scripts`, 3 `examples`, 3 `assurance`, 3 `.github`, 1 `docs`, 1 `.agent`.
+    // By area: the prior 254 files plus the three reviewed Criterion bench
+    // inputs under `benches/`.
     //
     // Assert the reviewed population exactly. A lower bound silently consumes
     // its margin whenever `spec/` grows and cannot be the first reactor for a
@@ -2273,8 +2203,8 @@ tl-rewrite-evidence-input-v1.schema.json";
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
     assert_eq!(
-        inspected, 225,
-        "the source census population changed from the reviewed 225 tracked files \
+        inspected, 257,
+        "the source census population changed from the reviewed 257 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );

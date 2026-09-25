@@ -8,21 +8,37 @@
 
 pub mod catalog;
 pub mod ci_guard;
+mod disposition;
 pub mod engine;
 pub mod equivalence;
 mod hash;
+pub mod infinite;
 pub mod replay;
 pub mod report;
 
 pub use catalog::{
-    catalog, past_catalog, CatalogDocument, Provenance, ProvenanceKind, RuleClass, RuleDefinition,
-    RuleDisposition,
+    catalog, infinite_catalog, past_catalog, CatalogDocument, Provenance, ProvenanceKind,
+    RuleClass, RuleDefinition, RuleDisposition,
+};
+#[cfg(feature = "infinite-trace")]
+pub use disposition::infinite_conformance_disposition;
+pub use disposition::{
+    conformance_disposition, rewrite_disposition, DispositionMappingError, Fr341Disposition,
 };
 pub use engine::{rewrite, rewrite_with_context};
 pub use equivalence::{
     check_equivalence, check_equivalence_with_context, check_past_equivalence, ConformanceOptions,
     ConformanceReason, ConformanceReport, ConformanceStatus, PastConformanceReason,
     PastConformanceReport, PastEvaluationContext,
+};
+#[cfg(feature = "infinite-trace")]
+pub use infinite::{
+    check_infinite_rewrite, InfiniteConformanceReason, InfiniteConformanceReport,
+    InfiniteConformanceStatus,
+};
+pub use infinite::{
+    replay_infinite, rewrite_infinite, InfiniteRewriteFailure, InfiniteRewriteReport,
+    MAX_INFINITE_REPORT_BYTES,
 };
 pub use replay::{replay, replay_with_context, ReplayReport, ReplayStatus};
 pub use report::{
@@ -31,10 +47,10 @@ pub use report::{
 };
 
 /// Exact tl-syntax source revision consumed by this candidate.
-pub const TL_SYNTAX_REVISION: &str = "4a5614193d21e5ae99950ae683b04ba0ec931358";
+pub const TL_SYNTAX_REVISION: &str = "6e2fc17fcfba60c33ab264772bb25550a9c81853";
 
 /// Exact tl-mltl reference source revision consumed by this candidate.
-pub const TL_MLTL_REVISION: &str = "452f013a3168512603d427bce3360bc14c1175a6";
+pub const TL_MLTL_REVISION: &str = "29cea002008f4a6855f54b73ecd63c234499fa3c";
 
 /// Exact canonical WEST source revision from which permitted fixtures were selected.
 pub const WEST_REVISION: &str = "21cd99ab2e6095a099dd179029cfdeb54268ad3f";

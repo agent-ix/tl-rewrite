@@ -1,19 +1,20 @@
 {
   "schema_version": "tl-rewrite.assurance-pins/v1",
-  "purpose": "The Engineering Assurance release this repository adopts, and the digests of the artifacts it actually reads from that release. Component version pins are NOT restated here: the packaged compatibility matrix is their authority and a second copy would drift from it.",
-  "matrix_authority": "engineering_assurance/compatibility-matrix.json in the installed distribution. scripts/check_shared_pins.py observes the local toolchain and delegates every verdict to engineering_assurance.compatibility.",
+  "purpose": "The Engineering Assurance release this repository adopts. The packaged compatibility matrix is the component-version authority; this repository checks the installed native classifier and its declared EA version without restating a matrix.",
+  "matrix_authority": "The native engineering-assurance compatibility CLI embeds the reviewed matrix; scripts/check_shared_pins.py submits explicit observations and consumes only the CLI result.",
   "registry": "Every npm component resolves from the public npm registry (registry.npmjs.org). The internal npm.ix mirror must not appear in any requirement, pin, lockfile, or .npmrc, and is not an oracle for whether a release landed. Querying an @agent-ix package needs --@agent-ix:registry=https://registry.npmjs.org; a bare --registry does not override the scoped .npmrc entry.",
   "engineering_assurance": {
-    "version": "0.2.1",
-    "requirement": "engineering-assurance @ git+https://github.com/agent-ix/engineering-assurance@v0.2.1",
-    "release_form": "git tag v0.2.1, a source distribution; the tag is the released artifact",
-    "declared_in": "requirements-assurance.txt"
+    "version": "0.4.1",
+    "requirement": "cargo +1.98.1 install --git https://github.com/agent-ix/engineering-assurance --tag v0.4.1 --locked --bin engineering-assurance",
+    "release_form": "immutable git tag v0.4.1 at 2fd04e6bf47727cb91b7d39daaedfd1a1051d238; matrix accepted by Peter Krenesky on 2026-09-23",
+    "declared_in": "requirements-assurance.txt",
+    "module_install": "quoin module install github:agent-ix/engineering-assurance//engineering_assurance@v0.4.1"
   },
   "repinned_workflow_component": {
     "component": "quoin",
-    "was": "0.22.5",
-    "now": "0.23.1",
-    "why": "The hosted workflow pinned @agent-ix/quoin@0.22.5, which the packaged compatibility matrix names explicitly incompatible: it 'predates the `quoin change-assurance` surface; seal, intake, and receipt commands do not exist'. Every command this migration's chain runs is on that surface, so the old pin could not have worked. ix-flow@0.0.4 was absent from the workflow entirely and is now installed. quire-cli was already at the accepted 0.31.0."
+    "was": "0.23.1",
+    "now": "0.24.1",
+    "why": "Stage 1 adopts the current Quoin evidence CLI from the accepted EA 0.4.1 compatibility matrix. Historical 0.22.5 and 0.23.0 failures remain documented in prior change records."
   },
   "repinned_ix_flow": {
     "component": "ix-flow",
@@ -21,18 +22,7 @@
     "now": "0.2.3",
     "why": "The packaged compatibility matrix classifies ix-flow strictly at its exact pinned version, so the installed 0.2.3 against the v0.2.0 matrix (which pins 0.0.4) classified as unknown and failed the local qualification gate. engineering-assurance v0.2.1 (release: accept ix-flow 0.2.3 matrix, agent-ix/engineering-assurance#47) re-pins the matrix to ix-flow 0.2.3 with the human acceptance recorded, so this repository's engineering_assurance pin moved from v0.2.0 to v0.2.1 together with the hosted workflow literal, mirroring tl-syntax, tl-parse and tl-mltl. quire-cli and quoin stay at their already-accepted versions."
   },
-  "consumed_artifacts_note": "Before agent-ix/tl-rewrite#13 this list held five entries, four of them digest-pinned: verification_semantics.py, schemas/pgm01-compatibility-view-v1.schema.json, and the two PGM-01 positive-control fixtures. Every one of those four was read by exactly one caller, scripts/legacy_evidence_view.py, which #13 deleted. Leaving them here would have claimed this repository still consumes artifacts nothing opens; removing them without replacement would have left artifact_digest_mismatches re-hashing an empty list and reporting clean, which is a check passing over no subject. Neither was acceptable, so the falsehood was fixed and the population was refilled with the module the surviving caller actually imports. compatibility-matrix.json still carries no digest, for the reason stated on its entry, so it cannot be that subject.",
-  "consumed_artifacts": [
-    {
-      "path": "compatibility.py",
-      "sha256": "c9dd4f8d0dca38a32206c114ba04304776baacfa8c1d5036691d3a46790d966d",
-      "why": "scripts/check_shared_pins.py imports accepted, classify_all and load_matrix from this module, and every component verdict this repository reports comes out of it. It is a live read on every `make pins`, not a retained-evidence pin, so it survives the deletion of the compatibility view and keeps the digest re-derivation asserting over a real subject. Probed: a one-byte edit to the installed module makes `make pins` report a consumed-artifact digest mismatch and exit 1."
-    },
-    {
-      "path": "compatibility-matrix.json",
-      "why": "The authority on which component versions are pinned. Deliberately carries no digest here: it is expected to advance as the matrix is re-accepted, and pinning its bytes locally would make this repository a second acceptance authority."
-    }
-  ],
+  "consumed_artifacts_note": "The tagged native CLI embeds the accepted compatibility matrix. This repository validates its structured response and reports the installed executable digest as an observation; it does not claim an independent fixed classifier-response digest.",
   "deleted_legacy_evidence": {
     "authority": "agent-ix/engineering-assurance#7, section 'Preservation constraint released for the pre-stable phase'. Decided by the repository owner on 2026-09-02. Tracked as agent-ix/tl-rewrite#13.",
     "deleted": "582 files and 3,720,647 bytes under evidence/ (11 records, ANCHORS, RETRACTIONS.json, a README and 11 .sha256 manifests); scripts/legacy_evidence_view.py; 8 files under tests/fixtures/legacy-compat/; 3 files under schemas/.",
@@ -48,19 +38,20 @@
   },
   "known_drift": [
     "Resolved by the bump to v0.2.1: engineering-assurance v0.2.0 packaged compatibility-matrix.json with accepted.state = pending_human_acceptance and shipped no human_acceptance_recorded predicate (agent-ix/engineering-assurance#20). v0.2.1 (release: accept ix-flow 0.2.3 matrix, #47) carries accepted.state = accepted with accepted_by and accepted_at populated, so the record this repository reads is a release carrying the acceptance rather than a branch head.",
-    "map_pgm01_bytes at the pinned release covers quire.pgm01-evidence v1 and v2 only. It has no mapping for quire.derivation-evidence/v1, which is the family this repository and its temporal siblings retained. Filed as agent-ix/engineering-assurance#21, reported and never worked around. It is no longer drift for this repository: the envelopes it applied to were deleted under agent-ix/tl-rewrite#13, so nothing here is affected either way. The upstream gap itself is unchanged."
+    "map_pgm01_bytes at the pinned release covers quire.pgm01-evidence v1 and v2 only. It has no mapping for quire.derivation-evidence/v1, which is the family this repository and its temporal siblings retained. Filed as agent-ix/engineering-assurance#21, reported and never worked around. It is no longer drift for this repository: the envelopes it applied to were deleted under agent-ix/tl-rewrite#13, so nothing here is affected either way. The upstream gap itself is unchanged.",
+    "Resolved for EA 0.4.1: the compatibility matrix records Peter Krenesky's acceptance on 2026-09-23 and immutable tag v0.4.1 exists at 2fd04e6bf47727cb91b7d39daaedfd1a1051d238. make pins still requires the observed installed toolchain to classify as compatible."
   ],
   "upstream_dependencies": {
-    "statement": "Both temporal dependencies resolve to revisions reachable from their own main. tl-rewrite hands tl_syntax::Formula values straight to tl_mltl evaluators, so the two crates must resolve the SAME tl-syntax revision; that is why the past rewrite feature could not land until the origin-complete evaluator merged, and why scripts/check_provenance.py requires src/lib.rs, Cargo.toml and Cargo.lock to agree for both.",
+    "statement": "Both temporal dependencies resolve to exact remote-reachable revisions. tl-rewrite hands tl_syntax::Formula values straight to tl_mltl evaluators, so the two crates must resolve the SAME tl-syntax revision; scripts/check_provenance.py requires src/lib.rs, Cargo.toml and Cargo.lock to agree for both.",
     "tl-syntax": {
       "was": "d52d89549b0a6c0c429261bab912cd5396c4a19e",
-      "now": "4a5614193d21e5ae99950ae683b04ba0ec931358",
-      "why": "4a561419 is the tl-syntax v0.3.0 tag, the first coordinated MLTL crate release. It is the exact revision consumed by tl-rewrite, the pinned tl-mltl evaluator and the dev-only tl-parse, so one tl-syntax resolves in Cargo.lock."
+      "now": "6e2fc17fcfba60c33ab264772bb25550a9c81853",
+      "why": "The exact 0.4.0 Stage 1 syntax candidate supplies the shared formula owner for rewrite, mlTL, parser, and oracle. Cargo.lock resolves one tl-syntax source revision across these dependencies."
     },
     "tl-mltl": {
       "was": "c8d2c871dbb379019a58fe74fcb230f501088538",
-      "now": "452f013a3168512603d427bce3360bc14c1175a6",
-      "why": "452f013a is the tl-mltl v0.3.0 tag and carries the shared tl-syntax revision 4a561419. Pinning both exact revisions keeps the Formula type passed across the crate boundary identical and leaves every production dependency on a release tag."
+      "now": "29cea002008f4a6855f54b73ecd63c234499fa3c",
+      "why": "The exact 0.4.0 Stage 1 evaluator candidate consumes the same syntax revision as rewrite. This preserves one Formula type across the production boundary."
     },
     "earlier_dangling_pin": {
       "revision": "da2c7704a5347d063398c852acf6aa5bf9b5752d",
