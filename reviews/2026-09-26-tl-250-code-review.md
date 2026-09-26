@@ -30,3 +30,13 @@ FAIL. FND-001 and FND-002 block merge; FND-003 leaves the fuzz evidence incomple
 ## Gates
 
 `cargo fmt --check`: pass. `cargo clippy --workspace --all-targets --all-features -- -D warnings`: pass. Five focused integration targets: 27 tests passed. `cargo deny check`: fail, source-not-allowed for `tl-oracle`. No CI workflow change. The direct all-target suite's `shared_assurance` failure was reported by the coder; guarded-ci was excluded because it invokes halted assurance. Git dependency revisions for tl-syntax 9a4316e, tl-parse 4dc67db, and tl-mltl 6798fbd are not on their respective origin/main branches and must be repinned after producer feature merges.
+
+## Dispositions
+
+Round 1 reviewed `dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd`. Each original finding was checked against the fix commit and the required local gate.
+
+| FND | outcome | sha/reason |
+| --- | --- | --- |
+| FND-001 | fixed | dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd |
+| FND-002 | fixed | dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd |
+| FND-003 | fixed | dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd |

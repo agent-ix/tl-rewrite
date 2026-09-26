@@ -20,3 +20,11 @@ Ticket: TL-250. Checked FR-019/020/021 and NFR-005 acceptance criteria against p
 ## Verdict
 
 FAIL. `quire coverage --scope . --json` reports 164/164 backed matrix rows, no unbacked rows, and no status lies. This is a semantic test-oracle gap despite the successful tag binding. The repo has no TL-250-specific plan bundle to assess task status. Broader qualification is halted; this review is limited to the ticket's feature behavior and its acceptance tests.
+
+## Dispositions
+
+Round 1 reviewed `dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd`. Each original finding was checked against the fix commit and the required local gate.
+
+| FND | outcome | sha/reason |
+| --- | --- | --- |
+| FND-001 | fixed | dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd |
