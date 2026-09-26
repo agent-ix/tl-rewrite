@@ -262,6 +262,9 @@ fn lowering_profile(profile: SemanticProfile) -> lowering::SemanticProfile {
         SemanticProfile::OriginCompleteHistoryV1 => {
             panic!("past-time profiles are outside the future-lowering parity corpus")
         }
+        SemanticProfile::InfiniteTraceV1 => {
+            panic!("infinite-trace profiles use a separate formula edition")
+        }
     }
 }
 

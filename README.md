@@ -14,7 +14,7 @@ make spec
 
 The library requires Rust 1.98.1 and consumes validated `tl-syntax.formula/v1` and
 `tl-syntax.formula/v2` documents pinned to revision
-`4a5614193d21e5ae99950ae683b04ba0ec931358` (v0.3.0). Its immutable future catalog
+`9a4316e75d8fda6d50330d2211832c2607d6d62a` (v0.3.0). Its immutable future catalog
 enables 38 closed-trace rules with stable identity, revision, profile,
 precondition, and derivation metadata. Two
 growth-sensitive nested Until/Release transformations from WEST paper Theorem 3
@@ -35,7 +35,7 @@ Only a fixed point carries a normalized formula. `replay` detects substituted
 inputs, catalog/options, steps, intermediates, or output. `check_equivalence`
 enumerates every valuation in a horizon-complete bounded closed-trace domain
 and delegates verdicts to pinned `tl-mltl` revision
-`452f013a3168512603d427bce3360bc14c1175a6` (v0.3.0). This future-only conformance API
+`6798fbdad884a157d039c03425574f7736a42e46` (v0.3.0). This future-only conformance API
 continues to return a typed non-conclusive refusal for past profiles. Past-fold
 tests and `check_past_equivalence` compare two `PastEvaluationContext`s -- a
 formula paired with the exact history, anchor, and proposition-map identity it
@@ -44,7 +44,15 @@ evaluator over event-position and exact fixed-sample histories. Evaluator
 refusal, including a resource limit, remains a typed non-conclusive result and
 is never coerced to a verdict.
 
-The public subsystem layout is `catalog`, `engine::{future,past}`,
+`rewrite_infinite` applies a separate catalog to validated
+`tl-syntax.formula-unbounded/v1` graphs and remaps ordered fairness roots. It
+exposes an output only after a bounded fixed point. The optional
+`infinite-trace` feature enables `check_infinite_rewrite`, which compares the
+original and rewritten graphs on one lasso through the pinned provider.
+Independent rule checks use the dev-only `tl-oracle`; a runtime comparison is
+trace-scoped evidence, not a temporal proof.
+
+The public subsystem layout is `catalog`, `engine::{future,past}`, `infinite`,
 `equivalence`, `report`, and `replay`, with the established root API retained as
 compatibility re-exports. Shared engine code owns deterministic traversal and
 resource charging; profile modules select disjoint rule domains. Every
