@@ -2,7 +2,7 @@
 #![forbid(unsafe_code)]
 
 use libfuzzer_sys::fuzz_target;
-use tl_oracle::{evaluate_documents, Limits as OracleLimits, OracleError};
+use tl_oracle::{evaluate_documents, Limits as OracleLimits};
 use tl_rewrite::{replay_infinite, rewrite_infinite, RewriteBudgets, RewriteOptions};
 use tl_syntax::{
     InfiniteClock, InfiniteFormulaDocument, InfiniteNodeKind, LassoTraceDocument, PartialValuation,
@@ -97,10 +97,12 @@ fuzz_target!(|data: &[u8]| {
     for position in 0..5 {
         let before = evaluate_documents(&input, &word, input.root(), &[], position, limits);
         let after = evaluate_documents(output, &word, output.root(), &[], position, limits);
-        match before {
-            Ok(expected) => assert_eq!(after, Ok(expected), "position={position}"),
-            Err(OracleError::ResourceIncomplete | OracleError::NoPeriodicFixedPoint) => {}
-            Err(error) => panic!("owner-admitted input refused by oracle: {error:?}"),
-        }
+        let expected = before.unwrap_or_else(|error| {
+            panic!("oracle skipped admitted input at position {position}: {error:?}")
+        });
+        let actual = after.unwrap_or_else(|error| {
+            panic!("oracle skipped rewritten output at position {position}: {error:?}")
+        });
+        assert_eq!(actual, expected, "position={position}");
     }
 });

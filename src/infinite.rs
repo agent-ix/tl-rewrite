@@ -123,6 +123,39 @@ struct Pass {
     limits: RewriteBudgets,
 }
 
+impl crate::engine::boolean::BoolState for Pass {
+    type Error = InfiniteRewriteFailure;
+
+    fn kind(&self, id: NodeId) -> Option<crate::engine::boolean::BoolKind> {
+        Pass::kind(self, id).map(Into::into)
+    }
+
+    fn emit(
+        &mut self,
+        kind: crate::engine::boolean::BoolKind,
+        span: Option<SourceSpan>,
+    ) -> Result<NodeId, Self::Error> {
+        use crate::engine::boolean::BoolKind;
+        let kind = match kind {
+            BoolKind::False => Kind::False,
+            BoolKind::True => Kind::True,
+            BoolKind::Not { operand } => Kind::Not { operand },
+            BoolKind::Or { left, right } => Kind::Or { left, right },
+            _ => unreachable!("Boolean rules emit only constants, negation, and disjunction"),
+        };
+        Pass::emit(self, kind, span)
+    }
+
+    fn existing_constant(
+        &mut self,
+        id: NodeId,
+        _kind: crate::engine::boolean::BoolKind,
+        _span: Option<SourceSpan>,
+    ) -> Result<NodeId, Self::Error> {
+        Ok(id)
+    }
+}
+
 impl Pass {
     fn charge(&mut self) -> Result<(), InfiniteRewriteFailure> {
         if self.work >= self.limits.max_work_units {
@@ -169,89 +202,10 @@ impl Pass {
         kind: Kind,
         span: Option<SourceSpan>,
     ) -> Result<Option<(&'static str, NodeId)>, InfiniteRewriteFailure> {
-        let direct = match kind {
-            Kind::Not { operand } => match self.kind(operand) {
-                Some(Kind::False) => Some(("bool.not.false", self.emit(Kind::True, span)?)),
-                Some(Kind::True) => Some(("bool.not.true", self.emit(Kind::False, span)?)),
-                Some(Kind::Not { operand }) => Some(("bool.not.double", operand)),
-                _ => None,
-            },
-            Kind::And { left, right: _ } if self.constant(left, false) => {
-                Some(("bool.and.false-left", left))
-            }
-            Kind::And { left: _, right } if self.constant(right, false) => {
-                Some(("bool.and.false-right", right))
-            }
-            Kind::And { left, right } if self.constant(left, true) => {
-                Some(("bool.and.true-left", right))
-            }
-            Kind::And { left, right } if self.constant(right, true) => {
-                Some(("bool.and.true-right", left))
-            }
-            Kind::And { left, right } if left == right => Some(("bool.and.idempotent", left)),
-            Kind::Or { left, right: _ } if self.constant(left, true) => {
-                Some(("bool.or.true-left", left))
-            }
-            Kind::Or { left: _, right } if self.constant(right, true) => {
-                Some(("bool.or.true-right", right))
-            }
-            Kind::Or { left, right } if self.constant(left, false) => {
-                Some(("bool.or.false-left", right))
-            }
-            Kind::Or { left, right } if self.constant(right, false) => {
-                Some(("bool.or.false-right", left))
-            }
-            Kind::Or { left, right } if left == right => Some(("bool.or.idempotent", left)),
-            Kind::Implies { left, right: _ } if self.constant(left, false) => {
-                Some(("bool.implies.false-left", self.emit(Kind::True, span)?))
-            }
-            Kind::Implies { left, right } if self.constant(left, true) => {
-                Some(("bool.implies.true-left", right))
-            }
-            Kind::Implies { left: _, right } if self.constant(right, true) => {
-                Some(("bool.implies.true-right", right))
-            }
-            Kind::Implies { left, right } if self.constant(right, false) => Some((
-                "bool.implies.false-right",
-                self.emit(Kind::Not { operand: left }, span)?,
-            )),
-            Kind::Implies { left, right } if left == right => {
-                Some(("bool.implies.reflexive", self.emit(Kind::True, span)?))
-            }
-            Kind::Implies { left, right } => {
-                let not_left = self.emit(Kind::Not { operand: left }, None)?;
-                Some((
-                    "bool.implies.eliminate",
-                    self.emit(
-                        Kind::Or {
-                            left: not_left,
-                            right,
-                        },
-                        span,
-                    )?,
-                ))
-            }
-            Kind::Equivalent { left, right } if left == right => {
-                Some(("bool.equivalent.reflexive", self.emit(Kind::True, span)?))
-            }
-            Kind::Equivalent { left, right } if self.constant(left, true) => {
-                Some(("bool.equivalent.true-left", right))
-            }
-            Kind::Equivalent { left, right } if self.constant(right, true) => {
-                Some(("bool.equivalent.true-right", left))
-            }
-            Kind::Equivalent { left, right } if self.constant(left, false) => Some((
-                "bool.equivalent.false-left",
-                self.emit(Kind::Not { operand: right }, span)?,
-            )),
-            Kind::Equivalent { left, right } if self.constant(right, false) => Some((
-                "bool.equivalent.false-right",
-                self.emit(Kind::Not { operand: left }, span)?,
-            )),
-            _ => None,
-        };
-        if direct.is_some() {
-            return Ok(direct);
+        if let Some((rule, _, output)) =
+            crate::engine::boolean::apply_first(self, kind.into(), span)?
+        {
+            return Ok(Some((rule, output)));
         }
         let temporal = match kind {
             Kind::Not { operand } => match self.kind(operand) {

@@ -18,7 +18,7 @@ pub(super) fn apply_first(
     kind: NodeKind,
     span: Option<SourceSpan>,
 ) -> Result<Option<(&'static str, u32, NodeId)>, Abort> {
-    if let Some(application) = super::boolean::apply_first(state, kind, span)? {
+    if let Some(application) = super::boolean::apply_first(state, kind.into(), span)? {
         return Ok(Some(application));
     }
     match kind {

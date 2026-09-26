@@ -649,6 +649,20 @@ fn tc_069_foreign_profile_clock_and_premises_refuse_before_rewrite() {
     assert!(report.steps.is_empty());
 }
 
+/// TC-067, FR-010-AC-1: both graph editions route Boolean rules to one selector.
+#[test]
+fn tc_067_boolean_rules_have_one_authority() {
+    let shared = include_str!("../src/engine/boolean.rs");
+    let infinite = include_str!("../src/infinite.rs");
+    let future = include_str!("../src/engine/future.rs");
+    let past = include_str!("../src/engine/past.rs");
+    assert!(shared.contains("pub(crate) fn apply_first<S: BoolState>"));
+    assert!(infinite.contains("crate::engine::boolean::apply_first(self, kind.into(), span)"));
+    assert!(future.contains("super::boolean::apply_first(state, kind.into(), span)"));
+    assert!(past.contains("super::boolean::apply_first(state, kind.into(), span)"));
+    assert!(!infinite.contains("\"bool."));
+}
+
 /// TC-071, FR-010-AC-6, FR-020-AC-2: the provider is opt-in and oracle dev-only.
 #[test]
 fn tc_071_oracle_is_dev_only() {
