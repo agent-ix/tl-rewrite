@@ -16,13 +16,13 @@ relationships:
 | FR-001 | FR-001-AC-1 through FR-001-AC-3 | TC-001 through TC-004, TC-054 | ✅ covered |
 | FR-002 | FR-002-AC-1 through FR-002-AC-4 | TC-005 through TC-008, TC-020, TC-021, TC-040 | ✅ covered |
 | FR-003 | FR-003-AC-1 through FR-003-AC-3 | TC-009 through TC-012 | ✅ covered |
-| FR-004 | FR-004-AC-1 through FR-004-AC-3 | TC-013 through TC-016, TC-028, TC-054 | ✅ covered |
+| FR-004 | FR-004-AC-1 through FR-004-AC-3 | TC-013 through TC-016, TC-028, TC-054, TC-066 | ✅ implemented |
 | FR-005 | FR-005-AC-1, FR-005-AC-3 | TC-017, TC-019 | ✅ covered |
 | FR-006 | FR-006-AC-1 through FR-006-AC-3, FR-006-AC-5 through FR-006-AC-8 | TC-023, TC-024, TC-025, TC-027, TC-028, TC-029, TC-038 | ✅ implemented |
 | FR-007 | FR-007-AC-1 through FR-007-AC-6 | TC-031 through TC-036, TC-040 | ✅ covered |
 | FR-008 | FR-008-AC-1 through FR-008-AC-5 | TC-041 through TC-045 | ✅ covered |
 | FR-009 | FR-009-AC-1 through FR-009-AC-6 | TC-046 through TC-052 | ✅ covered |
-| FR-010 | FR-010-AC-1 through FR-010-AC-5 | TC-053 | ✅ implemented |
+| FR-010 | FR-010-AC-1 through FR-010-AC-6 | TC-053, TC-066, TC-067 | ✅ implemented |
 
 ## Stakeholder Requirement Coverage
 

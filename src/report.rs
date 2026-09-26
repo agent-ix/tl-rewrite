@@ -86,6 +86,8 @@ pub enum RewriteStatus {
     BudgetExhausted,
     /// A prior complete formula state reappeared.
     NonConvergent,
+    /// An internal consistency or evaluator failure prevented completion.
+    Failed,
     /// The owned input document failed structural validation.
     InvalidInput,
     /// No enabled v1 rule is approved for the input profile.
