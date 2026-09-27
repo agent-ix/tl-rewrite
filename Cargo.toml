@@ -25,16 +25,15 @@ tl-mltl = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-mltl.git",
 tl-syntax = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-syntax.git", rev = "6aa9b11e29040d64b437da87c9944e3dedd34a86", default-features = false, features = ["alloc", "serde"] }
 
 [dev-dependencies]
-tl-oracle = { version = "=0.1.0", git = "https://github.com/agent-ix/tl-oracle.git", rev = "6a2bec0137d4059400bfec080aa07cb7a96ed33e" }
+tl-oracle = { version = "=0.1.0", git = "https://github.com/agent-ix/tl-oracle.git", rev = "2391e5b7402ae02e8d138f3901b43a1f07acd1b6" }
 proptest = "=1.5.0"
 serde_yaml_ng = "0.10"
 tempfile = "=3.10.1"
 # The parser feeds two test seams: tests/rewrite.rs (parser-to-rewriter,
 # FR-002-AC-4) and tests/future_lowering_parity.rs (clean-ascii/v2 W/M graphs,
 # FR-008). tl-parse v0.3.0 compiles the same tl-syntax revision as the
-# production pin. The test-only tl-oracle still compiles the earlier syntax
-# revision until its owner lands a compatible pin, so oracle-driven tests
-# cannot cross the distinct Rust type identities yet.
+# production pin. The test-only tl-oracle also compiles that revision, so
+# the full graph resolves exactly one tl-syntax and one tl-parse.
 # dev-dependencies are not in scope for `src/`. scripts/check_provenance.py
 # still refuses any additional locked tl-syntax revision no
 # `[dev-dependencies]` entry declares.

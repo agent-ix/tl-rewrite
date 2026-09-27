@@ -28,3 +28,20 @@ Round 1 reviewed `dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd`. Each original findi
 | FND | outcome | sha/reason |
 | --- | --- | --- |
 | FND-001 | fixed | dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd |
+| FND-002 | still-open | FR-020 oracle acceptance is unexecuted at this exact head because the test-only oracle dependency cannot consume landed syntax types. |
+
+## Review round 2 — landed producer repin
+
+Reviewed `d48d1c32f4b52f5ff6e8c2c1adb72203f455872f`: FR-019/020/021 and NFR-005 against `spec/infinite-rewrite-test-matrix.md`, the tagged `tests/infinite_rules.rs` and `fuzz/fuzz_targets/infinite_rewrite.rs` oracle paths, and producer dependency closure in `Cargo.toml`/`Cargo.lock`. Original FND-001 remains fixed. Quire still reports 164/164 matrix rows backed, zero unbacked rows and zero status lies; that structural binding does not execute Rust tests. No TL-250 plan bundle exists.
+
+## New findings (disposition pass 2)
+
+| ID | Severity | Summary | Refs |
+| --- | --- | --- | --- |
+| FND-002 | high | TC-070 and TC-072 still claim implemented FR-020 oracle evidence although the oracle-backed integration suite cannot compile after the landed syntax repin. | spec/infinite-rewrite-test-matrix.md:34,36; tests/infinite_rules.rs:417; FR-020-AC-1,FR-020-AC-3 |
+
+`tl-oracle`'s old tl-syntax type identity prevents `evaluate_documents` from accepting the candidate's landed syntax documents (eight E0308 errors). Thus the tagged tests and fuzz source are present but cannot establish the independent before/after oracle verdict required for enabled infinite rules on this exact head.
+
+## Round 2 verdict
+
+**FAIL** — FND-002 is an executable acceptance gap. It shares the dependency cause of code-review SR-084 FND-004. A compatible landed oracle, exact repin, and successful oracle/fuzz checks must precede a merge verdict.

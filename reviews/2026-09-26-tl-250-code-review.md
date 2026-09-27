@@ -40,3 +40,22 @@ Round 1 reviewed `dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd`. Each original findi
 | FND-001 | fixed | dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd |
 | FND-002 | fixed | dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd |
 | FND-003 | fixed | dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd |
+| FND-004 | still-open | A compatible landed tl-oracle revision does not exist yet; old tl-syntax 9a4316e and landed 6aa9b11 have distinct Rust types, so oracle-backed tests fail E0308. |
+
+Round 2 reviewed `d48d1c32f4b52f5ff6e8c2c1adb72203f455872f`; a new finding follows.
+
+## Review round 2 — landed producer repin
+
+Reviewed `d48d1c32f4b52f5ff6e8c2c1adb72203f455872f` against `origin/main` (`8330a9f`), including the seven-file `924ea61..d48d1c3` producer-repin diff, `Cargo.toml`, `Cargo.lock`, `fuzz/Cargo.toml`, `fuzz/Cargo.lock`, `src/lib.rs`, `tests/tc_053_profile_subsystems.rs`, `tests/infinite_rules.rs`, and the unchanged feature implementation and oracle fuzz seam. Original FND-001 through FND-003 remain fixed. No CI workflow change, new vendoring, source-level duplicate, or newly exposed production panic path was found in the repin. AP-001 remains applicable; no measurement, producer-reliance acceptance, or exception is claimed for this revision.
+
+## New findings (disposition pass 2)
+
+| ID | Severity | Summary | Refs |
+| --- | --- | --- | --- |
+| FND-004 | high | The dev-only oracle is pinned to the old tl-syntax source, so the newly repinned infinite oracle suite cannot compile and independent rule soundness cannot be checked. | Cargo.toml:25,28; tests/infinite_rules.rs:417; FR-020-AC-1 |
+
+`tl-oracle` at `6a2bec0` consumes `tl-syntax` `9a4316e`, whereas this candidate uses landed `6aa9b11`; Rust treats their `InfiniteFormulaDocument`, `LassoTraceDocument`, and `NodeId` as different types. `cargo test --offline --test infinite_rules --no-default-features --features infinite-trace --no-run` fails with eight E0308 errors. The same identity split reaches the oracle-driven fuzz target. A compatible independently owned oracle revision is required before this test dependency can be repinned and the acceptance checks rerun; there is no compatible landed oracle at this review.
+
+## Round 2 verdict and checks
+
+**FAIL** — FND-004 blocks merge. `cargo fmt --check`, `cargo deny check sources --disable-fetch`, targeted Quire validation, and `git diff --check` passed; 65 focused non-oracle tests were reported by the coder. The oracle integration compile failed as described; no oracle verdict or fuzz soundness result exists for this head. Aggregate gates and qualification work were outside Peter's feature-only direction.
