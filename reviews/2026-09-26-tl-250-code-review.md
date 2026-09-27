@@ -41,6 +41,7 @@ Round 1 reviewed `dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd`. Each original findi
 | FND-002 | fixed | dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd |
 | FND-003 | fixed | dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd |
 | FND-004 | still-open | A compatible landed tl-oracle revision does not exist yet; old tl-syntax 9a4316e and landed 6aa9b11 have distinct Rust types, so oracle-backed tests fail E0308. |
+| FND-004 | fixed | 724e86e448456785610013ce899419f5bbf26b3c |
 
 Round 2 reviewed `d48d1c32f4b52f5ff6e8c2c1adb72203f455872f`; a new finding follows.
 
@@ -59,3 +60,9 @@ Reviewed `d48d1c32f4b52f5ff6e8c2c1adb72203f455872f` against `origin/main` (`8330
 ## Round 2 verdict and checks
 
 **FAIL** — FND-004 blocks merge. `cargo fmt --check`, `cargo deny check sources --disable-fetch`, targeted Quire validation, and `git diff --check` passed; 65 focused non-oracle tests were reported by the coder. The oracle integration compile failed as described; no oracle verdict or fuzz soundness result exists for this head. Aggregate gates and qualification work were outside Peter's feature-only direction.
+
+## Disposition round 3 — oracle pin and type identity
+
+Reviewed `724e86e448456785610013ce899419f5bbf26b3c` against the original base and `d48d1c3`. FND-004 is fixed by this commit: `Cargo.toml` and both locks pin merged tl-oracle `2391e5b7402ae02e8d138f3901b43a1f07acd1b6`, which consumes landed tl-syntax `6aa9b11`. `cargo tree --offline -i tl-syntax` shows one source shared by tl-mltl, tl-parse, tl-oracle and tl-rewrite. The previously failing `infinite_rules` suite now executes 16/16, including TC-070/071/072; `cargo check --offline --manifest-path fuzz/Cargo.toml --bin infinite_rewrite` compiles the real oracle fuzz target. `infinite_fuzz_seeds` 1/1, `wire_records` 3/3, provenance, deny sources, fmt and diff check pass. The changed wire bytes are exact-pin snapshot values; no production rule body changed. AP-001 remains applicable; no qualification or release-assurance conclusion is claimed.
+
+**Round 3 verdict: PASS.** No open code-review findings at this head.

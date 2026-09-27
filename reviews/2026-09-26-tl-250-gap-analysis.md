@@ -29,6 +29,7 @@ Round 1 reviewed `dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd`. Each original findi
 | --- | --- | --- |
 | FND-001 | fixed | dec8a70f12609cd74eedfb9dd7a9cee032c0fcdd |
 | FND-002 | still-open | FR-020 oracle acceptance is unexecuted at this exact head because the test-only oracle dependency cannot consume landed syntax types. |
+| FND-002 | fixed | 724e86e448456785610013ce899419f5bbf26b3c |
 
 ## Review round 2 — landed producer repin
 
@@ -45,3 +46,9 @@ Reviewed `d48d1c32f4b52f5ff6e8c2c1adb72203f455872f`: FR-019/020/021 and NFR-005 
 ## Round 2 verdict
 
 **FAIL** — FND-002 is an executable acceptance gap. It shares the dependency cause of code-review SR-084 FND-004. A compatible landed oracle, exact repin, and successful oracle/fuzz checks must precede a merge verdict.
+
+## Disposition round 3 — executable FR-020 evidence
+
+Reviewed `724e86e448456785610013ce899419f5bbf26b3c` against FR-020-AC-1/3, TC-070/072, the oracle-backed `tests/infinite_rules.rs`, `tests/infinite_fuzz_seeds.rs`, and `fuzz/fuzz_targets/infinite_rewrite.rs`. FND-002 is fixed by this commit: the merged oracle pin resolves the same landed tl-syntax document types, TC-070's independent comparison and wrong-rule counterexamples execute within the 16/16 passing infinite-rules suite, TC-072's seeded rewrite-then-oracle sweep executes, and the real fuzz target compiles with that oracle. Quire reports 164/164 backed rows, no unbacked rows or status lies. This is focused feature evidence, not an aggregate gate or verification campaign.
+
+**Round 3 verdict: PASS.** No open gap-analysis findings at this head.
