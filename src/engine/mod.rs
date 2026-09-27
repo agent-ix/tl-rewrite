@@ -1,6 +1,6 @@
 //! Shared deterministic rewrite traversal and resource accounting.
 
-mod boolean;
+pub(crate) mod boolean;
 pub mod future;
 pub mod past;
 

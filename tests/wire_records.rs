@@ -95,6 +95,9 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
     // substituting the prior revisions back into these bytes reproduces the
     // prior rewrite and conformance digests exactly; the replay digest moves
     // only because it embeds the rewrite report's digest.
+    // These bytes were measured with landed tl-syntax 6aa9b11 and tl-mltl
+    // 1d9a97f. The exact compiled revisions are independently asserted in
+    // the profile-subsystem and provenance tests.
     assert_eq!(
         [
             digest(&rewrite_bytes),
@@ -102,9 +105,9 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
             digest(&conformance_bytes),
         ],
         [
-            "c8fe4d212a4173a2a5df392ca436f3a26ed7addb445d5237d5451c8c761c77a5",
-            "ec6ddfd6d93ffe64c86bef9c7eebdcb54d64e3717d95136fd744788aed221691",
-            "08c91da590db33ef54528e2647cdc5716d4e5272ce2c8565f53da319b4f1f1b7",
+            "46806f2ecf30203bc8e9c755e95361e701f2e027e6faaa5306cd1edc1cd799ee",
+            "da23695a8004391635e0d2b7fde6c5ed57283ec63e652fd27a9aca8e1933867a",
+            "d7b1f4541fc6b5f6779475ed36ed41398d72064b286ff5065584fbdb48e9d523",
         ]
     );
     assert_eq!(rewrite_report.schema_version, "tl-rewrite.report/v1");
