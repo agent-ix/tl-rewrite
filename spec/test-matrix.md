@@ -106,3 +106,14 @@ relationships:
 | TC-063 | An unmodified Makefile, clean environment, and genuinely passing gates yield a zero exit with no violation reported | Integration | P0 | NFR-004-AC-7 | ✅ implemented |
 | TC-064 | Reproduce Linear TL-202 directly: a gate's own recipe (or a subprocess it spawns, including one whose failure is invisible to that recipe's own exit code) cannot write a completion record for a different declared gate using only `CI_GUARD_RUN_ID` and that gate's public name, because it lacks the token Make scoped to that gate's own recipe; reconciliation correctly names the affected gate as missing rather than being deceived by the forged record, and the legitimate, correctly-scoped call is unaffected. Also covers the missing-soft-include exemption's own scope: a soft-include naming a not-yet-existing target that a Make rule elsewhere in the file could build with `.IGNORE:` is still refused before Make ever runs, closing an independently-reviewed regression in the first version of that exemption. | Integration | P0 | NFR-004-AC-9 | ✅ implemented |
 | TC-065 | Inspect README, CLAUDE.md, and `.github/workflows/*.yml` for every reference to running the full local gate set; each names the entry point (`make guarded-ci`), not a bare `make ci`, and a bare `make ci` substituted into each is reported | Integration | P1 | NFR-004-AC-8 | ✅ implemented |
+| TC-076 | Replay the pinned 15-case syntax owner corpus over the parser, rewriter, and evaluator boundaries, with finite-prefix evaluation for the finite-prefix subject | Integration | P0 | FR-019-AC-3 | ✅ implemented |
+
+## TL-235 rewrite benchmark adjunct
+
+`benches/rewrite_rules.rs` exercises the public rewrite entry point at 1, 24,
+and 64 Boolean rule applications. `benches/input-digests.json` binds each
+canonical input graph; `cargo bench --locked --bench rewrite_rules -- --test`
+checks all three digests and outcomes. Criterion timing distributions require
+paired V9 campaign collection and an independent regression decision. This
+adjunct does not by itself satisfy the TL-235 campaign exit or TL-231 mutation
+thresholds.
