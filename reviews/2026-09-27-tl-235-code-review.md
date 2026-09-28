@@ -29,3 +29,12 @@ CONDITIONAL. Two medium findings need a fix round before this focused PR can sup
 ## Coverage
 
 The three canonical benchmark digests and public outcomes pass preflight. The 15-case owner corpus test passes, including the finite-prefix call to `evaluate_prefix_safety`; 11 cases are compared and four counted as refusals. Quire reports 166/166 backed matrix rows. Full TL-235 paired Campaign measurement and TL-231 mutation thresholds remain outside this PR's claimed completion.
+
+## Dispositions
+
+Round 1 reviewed `45011e2c6e5fb1b16f0c99cb7a6c70cd064dc912`. The benchmark closure now times only the public rewrite report production, with outcome verification before and after Criterion's samples. The clock and fairness negatives each invoke the syntax owner's selected-identity constructor and assert its typed `Clock` or `EmptyLoop` error. Focused fmt, strict Clippy, owner-corpus test, and bench `--test` pass.
+
+| FND | outcome | sha/reason |
+| --- | --- | --- |
+| FND-001 | fixed | 45011e2c6e5fb1b16f0c99cb7a6c70cd064dc912 |
+| FND-002 | fixed | 45011e2c6e5fb1b16f0c99cb7a6c70cd064dc912 |

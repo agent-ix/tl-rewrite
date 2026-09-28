@@ -24,3 +24,11 @@ CONDITIONAL. The TC-076 matrix row is syntactically backed, but its claimed pres
 ## Coverage
 
 Quire coverage reports 166/166 backed rows, no unbacked rows or status lies, including the TC-076 tracking tag. The finite-prefix subject reaches `evaluate_prefix_safety`. TL-235 paired results and TL-231 mutation rates are intentionally pending and are not marked complete by this adjunct. Semantic alignment was evaluated here under the dispatching review brief; no plan-completion claim is made.
+
+## Dispositions
+
+Round 1 reviewed `45011e2c6e5fb1b16f0c99cb7a6c70cd064dc912`. Both formerly raw-field-only negatives now require typed owner admission refusals. The TC-076 focused integration test passes.
+
+| FND | outcome | sha/reason |
+| --- | --- | --- |
+| FND-001 | fixed | 45011e2c6e5fb1b16f0c99cb7a6c70cd064dc912 |
