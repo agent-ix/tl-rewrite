@@ -66,7 +66,7 @@ root cannot be mapped exactly, the whole request refuses.
 |---|---|---|
 | FR-019-AC-1 | Each catalog family and interval form has its stated enabled/excluded disposition; a forbidden family or unbounded singleton never executes. | Test (TC-067) |
 | FR-019-AC-2 | Every output retains owner edition, profile, event-position clock and remapped ordered fairness roots; finite and past catalog bytes remain unchanged. | Test (TC-068) |
-| FR-019-AC-3 | A conformance check classifies conflicting valuations before evaluation; unknown rules, foreign profile/clock or unmappable premises refuse before a partial graph or positive evidence. | Test (TC-069) |
+| FR-019-AC-3 | A conformance check classifies conflicting valuations before evaluation; unknown rules, foreign profile/clock or unmappable premises refuse before a partial graph or positive evidence. | Test (TC-069, TC-076) |
 
 ## Dependencies
 

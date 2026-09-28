@@ -13,7 +13,7 @@ relationships:
 
 | Functional Req | Acceptance Criteria | Test Cases | Status |
 |---|---|---|---|
-| FR-019 | FR-019-AC-1 through FR-019-AC-3 | TC-067 through TC-069 | ✅ implemented |
+| FR-019 | FR-019-AC-1 through FR-019-AC-3 | TC-067 through TC-069, TC-076 | ✅ implemented |
 | FR-020 | FR-020-AC-1 through FR-020-AC-3 | TC-066, TC-070 through TC-072 | ✅ implemented |
 | FR-021 | FR-021-AC-1 through FR-021-AC-2 | TC-073, TC-074 | ✅ implemented |
 | NFR-005 | NFR-005-AC-1 | TC-075 | ✅ implemented |
@@ -37,11 +37,17 @@ oracle paths across bounded, origin-past, and infinite populations.
 | TC-073 | Exhaustively map statuses to FR-341 without message matching | Unit | P0 | FR-021-AC-1 | ✅ implemented |
 | TC-074 | Reject replay promotion of unsupported, incomplete or failed checks | Integration | P0 | FR-021-AC-2 | ✅ implemented |
 | TC-075 | Exercise each exact and one-over bound and one-axis identity mutation | Property | P0 | NFR-005-AC-1 | ✅ implemented |
+| TC-076 | Replay every pinned syntax owner case through its actual lasso or finite-prefix subject, preserving four owner refusals, rewrite outcomes, parser identity where representable, and typed provider dispositions | Integration | P0 | FR-019-AC-3 | ✅ implemented |
 
 ## Integration Test Matrix
 
 | Purpose | Target | Type | Test Cases |
 |---|---|---|---|
 | Compare rule semantics independently | tl-oracle | workspace | TC-066, TC-070 through TC-072 |
-| Preserve owner graph and fairness identity | tl-syntax corpus | workspace | TC-067 through TC-069 |
+| Preserve owner graph and fairness identity | tl-syntax corpus | workspace | TC-067 through TC-069, TC-076 |
 | Refuse non-conclusive promotion | rewrite report and replay | workspace | TC-073 through TC-075 |
+
+TC-076 reads the exact `tl-syntax` corpus pinned in `Cargo.lock`, verifies its
+manifest and `SHA256SUMS`, and checks all 15 cases. The case marked
+`finite_prefix` goes through the pinned evaluator's finite-prefix entry point;
+the lasso conformance entry point has a closed-lasso subject.

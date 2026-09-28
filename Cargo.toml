@@ -25,6 +25,7 @@ tl-mltl = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-mltl.git",
 tl-syntax = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-syntax.git", rev = "6aa9b11e29040d64b437da87c9944e3dedd34a86", default-features = false, features = ["alloc", "serde"] }
 
 [dev-dependencies]
+criterion = { version = "=0.5.1", default-features = false }
 tl-oracle = { version = "=0.1.0", git = "https://github.com/agent-ix/tl-oracle.git", rev = "2391e5b7402ae02e8d138f3901b43a1f07acd1b6" }
 proptest = "=1.5.0"
 serde_yaml_ng = "0.10"
@@ -38,6 +39,10 @@ tempfile = "=3.10.1"
 # still refuses any additional locked tl-syntax revision no
 # `[dev-dependencies]` entry declares.
 tl-parse = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-parse.git", rev = "183fa59150d3a8fa76a5129242fe50453983dae7" }
+
+[[bench]]
+name = "rewrite_rules"
+harness = false
 
 [profile.release]
 lto = "thin"
