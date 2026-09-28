@@ -42,6 +42,18 @@ fn once(interval: Interval) -> FormulaDocument {
     ])
 }
 
+// Trace: TC-050, FR-009-AC-1. Both interval guards must hold before folding.
+#[test]
+fn once_start_one_with_later_end_remains_once() {
+    let input = once(Interval::new(1, 2).unwrap());
+    let report = rewrite(&input, "once-range", RewriteOptions::default(), "source");
+    assert_eq!(report.status, RewriteStatus::Unchanged);
+    assert_eq!(
+        root_kind(report.output.as_ref().unwrap()),
+        root_kind(&input)
+    );
+}
+
 fn triggered_dual(interval: Interval) -> FormulaDocument {
     past_document(vec![
         proposition(0),

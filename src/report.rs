@@ -598,3 +598,21 @@ pub fn read_with_context(
     }
     Ok(report)
 }
+
+#[cfg(test)]
+mod bounded_writer_tests {
+    use super::BoundedWriter;
+    use std::io::Write;
+
+    // Trace: TC-053, FR-010-AC-5. Canonical output has its own byte bound.
+    #[test]
+    fn write_at_limit_succeeds_and_next_byte_refuses_without_partial_append() {
+        let mut writer = BoundedWriter {
+            bytes: Vec::new(),
+            limit: 2,
+        };
+        assert_eq!(writer.write(b"ab").unwrap(), 2);
+        assert!(writer.write(b"c").is_err());
+        assert_eq!(writer.bytes, b"ab");
+    }
+}

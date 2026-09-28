@@ -3,8 +3,8 @@ mod common;
 use common::{document, proposition};
 use tl_rewrite::{
     check_equivalence_with_context, replay_with_context, rewrite_with_context, BindingLocus,
-    ConformanceOptions, ConformanceReason, ConformanceStatus, ReplayStatus, RewriteOptions,
-    RewriteStatus,
+    ConformanceOptions, ConformanceReason, ConformanceStatus, RecordLimits, RecordReadErrorCode,
+    ReplayStatus, RewriteOptions, RewriteStatus,
 };
 use tl_syntax::{
     IntegerSignalDomain, Node, NodeId, NodeKind, OwnedSignalDeclaration, PropositionBinding,
@@ -212,6 +212,24 @@ fn contextual_replay_binds_the_resupplied_catalog_and_context() {
         replay_with_context(&input, &expected, &supplied_catalog, Some(supplied_context));
     assert_eq!(verified.schema_version, "tl-rewrite.replay/v2");
     assert_eq!(verified.status, ReplayStatus::Verified);
+    let without_context = rewrite_with_context(
+        &input,
+        "contextual-replay",
+        RewriteOptions::default(),
+        "source",
+        &supplied_catalog,
+        None,
+    );
+    let replay_without_context =
+        replay_with_context(&input, &without_context, &supplied_catalog, None);
+    assert_eq!(replay_without_context.status, ReplayStatus::Verified);
+    assert_eq!(
+        serde_json::from_value::<tl_rewrite::ReplayReport>(
+            serde_json::to_value(&replay_without_context).unwrap()
+        )
+        .unwrap(),
+        replay_without_context
+    );
     assert_eq!(
         serde_json::from_value::<tl_rewrite::ReplayReport>(
             serde_json::to_value(&verified).unwrap()
@@ -241,6 +259,31 @@ fn contextual_replay_binds_the_resupplied_catalog_and_context() {
         Some(context()),
     );
     assert_eq!(changed_catalog.status, ReplayStatus::Mismatch);
+
+    let report_bytes = serde_json::to_vec(&expected).unwrap();
+    assert_eq!(
+        tl_rewrite::report::read_with_context(
+            &report_bytes,
+            &input,
+            &supplied_catalog,
+            Some(context()),
+            RecordLimits::default(),
+        )
+        .unwrap(),
+        expected
+    );
+    assert_eq!(
+        tl_rewrite::report::read_with_context(
+            &report_bytes,
+            &input,
+            &catalog_with_name(7, "request_ready_changed"),
+            Some(context()),
+            RecordLimits::default(),
+        )
+        .unwrap_err()
+        .code(),
+        RecordReadErrorCode::ExpectedMismatch
+    );
 }
 
 // Trace: TC-032, FR-007-AC-2
