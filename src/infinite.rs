@@ -1135,6 +1135,10 @@ mod conformance_classification_tests {
         let mut reason = before.clone();
         reason.reason = Some(ResultReason::MissingObservation);
         alternatives.push(reason);
+        let mut non_fair_inconclusive = before.clone();
+        non_fair_inconclusive.disposition = Disposition::Inconclusive;
+        non_fair_inconclusive.reason = Some(ResultReason::MissingObservation);
+        alternatives.push(non_fair_inconclusive);
         let mut count = before.clone();
         count.admitted_completions = 2;
         alternatives.push(count);
