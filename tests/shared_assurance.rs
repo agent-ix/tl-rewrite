@@ -1945,9 +1945,12 @@ fn no_local_evidence_framework_remains_and_no_retained_archive_is_left_behind() 
         ".agent",
         ".github",
         "assurance",
+        "benches",
         "corpus",
         "docs",
         "examples",
+        "fuzz",
+        "reviews",
         "scripts",
         "spec",
         "src",
@@ -2272,9 +2275,11 @@ tl-rewrite-evidence-input-v1.schema.json";
     // whole-area loss because the area-set equality above catches that loss.
     // Exact equality makes either growth or partial shrinkage require a deliberate
     // census review instead of leaving a hand-derived floor to rot.
+    // This head has 260 tracked paths. The four exact denied paths above leave
+    // 256 inspected files, including the three benchmark files and owner test.
     assert_eq!(
-        inspected, 225,
-        "the source census population changed from the reviewed 225 tracked files \
+        inspected, 256,
+        "the source census population changed from the reviewed 256 tracked files \
          ({inspected} observed). Review the census scope and update this control \
          deliberately. Areas observed: {observed_areas:?}"
     );
