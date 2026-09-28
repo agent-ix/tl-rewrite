@@ -50,4 +50,6 @@ oracle paths across bounded, origin-past, and infinite populations.
 TC-076 reads the exact `tl-syntax` corpus pinned in `Cargo.lock`, verifies its
 manifest and `SHA256SUMS`, and checks all 15 cases. The case marked
 `finite_prefix` goes through the pinned evaluator's finite-prefix entry point;
-the lasso conformance entry point has a closed-lasso subject.
+the lasso conformance entry point has a closed-lasso subject. The two negative
+trace cases exercise `LassoTraceDocument::from_selected_identities`, checking
+typed clock and empty-loop refusals after constructing the pinned case inputs.

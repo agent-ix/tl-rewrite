@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, time::Duration};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use sha2::{Digest, Sha256};
-use tl_rewrite::{rewrite, RewriteBudgets, RewriteOptions, RewriteStatus};
+use tl_rewrite::{rewrite, RewriteBudgets, RewriteOptions, RewriteReport, RewriteStatus};
 use tl_syntax::{FormulaDocument, Node, NodeId, NodeKind, PropositionId, SemanticProfile};
 
 const INPUT_DIGESTS: &str = include_str!("input-digests.json");
@@ -24,8 +24,8 @@ fn input(applications: u32) -> FormulaDocument {
     FormulaDocument::new(SemanticProfile::ClosedTraceV1, root, nodes).unwrap()
 }
 
-fn run(document: &FormulaDocument, applications: u32) -> usize {
-    let report = rewrite(
+fn run(document: &FormulaDocument, applications: u32) -> RewriteReport {
+    rewrite(
         document,
         "v9-rules",
         RewriteOptions {
@@ -37,10 +37,13 @@ fn run(document: &FormulaDocument, applications: u32) -> usize {
             ..RewriteOptions::default()
         },
         "v9-source",
-    );
+    )
+}
+
+fn verify(report: &RewriteReport, applications: u32) {
     assert_eq!(report.status, RewriteStatus::Normalized);
     assert_eq!(report.steps.len(), applications as usize);
-    report.output.unwrap().nodes().len()
+    assert_eq!(report.output.as_ref().unwrap().nodes().len(), 1);
 }
 
 fn rule_application(c: &mut Criterion) {
@@ -62,11 +65,12 @@ fn rule_application(c: &mut Criterion) {
             digest, expected[name],
             "benchmark input digest changed: {name}"
         );
-        assert_eq!(run(&document, applications), 1);
+        verify(&run(&document, applications), applications);
         group.throughput(Throughput::Elements(u64::from(applications)));
         group.bench_function(name, |b| {
             b.iter(|| black_box(run(black_box(&document), applications)));
         });
+        verify(&run(&document, applications), applications);
     }
     group.finish();
 }

@@ -16,9 +16,9 @@ use tl_rewrite::{
     RewriteOptions,
 };
 use tl_syntax::{
-    InfiniteClock, InfiniteFormulaDocument, LassoTraceDocument, PartialValuation, PartialValue,
-    PropositionEntry, PropositionId, PropositionMapDocument, SemanticProfile, TraceObservation,
-    ValuationEntry, CORPUS_DIR,
+    InfiniteClock, InfiniteFormulaDocument, LassoTraceDocument, LassoTraceError, PartialValuation,
+    PartialValue, PropositionEntry, PropositionId, PropositionMapDocument, SemanticProfile,
+    TraceObservation, ValuationEntry, CORPUS_DIR,
 };
 
 #[derive(Deserialize)]
@@ -113,14 +113,54 @@ fn pinned_owner_cases_cross_parser_rewriter_and_provider() {
         let wire: CorpusTrace = serde_json::from_value(case["trace"].clone()).unwrap();
         assert_eq!(wire.schema_version, tl_syntax::LASSO_TRACE_V1, "{id}");
         assert_eq!(wire.semantic_profile, "mltl.infinite-trace/v1", "{id}");
+        let map = PropositionMapDocument::new(wire.proposition_map).unwrap();
+        let map_id = map.content_identity().unwrap();
+        let propositions: Vec<_> = map.propositions().iter().map(|entry| entry.id).collect();
+        let prefix = observations(wire.prefix, &map_id, &propositions);
+        let loop_observations = observations(wire.loop_observations, &map_id, &propositions);
         if axis == Some("clock") {
-            assert_ne!(wire.clock, "event_position", "{id}");
+            assert!(
+                matches!(
+                    LassoTraceDocument::from_selected_identities(
+                        Some(&wire.semantic_profile),
+                        &wire.clock,
+                        map_id,
+                        propositions,
+                        prefix,
+                        loop_observations,
+                    ),
+                    Err(LassoTraceError::Clock)
+                ),
+                "{id}: owner admitted a foreign clock"
+            );
             refused += 1;
             continue;
         }
         assert_eq!(wire.clock, "event_position", "{id}");
         if axis == Some("fairness") {
-            assert!(wire.loop_observations.is_empty(), "{id}");
+            let roots = serde_json::from_value(case["fairness"]["roots"].clone()).unwrap();
+            let fairness = tl_syntax::FairnessPremisesDocument::new(
+                &formula,
+                formula.content_identity().unwrap(),
+                InfiniteClock::EventPosition,
+                roots,
+            )
+            .unwrap();
+            assert!(!fairness.roots().is_empty(), "{id}");
+            assert!(
+                matches!(
+                    LassoTraceDocument::from_selected_identities(
+                        Some(&wire.semantic_profile),
+                        &wire.clock,
+                        map_id,
+                        propositions,
+                        prefix,
+                        loop_observations,
+                    ),
+                    Err(LassoTraceError::EmptyLoop)
+                ),
+                "{id}: owner admitted fairness without a lasso"
+            );
             refused += 1;
             continue;
         }
@@ -184,11 +224,6 @@ fn pinned_owner_cases_cross_parser_rewriter_and_provider() {
             None => (&formula, Some(&fairness)),
         };
 
-        let map = PropositionMapDocument::new(wire.proposition_map).unwrap();
-        let map_id = map.content_identity().unwrap();
-        let propositions: Vec<_> = map.propositions().iter().map(|entry| entry.id).collect();
-        let prefix = observations(wire.prefix, &map_id, &propositions);
-        let loop_observations = observations(wire.loop_observations, &map_id, &propositions);
         let trace = LassoTraceDocument::new(
             SemanticProfile::InfiniteTraceV1,
             InfiniteClock::EventPosition,

@@ -8,8 +8,10 @@ applications. Each generated formula's canonical wire SHA-256 must match
 `input-digests.json` before Criterion records a sample.
 
 The corpus is bound to this branch's pinned `tl-syntax` 0.3.0 owner revision
-`6aa9b11e29040d64b437da87c9944e3dedd34a86`. Each sample also checks
-normalized status, one applied rule per conjunction, and the one-node output.
+`6aa9b11e29040d64b437da87c9944e3dedd34a86`. Preflight and postflight
+checks assert normalized status, one applied rule per conjunction, and the
+one-node output. The timed closure calls the public rewrite entry point and
+consumes its report without assertions or report inspection.
 
 The bench uses Criterion 0.5.1, 20 samples, 500 ms warmup, and 1 s minimum
 measurement time. A successful `cargo bench --locked --bench rewrite_rules --
