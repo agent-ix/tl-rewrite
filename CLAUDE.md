@@ -41,7 +41,7 @@ decision and must not be advanced automatically.
 Since issue #9 this repository has no local evidence framework. Retention,
 integrity checking, audit, attestation, change records and receipts are owned by
 Quoin; static specification and coverage facts come from a Quire export; the
-compatibility matrix and the PGM-01 mapping come from Engineering Assurance.
+compatibility matrix comes from Engineering Assurance.
 `assurance/pins.json` records the release and the digests of the artifacts read
 from it, and `assurance/README.md` explains how the pieces relate.
 

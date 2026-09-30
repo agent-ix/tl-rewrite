@@ -84,7 +84,7 @@ against both documents outside the enumeration that found it, so a witness that
 does not actually separate the pair is a failure rather than a decorative field.
 
 Retention, integrity checking, audit, attestation and receipts are owned
-upstream by Quoin, and the compatibility matrix and PGM-01 mapping by
+upstream by Quoin, and the compatibility matrix by
 Engineering Assurance. This repository runs its own producers and reports what
 those tools said; it keeps no evidence framework of its own. See
 `assurance/README.md`.

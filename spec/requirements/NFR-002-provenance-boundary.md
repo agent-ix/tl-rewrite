@@ -2,9 +2,6 @@
 id: NFR-002
 title: Retain provenance and qualification boundaries
 type: NFR
-relationships:
-  - target: ix://agent-ix/quire-contract-ir/PGM-01
-    type: references
 ---
 
 # NFR-002: Retain provenance and qualification boundaries
@@ -49,4 +46,4 @@ verdict to a dependency that did not produce it.
 
 ## Dependencies
 
-Applies PGM-01 to the complete repository lifecycle.
+Applies to the complete repository lifecycle.

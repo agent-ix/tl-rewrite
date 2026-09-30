@@ -18,7 +18,7 @@ type: SuiteRegistry
 | SUITE-006 | tl-mltl and WEST equivalence | `cargo test --test equivalence` | Rust test harness | Integration |
 | SUITE-007 | Shared assurance intake | `make assurance` | quoin 0.23.1, engineering-assurance 0.2.1 | Integration |
 
-SUITE-007 replaces the retired PGM-01 envelope suite. Retention, integrity
+SUITE-007 replaces the retired envelope suite. Retention, integrity
 checking, audit, attestation and receipt are owned by Quoin from FR-006 onward;
 this repository runs the producers and reports what Quoin said about their
 output.

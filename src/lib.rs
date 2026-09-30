@@ -54,6 +54,3 @@ pub const TL_MLTL_REVISION: &str = "1d9a97f6b601bcc5ee7f2b644bf8b5ea3d66e61e";
 
 /// Exact canonical WEST source revision from which permitted fixtures were selected.
 pub const WEST_REVISION: &str = "21cd99ab2e6095a099dd179029cfdeb54268ad3f";
-
-/// Merged PGM-01 policy revision governing evidence and decision boundaries.
-pub const PGM01_POLICY_REVISION: &str = "7dac9d8c19952412b56a0347387666e2ca81e01d";
