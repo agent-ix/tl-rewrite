@@ -56,8 +56,7 @@ existing v0.2.0. Changes are relative to v0.1.0.
 
 ### Changed
 
-- **Dependencies.** All of them compile one tl-syntax, so `Cargo.lock` resolves
-  exactly one `tl-syntax` and one `tl-parse`. The historical dev-only aliases
+- **Dependencies.** The historical dev-only aliases
   `tl-parse-derived`, `tl-syntax-lowering` and `tl-syntax-parser-seam` are
   gone. The W/M parity and parser-seam tests now run against the released
   crates.

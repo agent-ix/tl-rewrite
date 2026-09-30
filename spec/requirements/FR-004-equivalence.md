@@ -13,7 +13,7 @@ relationships:
 
 The library shall compare original and rewritten closed-trace formulas with the
 exact tl-mltl evaluator over every valuation in a declared horizon-complete
-finite domain and shall retain permitted WEST-derived fixtures.
+finite domain.
 
 ## Behavior
 
@@ -23,7 +23,7 @@ finite domain and shall retain permitted WEST-derived fixtures.
   the result non-conclusive.
 - A first mismatch retains a deterministic counterexample trace and both verdicts.
 - Reports name formula, profile, rule set, trace domain, evaluator, syntax,
-  WEST source/corpus, and result status.
+  and result status.
 
 ## Acceptance Criteria
 
