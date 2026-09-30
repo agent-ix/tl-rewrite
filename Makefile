@@ -37,9 +37,7 @@
 #
 # exits 2 and stops at the first prerequisite. Prepend a single `.IGNORE:`
 # line and the identical command exits 0 after 27 ignored recipe failures,
-# with all 12 `ci` prerequisites reporting success: eleven whose own recipe
-# failed, and `audit-unsafe`, which invokes bash directly and the sabotage
-# does not reach. `make
+# with all 12 `ci` prerequisites reporting success. `make
 # guarded-ci` against the same `.IGNORE:`-prepended file refuses before Make
 # ever runs.
 

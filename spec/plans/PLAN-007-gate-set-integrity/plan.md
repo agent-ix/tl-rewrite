@@ -99,12 +99,6 @@ notes). See log.md for the full closing record and individual task files'
   blocking the other.
 
 ### Cross-cutting constraints
-- `NFR-003` applies to every gate whose result the Quoin-bound
-  `assurance-inputs` chain already reads (`conformance`, `counterexamples`,
-  `normalization`, `check-corpus`'s provenance half); this plan does not
-  duplicate that coverage and Task-004's reconciliation treats those gates
-  identically to the eight NFR-003 cannot see — the completion record, not
-  the chain, is what NFR-004 reconciles against.
 - Owner-directive constraint (Linear TL-64): all new production logic in
   this plan is Rust. No task introduces a new Python/shell evidence
   framework; `scripts/*.py` stays as-is and out of this plan's scope.
@@ -241,7 +235,7 @@ Task-001 (entry-point scaffold + static inspection, AC-1)
   changing a gate's actual behavior while only intending to add a record.
 - **Difficulty:** Medium — mechanically simple per recipe, but widest blast
   radius in this plan (touches recipes nominally owned by FR-001 through
-  FR-010 and NFR-001 through NFR-003). Correctness of each gate's own recipe
+  FR-010, NFR-001 and NFR-002). Correctness of each gate's own recipe
   is explicitly out of NFR-004's ownership (see NFR-004 Scope); this task
   only adds a record write, and must not change any recipe's actual command.
 - **Estimated new code:** ~13 one-line recipe additions + one shared Make
@@ -296,7 +290,6 @@ neither blocks Task-002 or Task-005.
   individually green — the gate is a joint property, not something any one
   of them can pass alone (this is the point of the tracked measurement:
   mechanisms interacting is exactly what a false pass previously hid).
-- No task in this plan touches `scripts/*.py`, `assurance/`, or
-  `NFR-003`'s owned gates; if a task's implementation seems to need that,
+- No task in this plan touches `scripts/*.py`; if a task's implementation seems to need that,
   stop and re-check against NFR-004's Scope section before proceeding.
 

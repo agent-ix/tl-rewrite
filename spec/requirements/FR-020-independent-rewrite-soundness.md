@@ -43,8 +43,7 @@ A finite test population is evidence, not a universal proof. Rule enablement
 also needs the catalog's semantic derivation; a mismatch disables the exact
 rule/profile pair until resolved. Fuzzing rewrites then evaluates both sides
 with the oracle; a crash, disagreement, changed corpus digest or skipped
-profile is a failure. Reproducible seeds and minimized witnesses are retained
-through the shared assurance path, with no local evidence store.
+profile is a failure.
 
 ## Acceptance Criteria
 

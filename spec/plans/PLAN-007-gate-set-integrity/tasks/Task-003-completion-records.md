@@ -32,9 +32,6 @@ completion, using the file contract Task-001 defines.
   command or behavior — this task adds a record write, nothing else.
 - [ ] Confirm a recipe that fails (e.g. a stubbed tool forced to exit
   non-zero) writes no record for that gate.
-- [ ] Confirm `assurance`, which aggregates `pins` and `assurance-chain`,
-  records correctly for the aggregate the way NFR-003's own measurement
-  described it (an aggregate whose sub-targets can each fail independently).
 
 ## Deliverables
 
@@ -45,8 +42,8 @@ completion, using the file contract Task-001 defines.
 ## Notes
 
 - SR-075/FND-001: this is the widest-blast-radius task in the plan — it
-  touches recipes nominally owned by FR-001 through FR-010 and NFR-001
-  through NFR-003. NFR-004 does not own those recipes' correctness (see
+  touches recipes nominally owned by FR-001 through FR-010, NFR-001
+  and NFR-002. NFR-004 does not own those recipes' correctness (see
   NFR-004 Scope); this task must be reviewable as "added one record write
   per recipe" and nothing more. If a recipe's actual command needs to change
   to make this work, stop and flag it rather than quietly changing gate

@@ -57,8 +57,7 @@ do not proceed to Task-007 until both pass.
 ## Notes
 
 - This is the gate NFR-004 exists to be able to pass where the old, removed
-  guard and a bare `make ci` could not: see NFR-003's Scope section for the
-  exact reproduction command this task's fixtures reuse.
+  guard and a bare `make ci` could not.
 - Do not mark this task done on a green run against fixtures alone; the real
   HEAD run is required because fixtures cannot catch an entry-point bug that
   only manifests against the actual 13-recipe Makefile (e.g. an

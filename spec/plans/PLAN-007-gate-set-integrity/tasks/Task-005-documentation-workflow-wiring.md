@@ -32,8 +32,7 @@ Update every such reference to name the entry point instead.
   quotes at length) to describe the entry point rather than describing the
   gap as unremediated.
 - [ ] Check `.github/workflows/*.yml` for any `make ci` invocation and
-  repoint it at the entry point (hosted CI remains manual-dispatch-only per
-  NFR-003; this task does not change that, only what a dispatch runs).
+  repoint it at the entry point (hosted CI remains manual-dispatch-only; this task does not change that, only what a dispatch runs).
 
 ## Deliverables
 
