@@ -300,8 +300,6 @@ fn evaluate(root: &std::path::Path, case: &Case) -> Row {
         "traceLength": report.trace_length,
         "totalTraces": report.total_traces,
         "tracesChecked": report.traces_checked,
-        "evaluatorRevision": report.evaluator_revision,
-        "syntaxRevision": report.syntax_revision,
         "limitation": report.limitation,
     });
 

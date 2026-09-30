@@ -85,14 +85,6 @@ existing v0.2.0. Changes are relative to v0.1.0.
   *Migration:* pass documents across the boundary as canonical
   formula-v1/v2 JSON bytes and read them with
   `FormulaDocument::from_json_bytes`.
-- **Report bytes and identities differ from v0.1.0.** `RewriteReport`,
-  `ReplayReport` and `ConformanceReport` record the compiled tl-syntax and
-  tl-mltl revisions (`syntax_revision`, `evaluator_revision`). A report's own
-  digest therefore moves with those revisions, and so does the report digest
-  that a `ReplayReport` embeds. Schema versions (`tl-rewrite.report/v1`,
-  `tl-rewrite.replay/v1`, `tl-rewrite.conformance/v1`) and status meanings are
-  unchanged. *Migration:* re-derive any stored report digest with 0.3.0. Do not
-  compare digests of reports produced by different crate versions.
 - **Inputs can carry the past-time vocabulary.** tl-syntax 0.3.0 adds
   `SemanticProfile::OriginCompleteHistoryV1`, formula-v2 and five past
   `NodeKind`s, none of which v0.1.0's tl-syntax could represent. `rewrite`

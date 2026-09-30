@@ -214,8 +214,6 @@ fn evaluate(case: &Case, rule: &tl_rewrite::RuleDefinition) -> Row {
         "traceLength": conformance.trace_length,
         "totalTraces": conformance.total_traces,
         "tracesChecked": conformance.traces_checked,
-        "evaluatorRevision": conformance.evaluator_revision,
-        "syntaxRevision": conformance.syntax_revision,
         "limitation": conformance.limitation,
     });
     match conformance.status {

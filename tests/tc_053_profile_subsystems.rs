@@ -6,7 +6,7 @@ use tl_rewrite::{
     check_past_equivalence, engine, past_catalog, replay as replay_report,
     report as rewrite_report, rewrite, BudgetKind, ConformanceStatus, PastConformanceReason,
     PastEvaluationContext, RecordLimits, RecordReadErrorCode, ReplayReport, ReplayStatus,
-    RewriteBudgets, RewriteOptions, RewriteStatus, TL_MLTL_REVISION, TL_SYNTAX_REVISION,
+    RewriteBudgets, RewriteOptions, RewriteStatus,
 };
 use tl_syntax::{
     FormulaDocument, Interval, Node, NodeId, NodeKind, PropositionId, SemanticProfile,
@@ -182,11 +182,6 @@ fn tc_053_profile_dispatch_owner_admission_and_legacy_bytes_are_preserved() {
         engine::past::SEMANTIC_PROFILE,
         SemanticProfile::OriginCompleteHistoryV1
     );
-    assert_eq!(
-        TL_SYNTAX_REVISION,
-        "6aa9b11e29040d64b437da87c9944e3dedd34a86"
-    );
-    assert_eq!(TL_MLTL_REVISION, "1d9a97f6b601bcc5ee7f2b644bf8b5ea3d66e61e");
 
     let future = FormulaDocument::new(
         SemanticProfile::ClosedTraceV1,
@@ -508,8 +503,6 @@ fn tc_053_past_owner_equivalence_covers_both_clocks_all_anchors_and_wrong_operat
                 );
                 assert_eq!(report.status, ConformanceStatus::Equivalent);
                 assert_eq!(report.reason, None);
-                assert_eq!(report.syntax_revision, TL_SYNTAX_REVISION);
-                assert_eq!(report.evaluator_revision, TL_MLTL_REVISION);
                 assert!(report.original_result_identity.is_some());
                 assert!(report.rewritten_result_identity.is_some());
                 assert!(report.limitation.contains("does not prove a universal"));

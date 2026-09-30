@@ -61,16 +61,13 @@ a soundness proof.
 
 Reports and replay retain exact input/output formula owner contracts and
 identities, catalog/rule revisions, application trace, source context,
-proposition bindings, limits and dependency revisions. Every successful output
+proposition bindings and limits. Every successful output
 is admitted by the real tl-syntax strict reader. Past equivalence uses the exact
 tl-mltl owner evaluator interface; it never embeds a second evaluator or treats
 bounded evidence as universal proof.
 
 A source-only module move changes no canonical graph, semantic identity,
-diagnostic, work charge, report or replay byte. The required dependency advance
-changes only the exact syntax/evaluator revision fields and report/replay
-digests derived from those fields; it does not silently retain a stale producer
-identity. No parser, native-language, Contract-IR vocabulary, production
+diagnostic, work charge, report or replay byte. No parser, native-language, Contract-IR vocabulary, production
 monitor or evidence framework is added.
 
 ## Acceptance Criteria
@@ -79,7 +76,7 @@ monitor or evidence framework is added.
 |---|---|---|
 | FR-010-AC-1 | Every existing future and past rule dispatches only through its selected profile catalog; cross-profile, mixed and unknown inputs never reach a rule body. | Test (TC-053) |
 | FR-010-AC-2 | Every successful graph passes the real tl-syntax strict reader and preserves contract/profile/source/proposition identity; unproved past forms remain byte-identical. | Test (TC-053) |
-| FR-010-AC-3 | Existing canonical graph, schema, status, diagnostic and work-accounting bytes remain unchanged across the source reorganization and public re-exports; only mandatory dependency-revision fields and report/replay digests derived from them advance. | Test (TC-053) |
+| FR-010-AC-3 | Existing canonical graph, schema, status, diagnostic and work-accounting bytes remain unchanged across the source reorganization and public re-exports. | Test (TC-053) |
 | FR-010-AC-4 | Past runtime equivalence invokes only the tl-mltl owner API as a diagnostic, detects every wrong O/H/Y/S/T fold across both clocks and anchors, and claims no universal proof; qualification rule evidence uses `tl-oracle`. | Test (TC-053, TC-066) |
 | FR-010-AC-5 | Exact and one-over iteration/node/application/work/report/replay bounds preserve existing typed outcomes and expose no partial graph or report. | Test (TC-053) |
 | FR-010-AC-6 | Infinite inputs dispatch only through the infinite catalog, keep their profile/edition/fairness identities, and leave the bounded evaluator feature off in default builds; opt-in conformance remains trace-scoped. | Test (TC-067, TC-069) |
