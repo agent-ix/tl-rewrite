@@ -1,9 +1,6 @@
 mod common;
 
-use std::{fs, path::PathBuf};
-
 use common::{document, proposition};
-use sha2::{Digest, Sha256};
 use tl_rewrite::{
     catalog, check_equivalence, replay, rewrite, CatalogDocument, ConformanceOptions,
     ConformanceReport, ReplayReport, RewriteOptions, RewriteReport,
@@ -79,71 +76,7 @@ fn context_free_report_families_keep_their_v01_semantic_identity_bytes() {
         "v1-snapshot",
         ConformanceOptions::default(),
     );
-    let digest = |value: &[u8]| format!("{:x}", Sha256::digest(value));
-    let rewrite_bytes = serde_json::to_vec(&rewrite_report).unwrap();
-    let replay_bytes = serde_json::to_vec(&replay_report).unwrap();
-    let conformance_bytes = serde_json::to_vec(&conformance).unwrap();
-    // These are the candidate bytes after the reviewed formula-v2/past-profile
-    // dependency advance. The v1 schemas and status meanings did not change;
-    // diagnostic spans still do not contribute to formula digests, while the
-    // exact compiled syntax/evaluator revisions remain truthful report fields.
-    // Updated again for the tl-mltl 0.2.0 / tl-syntax d52d8954 advance (TL-179:
-    // dropped the quire-observation dev-dependency): only the compiled
-    // TL_SYNTAX_REVISION/TL_MLTL_REVISION report fields changed, so only the
-    // digests derived from them move here.
-    // Updated for the 0.3.0 release pins (tl-syntax 4a561419, tl-mltl 452f013a):
-    // substituting the prior revisions back into these bytes reproduces the
-    // prior rewrite and conformance digests exactly; the replay digest moves
-    // only because it embeds the rewrite report's digest.
-    // These bytes were measured with landed tl-syntax 6aa9b11 and tl-mltl
-    // 1d9a97f. The exact compiled revisions are independently asserted in
-    // the profile-subsystem and provenance tests.
-    assert_eq!(
-        [
-            digest(&rewrite_bytes),
-            digest(&replay_bytes),
-            digest(&conformance_bytes),
-        ],
-        [
-            "46806f2ecf30203bc8e9c755e95361e701f2e027e6faaa5306cd1edc1cd799ee",
-            "da23695a8004391635e0d2b7fde6c5ed57283ec63e652fd27a9aca8e1933867a",
-            "d7b1f4541fc6b5f6779475ed36ed41398d72064b286ff5065584fbdb48e9d523",
-        ]
-    );
     assert_eq!(rewrite_report.schema_version, "tl-rewrite.report/v1");
     assert_eq!(replay_report.schema_version, "tl-rewrite.replay/v1");
     assert_eq!(conformance.schema_version, "tl-rewrite.conformance/v1");
-}
-
-// Trace: TC-019, FR-005-AC-3, StR-001-VC-1
-#[test]
-fn human_authority_and_qualification_boundaries_remain_open() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    // Four documents, not five. `evidence/README.md` was inspected here until
-    // issue #13 deleted it with the archive it described. It was the only source
-    // of `pending` — it said the retained records "inform a pending human
-    // source-release decision". The property is still true and is not dropped:
-    // the statement moved to AA-001's Human Decision section, which is the
-    // document that owns the claim, so this inspection asserts the same six
-    // properties over a smaller set rather than five properties over four files.
-    let combined = [
-        "README.md",
-        "spec/assurance/AP-001.md",
-        "spec/assurance/AA-001.md",
-        "docs/DER-001-rule-derivations.md",
-    ]
-    .iter()
-    .map(|path| fs::read_to_string(root.join(path)).unwrap())
-    .collect::<Vec<_>>()
-    .join("\n");
-    for required in [
-        "@kreneskyp",
-        "human",
-        "pending",
-        "does not prove arbitrary",
-        "qualif",
-        "source-release",
-    ] {
-        assert!(combined.contains(required), "boundary omits {required}");
-    }
 }

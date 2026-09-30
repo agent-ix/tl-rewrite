@@ -16,8 +16,8 @@ relationships:
 | FR-001 | FR-001-AC-1 through FR-001-AC-3 | TC-001 through TC-004, TC-054 | ✅ covered |
 | FR-002 | FR-002-AC-1 through FR-002-AC-4 | TC-005 through TC-008, TC-020, TC-021, TC-040 | ✅ covered |
 | FR-003 | FR-003-AC-1 through FR-003-AC-3 | TC-009 through TC-012 | ✅ covered |
-| FR-004 | FR-004-AC-1 through FR-004-AC-3 | TC-013 through TC-016, TC-054, TC-066 | ✅ implemented |
-| FR-005 | FR-005-AC-1, FR-005-AC-3 | TC-017, TC-019 | ✅ covered |
+| FR-004 | FR-004-AC-1, FR-004-AC-2 | TC-013 through TC-016, TC-054, TC-066 | ✅ implemented |
+| FR-005 | FR-005-AC-1, FR-005-AC-3 | TC-017 | ✅ covered |
 | FR-007 | FR-007-AC-1 through FR-007-AC-5 | TC-031 through TC-035, TC-040 | ✅ covered |
 | FR-008 | FR-008-AC-1 through FR-008-AC-5 | TC-041 through TC-045 | ✅ covered |
 | FR-009 | FR-009-AC-1 through FR-009-AC-6 | TC-046 through TC-052 | ✅ covered |
@@ -27,7 +27,7 @@ relationships:
 
 | Stakeholder Req | Trace to US/FR | Test/Validation | Status |
 |---|---|---|---|
-| StR-001 | FR-001, FR-003, FR-005, FR-009 | TC-001, TC-009, TC-010, TC-019, TC-046, TC-049 | ✅ covered |
+| StR-001 | FR-001, FR-003, FR-005, FR-009 | TC-001, TC-009, TC-010, TC-046, TC-049 | ✅ covered |
 | StR-002 | FR-002, FR-004, FR-008, FR-009 | TC-005, TC-006, TC-013, TC-016, TC-041, TC-042, TC-047, TC-052 | ✅ covered |
 | StR-003 | FR-007 | TC-031 through TC-034 | ✅ covered |
 
@@ -36,7 +36,7 @@ relationships:
 | Non-Functional Req | Verification Method | Evidence/Test Cases | Status |
 |---|---|---|---|
 | NFR-001 | deterministic and resource-bound tests | TC-004 through TC-008, TC-015, TC-017, TC-021, TC-031, TC-035, TC-047, TC-049, TC-050 | ✅ covered |
-| NFR-002 | catalog, corpus, context, and provenance inspection | TC-001, TC-002, TC-016, TC-019, TC-031, TC-034, TC-046, TC-052 | ✅ covered |
+| NFR-002 | catalog, corpus, context, and provenance inspection | TC-001, TC-002, TC-016, TC-031, TC-034, TC-046, TC-052 | ✅ covered |
 | NFR-004 | static Makefile/environment inspection, per-gate completion records, declared/executed reconciliation, and per-gate record binding | TC-057 through TC-065 | ✅ implemented |
 
 ## Test Case Summary
@@ -58,12 +58,10 @@ relationships:
 | TC-013 | Exhaustively confirm supported equivalence pairs | Integration | P0 | FR-004-AC-1 | ✅ implemented |
 | TC-014 | Retain deterministic equivalence counterexamples | Integration | P0 | FR-004-AC-1 | ✅ implemented |
 | TC-015 | Keep bounded-resource and profile cases non-conclusive | Integration | P0 | FR-004-AC-2, NFR-001-AC-2 | ✅ implemented |
-| TC-016 | Exercise pinned WEST and independent fixtures | Integration | P0 | FR-004-AC-3, StR-002-VC-2, NFR-002-AC-2 | ✅ implemented |
+| TC-016 | Exercise WEST and independent fixtures | Integration | P0 | StR-002-VC-2, NFR-002-AC-2 | ✅ implemented |
 | TC-017 | Round trip and reject versioned wire records | Integration | P0 | FR-005-AC-1, NFR-001-AC-1 | ✅ implemented |
-| TC-019 | Inspect human authority and qualification boundary | Integration | P0 | FR-005-AC-3, StR-001-VC-1 | ✅ implemented |
 | TC-020 | Detect repeated complete states through the rewrite engine | Unit | P0 | FR-002-AC-2, NFR-001-AC-2 | ✅ implemented |
 | TC-021 | Charge retained-source provenance traversal to the work budget | Unit | P0 | FR-002-AC-2, NFR-001-AC-3 | ✅ implemented |
-| TC-022 | Bind the rule corpus to the constructed reviewed fixtures | Integration | P0 | FR-001-AC-2, FR-004-AC-3 | ✅ implemented |
 | TC-031 | Preserve exact shared requirement context, signal-catalog identity, and distinct clause/node spans in contextual rewrite reports | Integration | P0 | FR-007-AC-1, StR-003-VC-1, NFR-001-AC-1, NFR-002-AC-3 | ✅ implemented |
 | TC-032 | Verify exact contextual replay and reject every independently mutated, omitted, or substituted catalog/context/request input | Integration | P0 | FR-007-AC-2, StR-003-VC-2 | ✅ implemented |
 | TC-033 | Validate input and output proposition bindings and return typed locus-specific non-success without successful output | Integration | P0 | FR-007-AC-3, StR-003-VC-2 | ✅ implemented |
@@ -81,7 +79,7 @@ relationships:
 | TC-049 | Round-trip and replay context-free/contextual past reports and reject every independently changed identity input | Integration | P0 | FR-009-AC-4 | ✅ implemented |
 | TC-050 | Refuse unsupported/invalid profiles and exhausted work without partial output, while leaving unproved transformations unchanged | Unit | P0 | FR-009-AC-5 | ✅ implemented |
 | TC-051 | Keep future bounded conformance explicitly non-conclusive for the past profile and bind that refusal to the past catalog | Unit | P0 | FR-009-AC-5 | ✅ implemented |
-| TC-052 | Compare both admitted past folds across generated histories, intervals, both clocks, and every anchor using the pinned origin-complete evaluator | Property | P0 | FR-009-AC-6 | ✅ implemented |
+| TC-052 | Compare both admitted past folds across generated histories, intervals, both clocks, and every anchor using the origin-complete evaluator | Property | P0 | FR-009-AC-6 | ✅ implemented |
 | TC-053 | Preserve all profile behavior while separating rewrite subsystems | Integration | P0 | FR-010-AC-1, FR-010-AC-2, FR-010-AC-3, FR-010-AC-4, FR-010-AC-5 | ✅ implemented |
 | TC-054 | Ground bounded temporal and reflexive Boolean rewrite families as finite-domain properties against the exact evaluator | Property | P0 | FR-001-AC-2, FR-004-AC-1, NFR-001-AC-1 | ✅ implemented |
 | TC-057 | Refuse to invoke Make when Makefile text (including a recursively scanned `include`d file) carries any of the eleven execution-control surfaces, and accept a clean control with none of them | Unit | P0 | NFR-004-AC-1 | ✅ implemented |
@@ -93,14 +91,13 @@ relationships:
 | TC-063 | An unmodified Makefile, clean environment, and genuinely passing gates yield a zero exit with no violation reported | Integration | P0 | NFR-004-AC-7 | ✅ implemented |
 | TC-064 | Reproduce Linear TL-202 directly: a gate's own recipe (or a subprocess it spawns, including one whose failure is invisible to that recipe's own exit code) cannot write a completion record for a different declared gate using only `CI_GUARD_RUN_ID` and that gate's public name, because it lacks the token Make scoped to that gate's own recipe; reconciliation correctly names the affected gate as missing rather than being deceived by the forged record, and the legitimate, correctly-scoped call is unaffected. Also covers the missing-soft-include exemption's own scope: a soft-include naming a not-yet-existing target that a Make rule elsewhere in the file could build with `.IGNORE:` is still refused before Make ever runs, closing an independently-reviewed regression in the first version of that exemption. | Integration | P0 | NFR-004-AC-9 | ✅ implemented |
 | TC-065 | Inspect README, CLAUDE.md, and `.github/workflows/*.yml` for every reference to running the full local gate set; each names the entry point (`make guarded-ci`), not a bare `make ci`, and a bare `make ci` substituted into each is reported | Integration | P1 | NFR-004-AC-8 | ✅ implemented |
-| TC-076 | Replay the pinned 15-case syntax owner corpus over the parser, rewriter, and evaluator boundaries, with finite-prefix evaluation for the finite-prefix subject | Integration | P0 | FR-019-AC-3 | ✅ implemented |
+| TC-076 | Replay the 15-case syntax owner corpus over the parser, rewriter, and evaluator boundaries, with finite-prefix evaluation for the finite-prefix subject | Integration | P0 | FR-019-AC-3 | ✅ implemented |
 
 ## TL-235 rewrite benchmark adjunct
 
 `benches/rewrite_rules.rs` exercises the public rewrite entry point at 1, 24,
-and 64 Boolean rule applications. `benches/input-digests.json` binds each
-canonical input graph; `cargo bench --locked --bench rewrite_rules -- --test`
-checks all three digests and outcomes. Criterion timing distributions require
+and 64 Boolean rule applications. `cargo bench --locked --bench rewrite_rules -- --test`
+checks all three outcomes. Criterion timing distributions require
 paired V9 campaign collection and an independent regression decision. This
 adjunct does not by itself satisfy the TL-235 campaign exit or TL-231 mutation
 thresholds.

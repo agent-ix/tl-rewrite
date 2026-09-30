@@ -13,7 +13,7 @@ relationships:
 
 The library shall compare original and rewritten closed-trace formulas with the
 exact tl-mltl evaluator over every valuation in a declared horizon-complete
-finite domain and shall retain permitted WEST-derived fixtures.
+finite domain.
 
 ## Behavior
 
@@ -23,7 +23,7 @@ finite domain and shall retain permitted WEST-derived fixtures.
   the result non-conclusive.
 - A first mismatch retains a deterministic counterexample trace and both verdicts.
 - Reports name formula, profile, rule set, trace domain, evaluator, syntax,
-  WEST source/corpus, and result status.
+  and result status.
 
 ## Acceptance Criteria
 
@@ -31,7 +31,6 @@ finite domain and shall retain permitted WEST-derived fixtures.
 |---|---|---|
 | FR-004-AC-1 | Supported small formula pairs receive exhaustive horizon-complete agreement or a retained minimal-by-enumeration counterexample. | Test (TC-013, TC-014) |
 | FR-004-AC-2 | Resource-limited, profile-incompatible, or evaluator-error cases serialize as non-conclusive and are absent from positive rule-enablement evidence. | Test (TC-015) |
-| FR-004-AC-3 | The pinned MIT-licensed WEST validation subset and independent rule fixtures retain exact source, license, formula, catalog, evaluator, domain, and output digests. | Test (TC-016) |
 
 ## Dependencies
 

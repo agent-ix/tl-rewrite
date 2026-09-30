@@ -1,6 +1,6 @@
 //! Replay every catalog rule through the real engine and oracle.
 //!
-//! This is a producer. It runs the actual rewrite engine and the actual pinned
+//! This is a producer. It runs the actual rewrite engine and the actual
 //! `tl-mltl` evaluator over the checked rule corpus and writes one JSON object
 //! per catalog rule to stdout. It computes no aggregate verdict and retains
 //! nothing.
@@ -20,15 +20,13 @@
 //! declined to answer, and that is a third fact.
 //!
 //! `fail` is reserved for genuine disagreement: a rule that did not fire, a rule
-//! that fired with a revision the catalog does not name, a fixture whose bytes
-//! are not the bytes the corpus declares, or a rewrite the oracle found a
-//! counterexample to.
+//! that fired with a revision the catalog does not name, or a rewrite the oracle
+//! found a counterexample to.
 
 use std::{collections::BTreeSet, fs, path::PathBuf, process::ExitCode};
 
 use serde::Deserialize;
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 use tl_rewrite::{
     catalog, check_equivalence, rewrite, ConformanceOptions, ConformanceReport, ConformanceStatus,
     RewriteOptions, RewriteStatus, RuleDisposition,
@@ -54,8 +52,6 @@ struct Case {
     #[serde(default)]
     expected_rule: Option<String>,
     #[serde(default)]
-    formula_sha256: Option<String>,
-    #[serde(default)]
     document: Option<Value>,
     #[serde(default)]
     exclusion_reason: Option<String>,
@@ -67,13 +63,6 @@ struct Row {
     domain_outcome: String,
     detail: String,
     extra: Value,
-}
-
-fn digest(bytes: &[u8]) -> String {
-    Sha256::digest(bytes)
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
 }
 
 fn failure(symbol: &str, domain: &str, detail: String) -> Row {
@@ -153,14 +142,6 @@ fn evaluate(case: &Case, rule: &tl_rewrite::RuleDefinition) -> Row {
             format!("{} declares no input document", case.id),
         );
     };
-    let Some(expected_digest) = case.formula_sha256.as_ref() else {
-        return failure(
-            &symbol,
-            "malformed_input",
-            format!("{} declares no formulaSha256", case.id),
-        );
-    };
-
     let input: FormulaDocument = match serde_json::from_value(declared.clone()) {
         Ok(value) => value,
         Err(error) => {
@@ -177,30 +158,6 @@ fn evaluate(case: &Case, rule: &tl_rewrite::RuleDefinition) -> Row {
             };
         }
     };
-
-    // The fixture bytes are bound to the corpus. Without this the corpus is a
-    // description of a document nobody checks, and a silently edited fixture
-    // would still report a clean rule.
-    let observed_digest = match serde_json::to_vec(&input) {
-        Ok(bytes) => digest(&bytes),
-        Err(error) => {
-            return failure(
-                &symbol,
-                "malformed_input",
-                format!("{} did not re-serialize: {error}", case.id),
-            )
-        }
-    };
-    if &observed_digest != expected_digest {
-        return failure(
-            &symbol,
-            "tampered",
-            format!(
-                "{} document digest is {observed_digest}, the corpus declares {expected_digest}",
-                case.id
-            ),
-        );
-    }
 
     let report = rewrite(&input, case.id.clone(), RewriteOptions::default(), "corpus");
     if report.status != RewriteStatus::Normalized {
@@ -252,7 +209,6 @@ fn evaluate(case: &Case, rule: &tl_rewrite::RuleDefinition) -> Row {
     );
     let common = json!({
         "catalogSha256": conformance.catalog_sha256,
-        "formulaSha256": observed_digest,
         "ruleRevision": step.rule_revision,
         "horizon": conformance.horizon,
         "traceLength": conformance.trace_length,

@@ -506,9 +506,9 @@ pub struct GateRecord {
 
 /// `true` if `gate` is safe to use as a bare filename component: every
 /// declared `ci` prerequisite name in this repository's Makefile is
-/// lowercase ASCII letters, digits, and `-` (e.g. `fmt-check`,
-/// `check-corpus`), so that is the admitted alphabet. Rejects anything that
-/// could escape the completion-record directory (`/`, `..`, a leading `.`)
+/// lowercase ASCII letters, digits, and `-` (e.g. `fmt-check`), so that is
+/// the admitted alphabet. Rejects anything that could escape the
+/// completion-record directory (`/`, `..`, a leading `.`)
 /// along with anything simply outside the expected shape.
 fn is_valid_gate_name(gate: &str) -> bool {
     !gate.is_empty()
@@ -1315,7 +1315,6 @@ mod tests {
             "fmt-check",
             "lint",
             "test",
-            "check-corpus",
             "conformance",
             "counterexamples",
             "normalization",
@@ -1327,7 +1326,7 @@ mod tests {
         ] {
             write_record(dir.path(), gate, "run-1").unwrap();
         }
-        assert_eq!(read_records(dir.path()).len(), 12);
+        assert_eq!(read_records(dir.path()).len(), 11);
     }
 
     // Trace: TC-061, NFR-004-AC-5

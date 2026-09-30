@@ -37,7 +37,7 @@ oracle paths across bounded, origin-past, and infinite populations.
 | TC-073 | Exhaustively map statuses to FR-341 without message matching | Unit | P0 | FR-021-AC-1 | ✅ implemented |
 | TC-074 | Reject replay promotion of unsupported, incomplete or failed checks | Integration | P0 | FR-021-AC-2 | ✅ implemented |
 | TC-075 | Exercise each exact and one-over bound and one-axis identity mutation | Property | P0 | NFR-005-AC-1 | ✅ implemented |
-| TC-076 | Replay every pinned syntax owner case through its actual lasso or finite-prefix subject, preserving four owner refusals, rewrite outcomes, parser identity where representable, and typed provider dispositions | Integration | P0 | FR-019-AC-3 | ✅ implemented |
+| TC-076 | Replay every syntax owner case through its actual lasso or finite-prefix subject, preserving four owner refusals, rewrite outcomes, parser identity where representable, and typed provider dispositions | Integration | P0 | FR-019-AC-3 | ✅ implemented |
 
 ## Integration Test Matrix
 
@@ -47,9 +47,8 @@ oracle paths across bounded, origin-past, and infinite populations.
 | Preserve owner graph and fairness identity | tl-syntax corpus | workspace | TC-067 through TC-069, TC-076 |
 | Refuse non-conclusive promotion | rewrite report and replay | workspace | TC-073 through TC-075 |
 
-TC-076 reads the exact `tl-syntax` corpus pinned in `Cargo.lock`, verifies its
-manifest and `SHA256SUMS`, and checks all 15 cases. The case marked
-`finite_prefix` goes through the pinned evaluator's finite-prefix entry point;
+TC-076 reads the `tl-syntax` corpus and checks all 15 cases. The case marked
+`finite_prefix` goes through the evaluator's finite-prefix entry point;
 the lasso conformance entry point has a closed-lasso subject. The two negative
 trace cases exercise `LassoTraceDocument::from_selected_identities`, checking
-typed clock and empty-loop refusals after constructing the pinned case inputs.
+typed clock and empty-loop refusals after constructing the case inputs.

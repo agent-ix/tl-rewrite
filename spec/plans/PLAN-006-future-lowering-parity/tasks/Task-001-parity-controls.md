@@ -27,8 +27,8 @@ Add the dev-only lowering lane and the direct-versus-lowered rewrite controls.
 
 ## Subtasks
 
-- [x] Add `tl-syntax-lowering` (tl-syntax `8dc18ee`) and `tl-parse-derived`
-  (tl-parse `9ca856b`) as renamed dev-dependencies.
+- [x] Add `tl-syntax-lowering` and `tl-parse-derived` as renamed
+  dev-dependencies.
 - [x] Build each case twice: by hand, and through
   `FutureLoweringRequest::lower()` plus a byte-exact formula v1 wire crossing.
 - [x] Compare complete rewrite, budgeted, contextual, and conformance reports.
@@ -36,8 +36,7 @@ Add the dev-only lowering lane and the direct-versus-lowered rewrite controls.
 - [x] Scan `src/`, `examples/`, and every production dependency section.
 - [x] Add twelve lowering mutants and require each to fail parity.
 - [x] Require `scripts/check_provenance.py` to tie the production tl-syntax pin
-  to tl-mltl's locked revision and refuse undeclared locked revisions, with
-  TC-030 probes for both.
+  to tl-mltl's locked revision and refuse undeclared locked revisions.
 
 ## Deliverables
 

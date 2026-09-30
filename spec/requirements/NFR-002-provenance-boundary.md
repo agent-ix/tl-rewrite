@@ -9,7 +9,7 @@ type: NFR
 ## Statement
 
 Every rule and exchanged record shall identify its semantic derivation or
-primary source, schema, source/dependency revisions, corpus license and digest,
+primary source, schema, source/dependency revisions, corpus license,
 and human decision boundary.
 
 ## Scope
@@ -31,17 +31,14 @@ Semantic or provenance drift invalidates rewrite evidence even when selected fix
 ## Verification
 
 Catalog tests inspect mandatory identities, licenses, exclusions, and open
-human decisions. `scripts/check_provenance.py` re-derives the retained corpus
-digests and requires the published revision constants to be the revisions
-`Cargo.toml` and `Cargo.lock` resolve, so a wire field cannot attribute a
-verdict to a dependency that did not produce it.
+human decisions.
 
 ## Acceptance Criteria
 
 | ID | Criteria | Verification |
 |---|---|---|
 | NFR-002-AC-1 | No rule is enabled without complete provenance, applicability, and revision metadata. | Test (TC-001, TC-002) |
-| NFR-002-AC-2 | Every exchanged record names the exact tl-syntax, tl-mltl, WEST, and catalog identities the run used, those constants agree with what Cargo resolved, and no record claims universal proof or release. | Test (TC-016, TC-019) |
+| NFR-002-AC-2 | Every exchanged record names the exact tl-syntax, tl-mltl, WEST, and catalog identities the run used, and no record claims universal proof or release. | Test (TC-016) |
 | NFR-002-AC-3 | Every contextual native result preserves the exact supplied shared requirement context and identifies the complete supplied signal catalog without claiming that tl-rewrite validated the truth of either provenance statement. | Test (TC-031, TC-034) |
 
 ## Dependencies

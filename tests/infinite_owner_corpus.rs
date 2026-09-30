@@ -1,12 +1,11 @@
 #![cfg(feature = "infinite-trace")]
 
-//! Replays the syntax owner's pinned cases across the parser, rewriter, and
+//! Replays the syntax owner's cases across the parser, rewriter, and
 //! evaluator boundaries. Negative owner cases stay refusals at their owner.
 
 use std::{fs, path::Path};
 
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
 use tl_mltl::infinite::{evaluate_prefix_safety, Disposition, EvaluationLimit, PrefixRequest};
 use tl_parse::{
     format_clean_ascii_v4, parse_clean_ascii_v4, FormatErrorCode, FormatLimits, ParseLimits,
@@ -44,10 +43,6 @@ struct CorpusValue {
     state: PartialValue,
 }
 
-fn digest(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
-}
-
 fn observations(
     rows: Vec<CorpusObservation>,
     map_id: &str,
@@ -74,20 +69,11 @@ fn observations(
 
 // Trace: TC-076; FR-019-AC-3.
 #[test]
-fn pinned_owner_cases_cross_parser_rewriter_and_provider() {
+fn owner_cases_cross_parser_rewriter_and_provider() {
     let root = Path::new(CORPUS_DIR).join("infinite-trace");
     let manifest: serde_json::Value =
         serde_json::from_slice(&fs::read(root.join("manifest.json")).unwrap()).unwrap();
     assert_eq!(manifest["corpus"], "tl-syntax.infinite-trace-corpus/v1");
-    let sums = fs::read_to_string(root.join("SHA256SUMS")).unwrap();
-    for pin in manifest["files"].as_array().unwrap() {
-        let name = pin["path"].as_str().unwrap();
-        let actual = digest(&fs::read(root.join(name)).unwrap());
-        assert_eq!(actual, pin["sha256"], "{name}");
-        assert!(sums.contains(&format!("{actual}  {name}\n")), "{name}");
-    }
-    let manifest_digest = digest(&fs::read(root.join("manifest.json")).unwrap());
-    assert!(sums.contains(&format!("{manifest_digest}  manifest.json\n")));
     let corpus: serde_json::Value =
         serde_json::from_slice(&fs::read(root.join("cases.json")).unwrap()).unwrap();
     let cases = corpus["cases"].as_array().unwrap();

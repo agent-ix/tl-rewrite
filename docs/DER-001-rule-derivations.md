@@ -9,7 +9,7 @@ status: active
 # DER-001 — v1 rule derivations
 
 These derivations use the exact `tl-syntax` operator vocabulary and the
-`tl-mltl` semantics pinned by this repository. Intervals are
+`tl-mltl` semantics. Intervals are
 non-empty inclusive integer ranges because `tl-syntax::Interval` requires
 `start <= end`. Boolean operations use strong Kleene values for open prefixes.
 The immutable legacy `catalog()` enables these derivations only for
@@ -30,7 +30,7 @@ constant. No distributive or absorption rule is enabled in v1.
 
 The past catalog changes only the supported profile metadata on these Boolean
 entries; their identities, revisions, priority, preconditions, and derivations
-remain the same. Its tests exercise all 24 entries against the pinned past
+remain the same. Its tests exercise all 24 entries against the past
 evaluator under both admitted clock models. Past temporal folds use their own
 FR-011 provenance and are not claimed by this document.
 
@@ -38,7 +38,7 @@ FR-011 provenance and are not claimed by this document.
 
 Future folds inclusive offsets with `or` and Globally folds them with `and`.
 De Morgan duality therefore gives `not F[a,b] p = G[a,b] not p` and
-`not G[a,b] p = F[a,b] not p`. The pinned evaluator defines Release exactly as
+`not G[a,b] p = F[a,b] not p`. The evaluator defines Release exactly as
 `not ((not p) U[a,b] (not q))`; involution gives both Until/Release negation
 rules. The v1 engine exercises them only for closed traces.
 
@@ -51,7 +51,7 @@ operand satisfies every prefix before a witness, yielding Future. Applying the
 declared Until/Release dual to a constant-false Release left operand yields
 Globally.
 
-These identities use the pinned evaluator's complete closed-trace definition.
+These identities use the evaluator's complete closed-trace definition.
 Missing proposition observations are false. Boolean `true` and `false` are
 semantic constants rather than observations and remain time-independent after
 trace closure; therefore `F[a,b] true` stays true and `G[a,b] false` stays false

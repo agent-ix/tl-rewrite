@@ -31,12 +31,8 @@ proptest = "=1.5.0"
 tempfile = "=3.10.1"
 # The parser feeds two test seams: tests/rewrite.rs (parser-to-rewriter,
 # FR-002-AC-4) and tests/future_lowering_parity.rs (clean-ascii/v2 W/M graphs,
-# FR-008). tl-parse v0.3.0 compiles the same tl-syntax revision as the
-# production pin. The test-only tl-oracle also compiles that revision, so
-# the full graph resolves exactly one tl-syntax and one tl-parse.
-# dev-dependencies are not in scope for `src/`. scripts/check_provenance.py
-# still refuses any additional locked tl-syntax revision no
-# `[dev-dependencies]` entry declares.
+# FR-008).
+# dev-dependencies are not in scope for `src/`.
 tl-parse = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-parse.git", rev = "183fa59150d3a8fa76a5129242fe50453983dae7" }
 
 [[bench]]

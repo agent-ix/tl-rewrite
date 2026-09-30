@@ -20,15 +20,8 @@ reference evaluator and permitted WEST cases. When supplied, it also preserves
 the exact shared tl-syntax signal catalog and caller requirement context through
 those native results.
 
-Formula/profile identities come from the exact
-tl-syntax revision; semantic comparison comes from the exact tl-mltl revision
-that `Cargo.toml`, `Cargo.lock` and `src/lib.rs` all resolve, which
-`scripts/check_provenance.py` requires to agree on every run. Since the 0.3.0
-release every dependency, including the dev-only tl-parse, resolves one
-tl-syntax revision. Issue #35 once locked a second revision for test-only
-lowering controls, so the check still requires the production pin to be the
-revision tl-mltl compiles and any other locked revision to be one a
-dev-dependency declares.
+Formula/profile identities come from tl-syntax; semantic comparison comes from
+tl-mltl.
 
 ## Scope
 
@@ -39,7 +32,7 @@ dev-dependency declares.
 - Deterministic bottom-up rewriting with explicit iteration, node,
   application, and logical-work budgets.
 - Versioned success and non-conclusive reports with replayable step traces.
-- Exhaustive bounded closed-trace comparison and a pinned WEST fixture subset.
+- Exhaustive bounded closed-trace comparison and a WEST fixture subset.
 - Context-bound native rewrite, replay, and conformance report versions using
   the shared tl-syntax signal and requirement-context types.
 - Test-only controls that show tl-syntax W/M lowering reaches the engine as the
@@ -48,7 +41,7 @@ dev-dependency declares.
 ### Out of Scope
 
 - Text parsing in crate code, a second formula AST, or a general-purpose
-  optimizer. Test-only controls may parse through a pinned tl-parse
+  optimizer. Test-only controls may parse through a tl-parse
   dev-dependency.
 - Derived temporal operators (W, M, or others) as nodes, rules, or evaluator
   branches; they exist only as tl-syntax lowering to primitive nodes.

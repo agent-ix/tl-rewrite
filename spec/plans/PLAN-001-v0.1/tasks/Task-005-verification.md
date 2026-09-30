@@ -19,6 +19,5 @@ findings.
 
 ## Completion Evidence
 
-The complete local gate, Rust 1.75 all-target build, and final feedback audit
-pass after remediation of the actionable automated-review findings. The exact
-evidence record remains Task-006.
+The complete local gate, all-target build, and final feedback audit
+pass after remediation of the actionable automated-review findings.

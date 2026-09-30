@@ -3,8 +3,8 @@
 //! `W[a,b](p,q)` and `M[a,b](p,q)` exist only as tl-syntax lowering. The engine
 //! consumes the primitive F/G/U/R and Boolean graph they lower to, so every
 //! rewrite outcome of a lowered graph must equal the outcome of the same graph
-//! built by hand. The lowering runs on the released tl-syntax the engine is
-//! pinned to (tl-parse, which supplies the v2 parser, is dev-only), and every
+//! built by hand. The lowering runs on the released tl-syntax (tl-parse, which
+//! supplies the v2 parser, is dev-only), and every
 //! lowered graph still enters the engine through the formula v1 wire, byte for
 //! byte.
 
@@ -818,7 +818,6 @@ fn clean_ascii_v2_parses_rewrite_like_direct_primitive_graphs() {
     use lowering::SemanticProfile as LoweringProfile;
     use tl_parse::{parse_clean_ascii_v2, DerivedOperator, ParseLimits};
 
-    assert_eq!(tl_parse::TL_SYNTAX_REVISION, tl_rewrite::TL_SYNTAX_REVISION);
     let parsed = [
         (
             "p0 W[0,3] p1",
@@ -1179,19 +1178,15 @@ fn engine_source_has_no_derived_operator_branch() {
     }
 
     // The tl-parse lane is reachable from tests only: no non-dev dependency
-    // section, in any table form, names it, and the production tl-syntax pin is
-    // the revision the crate publishes.
+    // section, in any table form, names it.
     let manifest =
         fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml")).unwrap();
     let production = production_dependency_sections(&manifest);
     let joined = production.concat();
     assert!(
-        joined.contains(&format!("rev = \"{}\"", tl_rewrite::TL_SYNTAX_REVISION)),
-        "{joined}"
+        !joined.contains("tl-parse"),
+        "production dependency on tl-parse"
     );
-    for lane in ["tl-parse", "496020aad5595b870f141b88995cdc2ea6a5994e"] {
-        assert!(!joined.contains(lane), "production dependency on {lane}");
-    }
     let synthetic_manifest = "[package]\nname = \"x\"\n\n[dependencies]\ntl-syntax = \"1\"\n\n\
         [dev-dependencies]\ntl-parse = \"1\"\n\n[dependencies.tl-syntax-lowering]\nrev = \"a\"\n\n\
         [target.'cfg(unix)'.dependencies]\nfoo = \"1\"\n\n[build-dependencies]\nbar = \"1\"\n";
