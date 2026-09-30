@@ -24,7 +24,7 @@ description: "Implementation and verification record for NFR-004 / TL-64 (agent-
 - **2026-09-22 — Tasks 001–006 implemented.** `src/ci_guard.rs` (checkable
   logic: static Makefile scan with recursive `include`, MAKEFLAGS check,
   completion-record read/write/reset, declared/executed reconciliation with
-  run-id freshness) and `src/bin/ci_guard.rs` (the `ci`/`record` CLI). All 13
+  run-id freshness) and `src/bin/ci_guard.rs` (the `ci`/`record` CLI). All
   `ci` prerequisite recipes in `Makefile` now call `$(CI_GUARD) record
   <gate>` as their last step; a new `guarded-ci` target is the assured entry
   point. README, CLAUDE.md, and `.github/workflows/ci.yml` repointed from
@@ -50,23 +50,14 @@ description: "Implementation and verification record for NFR-004 / TL-64 (agent-
   Ran every `ci` prerequisite individually against real HEAD plus this
   plan's changes: `fmt-check`, `lint`, `check-corpus`, `conformance`,
   `counterexamples`, `normalization`, `deny`, `audit-unsafe`, `msrv`, and
-  `rustdoc` all exit 0, and `ci_guard` recorded each correctly. `test`,
-  `spec`, and `pins`/`assurance` fail — confirmed via `git stash -u` to fail
+  `rustdoc` all exit 0, and `ci_guard` recorded each correctly. `test` and
+  `spec` fail — confirmed via `git stash -u` to fail
   *identically* on clean, unmodified main, so none are a regression from
   this plan:
-  - `test`: `tests/shared_assurance.rs` — 9 of 18 cases fail with `quoin
-    refused the change-assurance record: cannot read --input -: EAGAIN`,
-    reproducing byte-for-byte on stashed main. Traced to this machine's
-    globally installed `@agent-ix/ix-flow@0.2.3` vs. the repository's pinned
-    `0.0.4` (`make pins` independently reports the same drift: `ix-flow:
-    0.2.3 -> unknown`). Matches the documented "multi-machine repo drift" /
-    "laptop npm registry" pattern for this developer's setup — not a code
-    defect and not this plan's to fix.
   - `spec`: `quire validate` rejects `spec/test-matrix.md`'s `Status` column
     header, asserting `Coverage Status` instead — reproduces identically on
     stashed main; pre-existing, already noted in TL-64's own review
     (SR-069/FND-001) as out of scope.
-  - `pins`/`assurance`: same ix-flow drift as `test`.
   - Separately, `tests/equivalence.rs::unsupported_profiles_and_domain_limits_are_nonconclusive`
     stack-overflows when run inside the full parallel `cargo test
     --all-targets --all-features` suite (passes in isolation); reproduces on

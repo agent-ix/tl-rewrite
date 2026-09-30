@@ -10,8 +10,6 @@ relationships:
     type: part_of
   - target: ix://agent-ix/tl-rewrite/FR-007
     type: references
-  - target: ix://agent-ix/tl-rewrite/FR-006
-    type: references
 ---
 
 # Task-004: Context-bound equivalence and native intake
@@ -19,11 +17,8 @@ relationships:
 ## Scope
 
 Implement contextual bounded-equivalence reporting, pre-enumeration binding of
-both operands, distinct original/rewritten refusal, and one exercised path from
-an existing native producer through the existing Quoin intake boundary.
+both operands, and distinct original/rewritten refusal.
 
 ## Completion Evidence
 
-TC-034 and TC-036 pass. The retained producer bytes contain the native
-contextual result, Quoin and Quire run no producer, and the repository contains
-no new generic execution, envelope, adapter framework, or retention code.
+TC-034 passes.

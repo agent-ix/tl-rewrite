@@ -16,7 +16,7 @@ a dedicated Rust CI entry point, invoked in place of a bare `make ci`, that
 (1) refuses to run when the Makefile text or invocation environment carries a
 state capable of suppressing prerequisite-failure propagation, and (2)
 independently reconciles the set of gates that actually completed against the
-declared `ci` prerequisite set, so a false pass on any of the 13 gates is
+declared `ci` prerequisite set, so a false pass on any gate is
 caught regardless of the mechanism that produced it. No other requirement's
 gate logic changes; this plan only adds the binding around it.
 
@@ -93,18 +93,12 @@ notes). See log.md for the full closing record and individual task files'
 ### Shared dependencies
 - The completion-record file format (path convention, gate-name field,
   exit-status field) is a shared contract between the writer (Task-003, the
-  13 Makefile recipes) and the reader (Task-004, the entry point's
+  Makefile recipes) and the reader (Task-004, the entry point's
   reconciliation). Task-001 fixes this contract in its deliverable so
   Task-002/003 can proceed in parallel against a stable shape instead of one
   blocking the other.
 
 ### Cross-cutting constraints
-- `NFR-003` applies to every gate whose result the Quoin-bound
-  `assurance-inputs` chain already reads (`conformance`, `counterexamples`,
-  `normalization`, `check-corpus`'s provenance half); this plan does not
-  duplicate that coverage and Task-004's reconciliation treats those gates
-  identically to the eight NFR-003 cannot see — the completion record, not
-  the chain, is what NFR-004 reconciles against.
 - Owner-directive constraint (Linear TL-64): all new production logic in
   this plan is Rust. No task introduces a new Python/shell evidence
   framework; `scripts/*.py` stays as-is and out of this plan's scope.
@@ -124,7 +118,7 @@ notes). See log.md for the full closing record and individual task files'
   Make starts; invoked with a clean environment, it is not.
 
 ### Integration Tests
-- [x] **TC-059** (NFR-004-AC-3): Running each of the 13 `ci` prerequisites
+- [x] **TC-059** (NFR-004-AC-3): Running each `ci` prerequisite
   individually against its real recipe writes exactly one completion record
   naming that gate and its exit status; a recipe forced to fail (stubbed
   tool) writes no record for that gate.
@@ -157,7 +151,7 @@ notes). See log.md for the full closing record and individual task files'
 ```
 Task-001 (entry-point scaffold + static inspection, AC-1)
    |-- Task-002 (env control, AC-2)              [Track B]
-   |-- Task-003 (13 completion records, AC-3)     [Track B]
+   |-- Task-003 (completion records, AC-3)        [Track B]
    |         \
    |          Task-004 (reconciliation, AC-4/5)   [Track A]
    |-- Task-005 (docs/workflow wiring, AC-8)      [Track C]
@@ -233,18 +227,18 @@ Task-001 (entry-point scaffold + static inspection, AC-1)
 - **Exit criteria:** TC-058 green.
 
 #### B2: Task-003 — per-gate completion records
-- **Scope:** Touch all 13 `ci` prerequisite recipes in the Makefile so each
+- **Scope:** Touch all `ci` prerequisite recipes in the Makefile so each
   writes a completion record, matching Task-001's contract, only on its own
   successful completion. SR-075/FND-001: use one shared, mechanical pattern
-  (a Make function or variable every recipe calls) rather than 13
+  (a Make function or variable every recipe calls) rather than
   independent hand-edits, to keep the diff reviewable and avoid accidentally
   changing a gate's actual behavior while only intending to add a record.
 - **Difficulty:** Medium — mechanically simple per recipe, but widest blast
   radius in this plan (touches recipes nominally owned by FR-001 through
-  FR-010 and NFR-001 through NFR-003). Correctness of each gate's own recipe
+  FR-010, NFR-001 and NFR-002). Correctness of each gate's own recipe
   is explicitly out of NFR-004's ownership (see NFR-004 Scope); this task
   only adds a record write, and must not change any recipe's actual command.
-- **Estimated new code:** ~13 one-line recipe additions + one shared Make
+- **Estimated new code:** one-line recipe additions + one shared Make
   function/variable definition.
 - **Exit criteria:** TC-059 green.
 
@@ -286,7 +280,7 @@ neither blocks Task-002 or Task-005.
   plan: no other task starts until Task-001's completion-record contract is
   fixed, to avoid Task-003 and Task-004 diverging on record shape.
 - `Makefile` is shared mutable state between Task-003 (adds record writes to
-  all 13 recipes) and Task-005 (edits header/doc references) and, upstream,
+  all recipes) and Task-005 (edits header/doc references) and, upstream,
   every other requirement's own gate work. Task-003 and Task-005 should not
   run as literally concurrent edits to `Makefile`/`README.md`/`CLAUDE.md`
   without rebasing serially; they are marked as different tracks for
@@ -296,7 +290,6 @@ neither blocks Task-002 or Task-005.
   individually green — the gate is a joint property, not something any one
   of them can pass alone (this is the point of the tracked measurement:
   mechanisms interacting is exactly what a false pass previously hid).
-- No task in this plan touches `scripts/*.py`, `assurance/`, or
-  `NFR-003`'s owned gates; if a task's implementation seems to need that,
+- No task in this plan touches `scripts/*.py`; if a task's implementation seems to need that,
   stop and re-check against NFR-004's Scope section before proceeding.
 

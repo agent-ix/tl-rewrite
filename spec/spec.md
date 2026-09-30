@@ -30,14 +30,6 @@ lowering controls, so the check still requires the production pin to be the
 revision tl-mltl compiles and any other locked revision to be one a
 dev-dependency declares.
 
-That revision used to be named by retained evidence instead. It is not any more:
-issue #13 deleted the retained records under the authority of
-`agent-ix/engineering-assurance#7`, and a specification that still sourced an
-identity from them would name an authority this repository no longer has. The
-resolved dependency graph was already the enforced authority — the retained
-records named `da2c7704`, a revision the build had not used since the pin moved,
-which is the defect `TC-030` exists to catch.
-
 ## Scope
 
 ### In Scope
@@ -78,11 +70,11 @@ trace domain and invokes tl-mltl without embedding a second evaluator.
 
 FR-001 owns the rule catalog, FR-002 bounded execution, FR-003 trace/replay,
 FR-004 equivalence and WEST evidence, FR-005 the versioned interchange boundary,
-FR-006 the shared assurance intake path, FR-007 context-bound native reports, and
+FR-007 context-bound native reports, and
 FR-008 direct-versus-lowered parity for tl-syntax W/M lowering.
 NFR-001 constrains
 determinism/resources, NFR-002 constrains provenance and qualification claims,
-NFR-003 owns the qualification controls, and NFR-004 binds the CI entry
+and NFR-004 binds the CI entry
 point's declared and executed gate set.
 
 FR-005 owned an evidence boundary as well until issue #13 deleted the

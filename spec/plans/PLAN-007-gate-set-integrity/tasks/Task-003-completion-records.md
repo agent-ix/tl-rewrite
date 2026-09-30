@@ -1,6 +1,6 @@
 ---
 id: Task-003
-title: "Per-gate completion records across the 13 ci prerequisites"
+title: "Per-gate completion records across the ci prerequisites"
 type: Task
 status: done
 track: B
@@ -13,40 +13,37 @@ relationships:
   - target: ix://agent-ix/tl-rewrite/TC-059
     type: verifies
 ---
-# Task-003: Per-gate completion records across the 13 ci prerequisites
+# Task-003: Per-gate completion records across the ci prerequisites
 
 ## Scope
 
 Every `ci` prerequisite recipe (`fmt-check`, `lint`, `test`, `check-corpus`,
 `conformance`, `counterexamples`, `normalization`, `deny`, `audit-unsafe`,
-`spec`, `msrv`, `rustdoc`, `assurance`) writes a completion record — naming
+`spec`, `msrv`, `rustdoc`) writes a completion record — naming
 itself and its own recipe's exit status — only on its own successful
 completion, using the file contract Task-001 defines.
 
 ## Subtasks
 
 - [ ] Add one shared Make function or variable (e.g. a recipe-suffix
-  pattern) that every one of the 13 recipes calls/appends to write its
-  record, rather than 13 independently hand-written record-writing lines.
-- [ ] Apply it to all 13 recipes without changing any recipe's actual
+  pattern) that every recipe calls/appends to write its
+  record, rather than independently hand-written record-writing lines.
+- [ ] Apply it to all recipes without changing any recipe's actual
   command or behavior — this task adds a record write, nothing else.
 - [ ] Confirm a recipe that fails (e.g. a stubbed tool forced to exit
   non-zero) writes no record for that gate.
-- [ ] Confirm `assurance`, which aggregates `pins` and `assurance-chain`,
-  records correctly for the aggregate the way NFR-003's own measurement
-  described it (an aggregate whose sub-targets can each fail independently).
 
 ## Deliverables
 
-- Record-writing wired into all 13 `ci` prerequisite recipes via one shared
+- Record-writing wired into all `ci` prerequisite recipes via one shared
   mechanism.
 - TC-059 test and fixtures, green.
 
 ## Notes
 
 - SR-075/FND-001: this is the widest-blast-radius task in the plan — it
-  touches recipes nominally owned by FR-001 through FR-010 and NFR-001
-  through NFR-003. NFR-004 does not own those recipes' correctness (see
+  touches recipes nominally owned by FR-001 through FR-010, NFR-001
+  and NFR-002. NFR-004 does not own those recipes' correctness (see
   NFR-004 Scope); this task must be reviewable as "added one record write
   per recipe" and nothing more. If a recipe's actual command needs to change
   to make this work, stop and flag it rather than quietly changing gate

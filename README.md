@@ -83,12 +83,6 @@ cases that must decline for a declared reason. Each counterexample is replayed
 against both documents outside the enumeration that found it, so a witness that
 does not actually separate the pair is a failure rather than a decorative field.
 
-Retention, integrity checking, audit, attestation and receipts are owned
-upstream by Quoin, and the compatibility matrix by
-Engineering Assurance. This repository runs its own producers and reports what
-those tools said; it keeps no evidence framework of its own. See
-`assurance/README.md`.
-
 ## Development status
 
 This crate is being developed spec-first. Its public API is not stable yet, and

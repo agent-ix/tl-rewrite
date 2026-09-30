@@ -8,7 +8,7 @@ Deterministic semantics-preserving rewrites for Mission-time Linear Temporal Log
 make fmt              # format with rustfmt
 make fmt-check        # verify formatting (CI gate)
 make lint             # clippy with -D warnings
-make test             # cargo test, after the producers have run
+make test             # cargo test
 make check-corpus     # re-derive corpus, oracle, and dependency provenance
 make conformance      # replay every catalog rule through engine and oracle
 make counterexamples  # produce and replay the retained counterexample corpus
@@ -18,11 +18,7 @@ make audit-unsafe     # check that every unsafe block has a // SAFETY: comment
 make spec             # validate and cover specifications with quire
 make msrv             # check all targets and features with Rust 1.98.1
 make rustdoc          # build warning-free public documentation
-make assurance-env    # build the pinned shared-assurance interpreter
-make assurance-inputs # run the producers and write their structured results
-make pins             # classify the toolchain through the shared matrix
-make assurance-chain  # seal, retain, and verify through quoin
-make assurance        # pins + assurance-chain
+make assurance-env    # build the interpreter environment hosted CI still calls
 make ci               # every gate locally, unguarded (see Makefile header)
 make guarded-ci       # the assured entry point; hosted CI is manual-dispatch only
 ```
@@ -36,23 +32,13 @@ review, run `quoin review` over the affected scope and validate with Quire.
 Record selected analyses and findings; final Quoin acceptance remains a human
 decision and must not be advanced automatically.
 
-## Shared assurance
-
-Since issue #9 this repository has no local evidence framework. Retention,
-integrity checking, audit, attestation, change records and receipts are owned by
-Quoin; static specification and coverage facts come from a Quire export; the
-compatibility matrix comes from Engineering Assurance.
-`assurance/pins.json` records the release and the digests of the artifacts read
-from it, and `assurance/README.md` explains how the pieces relate.
-
-`make assurance-inputs` is the only target that runs a producer. Everything
-downstream consumes those files and refuses to create them.
+## CI entry point
 
 **Run `make guarded-ci`, not a bare `make ci`.** The parse-time guard that
 used to police Make's own execution controls went with the collector it
 protected, and a bare `make ci` still trusts Make's own execution controls
 and exit code exactly as before: a single `.IGNORE:` line still takes it from
-exit 2 to exit 0 with all 13 `ci` prerequisites reporting success. `make
+exit 2 to exit 0 with all 12 `ci` prerequisites reporting success. `make
 guarded-ci` wraps it with a Rust program, external to Make (`src/ci_guard.rs`,
 `src/bin/ci_guard.rs`), that refuses to invoke Make at all if the Makefile
 text or the invocation environment could suppress that propagation, and
@@ -81,9 +67,8 @@ tests/                    # requirement-tagged integration and property evidence
 corpus/west-v1/           # checksum-pinned selected WEST inputs
 corpus/rules/             # the rule corpus, bound by digest to the constructed fixtures
 corpus/counterexamples/   # the counterevidence corpus and its count oracle
-assurance/                # what this repository declares: pins and the change-assurance record
 spec/                     # requirements, assurance, reviews, and typed plan bundles
-scripts/                  # provenance, pins, and the assurance chain
+scripts/                  # provenance and unsafe-comment checks
 ```
 
 There is no `evidence/` directory and no `schemas/` directory. Issue #13 deleted

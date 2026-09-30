@@ -54,7 +54,7 @@ NFR-004-AC-1 names.
 
 - This is domain-specific, repository-local logic per NFR-004's Scope — not
   a proposal for a shared cross-repo control. Do not reach for
-  `scripts/*.py` or extend the shared-assurance Python lane; this is new
+  `scripts/*.py`; this is new
   Rust, per the owner directive in Linear TL-64.
 - The eleven-surface list is deliberately the *union* of what the removed
   parse-time guard used to police (`SHELL`, `.SHELLFLAGS`, `MAKEFLAGS`,

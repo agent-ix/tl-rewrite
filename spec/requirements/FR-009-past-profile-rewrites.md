@@ -128,7 +128,7 @@ side-effecting extension point is introduced.
 | FR-009-AC-3 | Every reused Boolean rule is exercised under the past profile and the original/output verdicts agree for every Boolean valuation under both admitted clock models. | Test (TC-048) |
 | FR-009-AC-4 | Context-free and contextual past reports round-trip and replay exactly, while independently changing input, catalog, options, trace steps, output, or signal catalog produces mismatch. | Test (TC-049) |
 | FR-009-AC-5 | Online, mixed, unknown, invalid, unresolved, exhausted, and unproved cases remain distinct fail-closed or unchanged outcomes; no future-only conformance result is presented as past equivalence evidence. | Test (TC-050, TC-051) |
-| FR-009-AC-6 | Generated event-position and exact fixed-sample histories preserve both admitted folds at every anchor and boundary, exact dependency attribution passes, and the v1 report-byte baseline changes only for the reviewed dependency advance. | Test (TC-030, TC-035, TC-052) |
+| FR-009-AC-6 | Generated event-position and exact fixed-sample histories preserve both admitted folds at every anchor and boundary, exact dependency attribution passes, and the v1 report-byte baseline changes only for the reviewed dependency advance. | Test (TC-035, TC-052) |
 
 ## Dependencies
 

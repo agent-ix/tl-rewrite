@@ -18,11 +18,6 @@ identities.
   identities the run actually used, and a bounded comparison carries the
   limitation describing the domain it enumerated.
 - Failed and non-conclusive outcomes are retained separately from passes.
-- Retention, integrity checking, audit, attestation and receipt are owned
-  upstream by Quoin from FR-006 onward. This repository holds no retained
-  evidence archive and no verifier for one; issue #13 deleted the archive under
-  the authority of `agent-ix/engineering-assurance#7`, and Git history is the
-  integrity boundary for the deleted bytes.
 - Automation records no release, qualification, accreditation, or certification
   decision.
 
@@ -35,5 +30,4 @@ identities.
 
 ## Dependencies
 
-Packages FR-001 through FR-004 without changing semantic outcomes, and hands
-retention and integrity to the shared intake path defined by FR-006.
+Packages FR-001 through FR-004 without changing semantic outcomes.

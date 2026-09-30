@@ -1,4 +1,4 @@
-//! Produce and independently replay the retained counterexample corpus (FR-006-AC-2, FR-006-AC-6).
+//! Produce and independently replay the retained counterexample corpus.
 //!
 //! This is a producer. It runs the actual bounded comparison and the actual
 //! pinned `tl-mltl` evaluator over the checked counterevidence corpus and writes
@@ -471,7 +471,7 @@ fn main() -> ExitCode {
         eprintln!("the counterexample corpus declares no cases");
         return ExitCode::from(2);
     }
-    // The declared counts are the oracle the chain compares against. If the file
+    // The declared counts are the count oracle. If the file
     // disagrees with itself there is no oracle at all, so that is an environment
     // error rather than a failing row.
     for (kind, declared) in [
