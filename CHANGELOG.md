@@ -56,8 +56,7 @@ existing v0.2.0. Changes are relative to v0.1.0.
 
 ### Changed
 
-- **Dependencies are the 0.3.0 releases.** `tl-syntax` and `tl-mltl` are
-  `=0.3.0`; the dev-only `tl-parse` is `=0.3.0`.
+- **Dependencies.**
   `TL_SYNTAX_REVISION` and `TL_MLTL_REVISION` name these revisions, and
   `scripts/check_provenance.py` requires them to match `Cargo.toml` and
   `Cargo.lock`. All of them compile one tl-syntax, so `Cargo.lock` resolves
@@ -77,17 +76,15 @@ existing v0.2.0. Changes are relative to v0.1.0.
 - **The vendored corpus is removed.** The shared past-history corpus is read
   from the compiled dependency through `tl_syntax::CORPUS_DIR` rather than
   from an in-repo copy.
-- **No Quire-ecosystem dependency.** Since tl-mltl 0.2.0 the production and dev
+- **No Quire-ecosystem dependency.** The production and dev
   dependency graphs carry no `quire-observation` or other AGPL component.
-- **MSRV is now Rust 1.98.1** (1.75 at v0.1.0). `rust-toolchain.toml` pins that
-  exact toolchain.
 
 ### Breaking changes
 
 - **The formula and signal types are those of tl-syntax 0.3.0.** Every public
   function takes and returns `tl_syntax` types (`FormulaDocument`,
   `SignalCatalogDocument`, `RequirementContextDocument`, `SourceSpan`), and
-  those types come from the pinned tl-syntax revision. A consumer that compiles
+  those types come from the compiled tl-syntax revision. A consumer that compiles
   a different tl-syntax revision gets distinct, incompatible types.
   *Migration:* pin `tl-syntax` (and `tl-mltl`, if you use it) to the same v0.3.0
   tags. Alternatively, pass documents across the boundary as canonical
@@ -108,5 +105,3 @@ existing v0.2.0. Changes are relative to v0.1.0.
   *Migration:* handle the new tl-syntax variants in your own `match`es (see the
   tl-syntax 0.3.0 changelog). If a caller must stay future-only, check the
   document's semantic profile before calling `rewrite`.
-- **Rust 1.75 through 1.98.0 can no longer build the crate.** *Migration:*
-  build with Rust 1.98.1 or newer and raise your own `rust-version` to match.
