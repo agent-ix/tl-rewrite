@@ -103,9 +103,7 @@ or qualify a monitor.
 Formula-v1 bytes and future rewrite semantics remain unchanged. Revision-bearing
 report bytes advance when this repository deliberately advances the exact
 compiled `tl-syntax` or `tl-mltl` revisions; the report schemas, fields, status
-meanings, and deterministic identical-call guarantee do not change. TC-035
-pins the new candidate baseline and the provenance gate requires every reported
-revision to equal the manifest and lockfile revision that actually ran.
+meanings, and deterministic identical-call guarantee do not change.
 
 The canonical cross-repository past/history corpus does not yet exist at this
 task boundary. Its publication and exact parser/evaluator/rewriter

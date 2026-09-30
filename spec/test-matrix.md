@@ -16,7 +16,7 @@ relationships:
 | FR-001 | FR-001-AC-1 through FR-001-AC-3 | TC-001 through TC-004, TC-054 | ✅ covered |
 | FR-002 | FR-002-AC-1 through FR-002-AC-4 | TC-005 through TC-008, TC-020, TC-021, TC-040 | ✅ covered |
 | FR-003 | FR-003-AC-1 through FR-003-AC-3 | TC-009 through TC-012 | ✅ covered |
-| FR-004 | FR-004-AC-1 through FR-004-AC-3 | TC-013 through TC-016, TC-054, TC-066 | ✅ implemented |
+| FR-004 | FR-004-AC-1, FR-004-AC-2 | TC-013 through TC-016, TC-054, TC-066 | ✅ implemented |
 | FR-005 | FR-005-AC-1, FR-005-AC-3 | TC-017 | ✅ covered |
 | FR-007 | FR-007-AC-1 through FR-007-AC-5 | TC-031 through TC-035, TC-040 | ✅ covered |
 | FR-008 | FR-008-AC-1 through FR-008-AC-5 | TC-041 through TC-045 | ✅ covered |
@@ -58,7 +58,7 @@ relationships:
 | TC-013 | Exhaustively confirm supported equivalence pairs | Integration | P0 | FR-004-AC-1 | ✅ implemented |
 | TC-014 | Retain deterministic equivalence counterexamples | Integration | P0 | FR-004-AC-1 | ✅ implemented |
 | TC-015 | Keep bounded-resource and profile cases non-conclusive | Integration | P0 | FR-004-AC-2, NFR-001-AC-2 | ✅ implemented |
-| TC-016 | Exercise WEST and independent fixtures | Integration | P0 | FR-004-AC-3, StR-002-VC-2, NFR-002-AC-2 | ✅ implemented |
+| TC-016 | Exercise WEST and independent fixtures | Integration | P0 | StR-002-VC-2, NFR-002-AC-2 | ✅ implemented |
 | TC-017 | Round trip and reject versioned wire records | Integration | P0 | FR-005-AC-1, NFR-001-AC-1 | ✅ implemented |
 | TC-020 | Detect repeated complete states through the rewrite engine | Unit | P0 | FR-002-AC-2, NFR-001-AC-2 | ✅ implemented |
 | TC-021 | Charge retained-source provenance traversal to the work budget | Unit | P0 | FR-002-AC-2, NFR-001-AC-3 | ✅ implemented |

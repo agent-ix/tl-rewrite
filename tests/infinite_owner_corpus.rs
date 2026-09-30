@@ -69,7 +69,7 @@ fn observations(
 
 // Trace: TC-076; FR-019-AC-3.
 #[test]
-fn pinned_owner_cases_cross_parser_rewriter_and_provider() {
+fn owner_cases_cross_parser_rewriter_and_provider() {
     let root = Path::new(CORPUS_DIR).join("infinite-trace");
     let manifest: serde_json::Value =
         serde_json::from_slice(&fs::read(root.join("manifest.json")).unwrap()).unwrap();

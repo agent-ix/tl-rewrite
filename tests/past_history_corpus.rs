@@ -152,7 +152,7 @@ fn exact_shared_corpus_replays_every_reviewed_rewrite_and_identity_case() {
 
 // Trace: TC-056, FR-009-AC-4, FR-013-AC-3
 #[test]
-fn corpus_digest_and_rewrite_expectation_mutations_are_detected() {
+fn corpus_and_rewrite_expectation_mutations_are_detected() {
     let (_, cases) = load();
     let input = &cases
         .formulas

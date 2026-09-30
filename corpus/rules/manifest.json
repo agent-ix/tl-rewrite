@@ -17,7 +17,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.not.false",      "id": "bool.not.false"
+      "expectedRule": "bool.not.false",
+      "id": "bool.not.false"
     },
     {
       "disposition": "enabled",
@@ -36,7 +37,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.not.true",      "id": "bool.not.true"
+      "expectedRule": "bool.not.true",
+      "id": "bool.not.true"
     },
     {
       "disposition": "enabled",
@@ -60,7 +62,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.not.double",      "id": "bool.not.double"
+      "expectedRule": "bool.not.double",
+      "id": "bool.not.double"
     },
     {
       "disposition": "enabled",
@@ -88,7 +91,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "neg.future.dual",      "id": "neg.future.dual"
+      "expectedRule": "neg.future.dual",
+      "id": "neg.future.dual"
     },
     {
       "disposition": "enabled",
@@ -116,7 +120,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "neg.globally.dual",      "id": "neg.globally.dual"
+      "expectedRule": "neg.globally.dual",
+      "id": "neg.globally.dual"
     },
     {
       "disposition": "enabled",
@@ -149,7 +154,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "neg.until.dual",      "id": "neg.until.dual"
+      "expectedRule": "neg.until.dual",
+      "id": "neg.until.dual"
     },
     {
       "disposition": "enabled",
@@ -182,7 +188,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "neg.release.dual",      "id": "neg.release.dual"
+      "expectedRule": "neg.release.dual",
+      "id": "neg.release.dual"
     },
     {
       "disposition": "enabled",
@@ -206,7 +213,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.and.false-left",      "id": "bool.and.false-left"
+      "expectedRule": "bool.and.false-left",
+      "id": "bool.and.false-left"
     },
     {
       "disposition": "enabled",
@@ -230,7 +238,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.and.false-right",      "id": "bool.and.false-right"
+      "expectedRule": "bool.and.false-right",
+      "id": "bool.and.false-right"
     },
     {
       "disposition": "enabled",
@@ -254,7 +263,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.and.true-left",      "id": "bool.and.true-left"
+      "expectedRule": "bool.and.true-left",
+      "id": "bool.and.true-left"
     },
     {
       "disposition": "enabled",
@@ -278,7 +288,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.and.true-right",      "id": "bool.and.true-right"
+      "expectedRule": "bool.and.true-right",
+      "id": "bool.and.true-right"
     },
     {
       "disposition": "enabled",
@@ -299,7 +310,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.and.idempotent",      "id": "bool.and.idempotent"
+      "expectedRule": "bool.and.idempotent",
+      "id": "bool.and.idempotent"
     },
     {
       "disposition": "enabled",
@@ -323,7 +335,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.or.true-left",      "id": "bool.or.true-left"
+      "expectedRule": "bool.or.true-left",
+      "id": "bool.or.true-left"
     },
     {
       "disposition": "enabled",
@@ -347,7 +360,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.or.true-right",      "id": "bool.or.true-right"
+      "expectedRule": "bool.or.true-right",
+      "id": "bool.or.true-right"
     },
     {
       "disposition": "enabled",
@@ -371,7 +385,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.or.false-left",      "id": "bool.or.false-left"
+      "expectedRule": "bool.or.false-left",
+      "id": "bool.or.false-left"
     },
     {
       "disposition": "enabled",
@@ -395,7 +410,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.or.false-right",      "id": "bool.or.false-right"
+      "expectedRule": "bool.or.false-right",
+      "id": "bool.or.false-right"
     },
     {
       "disposition": "enabled",
@@ -416,7 +432,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.or.idempotent",      "id": "bool.or.idempotent"
+      "expectedRule": "bool.or.idempotent",
+      "id": "bool.or.idempotent"
     },
     {
       "disposition": "enabled",
@@ -440,7 +457,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.implies.false-left",      "id": "bool.implies.false-left"
+      "expectedRule": "bool.implies.false-left",
+      "id": "bool.implies.false-left"
     },
     {
       "disposition": "enabled",
@@ -464,7 +482,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.implies.true-left",      "id": "bool.implies.true-left"
+      "expectedRule": "bool.implies.true-left",
+      "id": "bool.implies.true-left"
     },
     {
       "disposition": "enabled",
@@ -488,7 +507,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.implies.true-right",      "id": "bool.implies.true-right"
+      "expectedRule": "bool.implies.true-right",
+      "id": "bool.implies.true-right"
     },
     {
       "disposition": "enabled",
@@ -512,7 +532,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.implies.false-right",      "id": "bool.implies.false-right"
+      "expectedRule": "bool.implies.false-right",
+      "id": "bool.implies.false-right"
     },
     {
       "disposition": "enabled",
@@ -533,7 +554,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.implies.reflexive",      "id": "bool.implies.reflexive"
+      "expectedRule": "bool.implies.reflexive",
+      "id": "bool.implies.reflexive"
     },
     {
       "disposition": "enabled",
@@ -558,7 +580,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.implies.eliminate",      "id": "bool.implies.eliminate"
+      "expectedRule": "bool.implies.eliminate",
+      "id": "bool.implies.eliminate"
     },
     {
       "disposition": "enabled",
@@ -579,7 +602,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.equivalent.reflexive",      "id": "bool.equivalent.reflexive"
+      "expectedRule": "bool.equivalent.reflexive",
+      "id": "bool.equivalent.reflexive"
     },
     {
       "disposition": "enabled",
@@ -603,7 +627,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.equivalent.true-left",      "id": "bool.equivalent.true-left"
+      "expectedRule": "bool.equivalent.true-left",
+      "id": "bool.equivalent.true-left"
     },
     {
       "disposition": "enabled",
@@ -627,7 +652,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.equivalent.true-right",      "id": "bool.equivalent.true-right"
+      "expectedRule": "bool.equivalent.true-right",
+      "id": "bool.equivalent.true-right"
     },
     {
       "disposition": "enabled",
@@ -651,7 +677,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.equivalent.false-left",      "id": "bool.equivalent.false-left"
+      "expectedRule": "bool.equivalent.false-left",
+      "id": "bool.equivalent.false-left"
     },
     {
       "disposition": "enabled",
@@ -675,7 +702,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "bool.equivalent.false-right",      "id": "bool.equivalent.false-right"
+      "expectedRule": "bool.equivalent.false-right",
+      "id": "bool.equivalent.false-right"
     },
     {
       "disposition": "enabled",
@@ -699,7 +727,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "temporal.future.singleton",      "id": "temporal.future.singleton"
+      "expectedRule": "temporal.future.singleton",
+      "id": "temporal.future.singleton"
     },
     {
       "disposition": "enabled",
@@ -723,7 +752,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "temporal.globally.singleton",      "id": "temporal.globally.singleton"
+      "expectedRule": "temporal.globally.singleton",
+      "id": "temporal.globally.singleton"
     },
     {
       "disposition": "enabled",
@@ -752,7 +782,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "temporal.until.singleton",      "id": "temporal.until.singleton"
+      "expectedRule": "temporal.until.singleton",
+      "id": "temporal.until.singleton"
     },
     {
       "disposition": "enabled",
@@ -781,7 +812,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "temporal.release.singleton",      "id": "temporal.release.singleton"
+      "expectedRule": "temporal.release.singleton",
+      "id": "temporal.release.singleton"
     },
     {
       "disposition": "enabled",
@@ -804,7 +836,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "temporal.future.false",      "id": "temporal.future.false"
+      "expectedRule": "temporal.future.false",
+      "id": "temporal.future.false"
     },
     {
       "disposition": "enabled",
@@ -827,7 +860,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "temporal.future.true",      "id": "temporal.future.true"
+      "expectedRule": "temporal.future.true",
+      "id": "temporal.future.true"
     },
     {
       "disposition": "enabled",
@@ -850,7 +884,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "temporal.globally.false",      "id": "temporal.globally.false"
+      "expectedRule": "temporal.globally.false",
+      "id": "temporal.globally.false"
     },
     {
       "disposition": "enabled",
@@ -873,7 +908,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "temporal.globally.true",      "id": "temporal.globally.true"
+      "expectedRule": "temporal.globally.true",
+      "id": "temporal.globally.true"
     },
     {
       "disposition": "enabled",
@@ -901,7 +937,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "temporal.until.true-left",      "id": "temporal.until.true-left"
+      "expectedRule": "temporal.until.true-left",
+      "id": "temporal.until.true-left"
     },
     {
       "disposition": "enabled",
@@ -929,7 +966,8 @@
         "semantic_profile": "mltl.closed-trace/v1"
       },
       "expectedOutcome": "pass",
-      "expectedRule": "temporal.release.false-left",      "id": "temporal.release.false-left"
+      "expectedRule": "temporal.release.false-left",
+      "id": "temporal.release.false-left"
     },
     {
       "disposition": "excluded",

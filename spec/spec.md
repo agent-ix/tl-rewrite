@@ -20,10 +20,8 @@ reference evaluator and permitted WEST cases. When supplied, it also preserves
 the exact shared tl-syntax signal catalog and caller requirement context through
 those native results.
 
-Formula/profile identities come from the exact
-tl-syntax revision; semantic comparison comes from the exact tl-mltl revision
-that `Cargo.toml`, `Cargo.lock` and `src/lib.rs` all resolve. Every
-dependency, including the dev-only tl-parse, resolves one tl-syntax revision.
+Formula/profile identities come from tl-syntax; semantic comparison comes from
+tl-mltl.
 
 ## Scope
 

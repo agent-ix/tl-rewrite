@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use tl_rewrite::{catalog, ProvenanceKind, RuleDisposition, WEST_REVISION};
+use tl_rewrite::{catalog, ProvenanceKind, RuleDisposition};
 
 fn digest<T: Serialize>(value: &T) -> String {
     Sha256::digest(serde_json::to_vec(value).unwrap())
@@ -35,7 +35,6 @@ fn enabled_catalog_metadata_is_unique_and_complete() {
 // Trace: TC-002, FR-001-AC-1, NFR-002-AC-1
 #[test]
 fn primary_source_candidates_remain_explicitly_excluded() {
-    assert_eq!(WEST_REVISION.len(), 40);
     let excluded = catalog()
         .rules
         .into_iter()

@@ -1,7 +1,6 @@
 {
   "schemaVersion": "tl-rewrite.west-corpus/v1",
   "upstream": "https://github.com/zwang271/WEST",
-  "upstreamRevision": "21cd99ab2e6095a099dd179029cfdeb54268ad3f",
   "upstreamPath": "experiments/verification/verify_formulas/formulas_d1.txt",
   "license": "MIT",
   "licenseFile": "LICENSE",

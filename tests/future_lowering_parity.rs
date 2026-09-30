@@ -3,8 +3,8 @@
 //! `W[a,b](p,q)` and `M[a,b](p,q)` exist only as tl-syntax lowering. The engine
 //! consumes the primitive F/G/U/R and Boolean graph they lower to, so every
 //! rewrite outcome of a lowered graph must equal the outcome of the same graph
-//! built by hand. The lowering runs on the released tl-syntax the engine is
-//! pinned to (tl-parse, which supplies the v2 parser, is dev-only), and every
+//! built by hand. The lowering runs on the released tl-syntax (tl-parse, which
+//! supplies the v2 parser, is dev-only), and every
 //! lowered graph still enters the engine through the formula v1 wire, byte for
 //! byte.
 

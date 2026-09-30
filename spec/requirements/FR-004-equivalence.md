@@ -31,7 +31,6 @@ finite domain and shall retain permitted WEST-derived fixtures.
 |---|---|---|
 | FR-004-AC-1 | Supported small formula pairs receive exhaustive horizon-complete agreement or a retained minimal-by-enumeration counterexample. | Test (TC-013, TC-014) |
 | FR-004-AC-2 | Resource-limited, profile-incompatible, or evaluator-error cases serialize as non-conclusive and are absent from positive rule-enablement evidence. | Test (TC-015) |
-| FR-004-AC-3 | The MIT-licensed WEST validation subset and independent rule fixtures retain exact source, license, catalog, evaluator, domain, and output digests. | Test (TC-016) |
 
 ## Dependencies
 

@@ -36,11 +36,10 @@ decision and must not be advanced automatically.
 used to police Make's own execution controls went with the collector it
 protected, and a bare `make ci` still trusts Make's own execution controls
 and exit code exactly as before: a single `.IGNORE:` line still takes it from
-exit 2 to exit 0. `make
-guarded-ci` wraps it with a Rust program, external to Make (`src/ci_guard.rs`,
-`src/bin/ci_guard.rs`), that refuses to invoke Make at all if the Makefile
-text or the invocation environment could suppress that propagation, and
-reconciles the declared `ci` prerequisite set against the gates that actually
+exit 2 to exit 0. `make guarded-ci` wraps it with a Rust program, external to
+Make (`src/ci_guard.rs`, `src/bin/ci_guard.rs`), that refuses to invoke Make
+at all if the Makefile text or the invocation environment could suppress that
+propagation, and reconciles the declared `ci` prerequisite set against the gates that actually
 wrote a completion record, independent of Make's own exit code. See
 `spec/requirements/NFR-004-gate-set-integrity.md`. `make ci` remains directly
 invocable for local convenience and is not itself the assured gate; tracked
@@ -65,6 +64,6 @@ corpus/west-v1/           # selected WEST inputs
 corpus/rules/             # the rule corpus
 corpus/counterexamples/   # the counterevidence corpus and its count oracle
 spec/                     # requirements, reviews, and typed plan bundles
-scripts/                  # provenance and unsafe-comment checks
+scripts/                  # unsafe-comment checks
 ```
 

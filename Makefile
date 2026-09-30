@@ -36,8 +36,8 @@
 #   make ci CARGO=false PYTHON=false QUIRE=false
 #
 # exits 2 and stops at the first prerequisite. Prepend a single `.IGNORE:`
-# line and the identical command exits 0. `make guarded-ci` against the same `.IGNORE:`-prepended file refuses before Make
-# ever runs.
+# line and the identical command exits 0. `make guarded-ci` against the same
+# `.IGNORE:`-prepended file refuses before Make ever runs.
 
 CARGO ?= cargo
 PYTHON ?= python3

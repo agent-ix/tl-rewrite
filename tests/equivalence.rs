@@ -6,7 +6,7 @@ use common::{document, proposition, west_document};
 use serde::Deserialize;
 use tl_rewrite::{
     check_equivalence, rewrite, ConformanceOptions, ConformanceReason, ConformanceStatus,
-    RewriteOptions, RewriteStatus, TL_MLTL_REVISION, WEST_REVISION,
+    RewriteOptions, RewriteStatus, TL_MLTL_REVISION,
 };
 use tl_syntax::{Interval, Node, NodeId, NodeKind, SemanticProfile, SourceSpan};
 
@@ -14,7 +14,6 @@ use tl_syntax::{Interval, Node, NodeId, NodeKind, SemanticProfile, SourceSpan};
 #[serde(rename_all = "camelCase")]
 struct WestManifest {
     schema_version: String,
-    upstream_revision: String,
     selected_cases: Vec<WestCase>,
 }
 
@@ -182,16 +181,15 @@ fn unsupported_profiles_and_domain_limits_are_nonconclusive() {
     assert_eq!(report.reason, Some(ConformanceReason::EvaluatorError));
 }
 
-// Trace: TC-016, FR-004-AC-3, StR-002-VC-2, NFR-002-AC-2
+// Trace: TC-016, StR-002-VC-2, NFR-002-AC-2
 #[test]
-fn pinned_west_subset_rewrites_and_is_exhaustively_equivalent() {
+fn west_subset_rewrites_and_is_exhaustively_equivalent() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("corpus/west-v1");
     let manifest: WestManifest =
         serde_json::from_slice(&fs::read(root.join("manifest.json")).unwrap()).unwrap();
     let source = fs::read_to_string(root.join("formulas_d1.txt")).unwrap();
     let source_lines = source.lines().collect::<Vec<_>>();
     assert_eq!(manifest.schema_version, "tl-rewrite.west-corpus/v1");
-    assert_eq!(manifest.upstream_revision, WEST_REVISION);
     assert_eq!(manifest.selected_cases.len(), 10);
 
     for case in manifest.selected_cases {

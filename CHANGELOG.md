@@ -56,8 +56,7 @@ existing v0.2.0. Changes are relative to v0.1.0.
 
 ### Changed
 
-- **Dependencies.**
-  `TL_SYNTAX_REVISION` and `TL_MLTL_REVISION` name these revisions. All of them compile one tl-syntax, so `Cargo.lock` resolves
+- **Dependencies.** All of them compile one tl-syntax, so `Cargo.lock` resolves
   exactly one `tl-syntax` and one `tl-parse`. The historical dev-only aliases
   `tl-parse-derived`, `tl-syntax-lowering` and `tl-syntax-parser-seam` are
   gone. The W/M parity and parser-seam tests now run against the released
@@ -84,8 +83,7 @@ existing v0.2.0. Changes are relative to v0.1.0.
   `SignalCatalogDocument`, `RequirementContextDocument`, `SourceSpan`), and
   those types come from the compiled tl-syntax revision. A consumer that compiles
   a different tl-syntax revision gets distinct, incompatible types.
-  *Migration:* pin `tl-syntax` (and `tl-mltl`, if you use it) to the same v0.3.0
-  tags. Alternatively, pass documents across the boundary as canonical
+  *Migration:* pass documents across the boundary as canonical
   formula-v1/v2 JSON bytes and read them with
   `FormulaDocument::from_json_bytes`.
 - **Report bytes and identities differ from v0.1.0.** `RewriteReport`,
