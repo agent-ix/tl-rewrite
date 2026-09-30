@@ -3,8 +3,6 @@ id: MRS-001
 title: tl-rewrite v0.1 master requirements
 type: MasterRequirements
 relationships:
-  - target: ix://agent-ix/quire-contract-ir/PGM-01
-    type: depends_on
   - target: ix://agent-ix/tl-syntax/MRS-001
     type: depends_on
   - target: ix://agent-ix/tl-mltl/MRS-001
@@ -22,8 +20,7 @@ reference evaluator and permitted WEST cases. When supplied, it also preserves
 the exact shared tl-syntax signal catalog and caller requirement context through
 those native results.
 
-PGM-01 governs compatibility, provenance, evidence, human authority, and
-qualification boundaries. Formula/profile identities come from the exact
+Formula/profile identities come from the exact
 tl-syntax revision; semantic comparison comes from the exact tl-mltl revision
 that `Cargo.toml`, `Cargo.lock` and `src/lib.rs` all resolve, which
 `scripts/check_provenance.py` requires to agree on every run. Since the 0.3.0
@@ -88,7 +85,7 @@ determinism/resources, NFR-002 constrains provenance and qualification claims,
 NFR-003 owns the qualification controls, and NFR-004 binds the CI entry
 point's declared and executed gate set.
 
-FR-005 owned the PGM-01 evidence boundary as well until issue #13 deleted the
+FR-005 owned an evidence boundary as well until issue #13 deleted the
 retained archive; that allocation is removed rather than reassigned, because no
 requirement owns an evidence boundary this repository no longer has.
 
@@ -102,4 +99,3 @@ preserving all existing public and wire behavior.
 - [W/M lowering parity child](https://github.com/agent-ix/tl-rewrite/issues/35).
 - [WEST research artifacts](https://temporallogic.org/research/WEST/).
 - [WEST canonical repository](https://github.com/zwang271/WEST).
-- [PGM-01](https://github.com/agent-ix/quire-contract-ir/blob/main/spec/program/PGM-01-governance.md).

@@ -37,4 +37,4 @@ and either a stated derivation or primary published source.
 
 ## Dependencies
 
-Depends on exact tl-syntax profiles and PGM-01 provenance requirements.
+Depends on exact tl-syntax profiles.
