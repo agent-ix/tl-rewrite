@@ -128,7 +128,7 @@ architectural change than a completion-record protocol, is not proposed
 here, and is out of scope for the reasons the paragraph above already gives
 for not generalizing this mechanism further. What item 4 closes is the
 inheritance-only forgery TL-202 described as exploitable "in principle" by
-any of the twelve gates' own subprocesses with zero additional effort;
+any of the gates' own subprocesses with zero additional effort;
 what it does not close is a subprocess that goes looking for the token store
 specifically, which was already a materially higher-effort, more deliberate
 action than the one this control removes.
@@ -147,8 +147,8 @@ assert either, since some of these overrides arrive through the environment
 rather than the file. Binding what was declared to what actually executed,
 from a vantage point outside Make and with the entry point controlling both
 the text it delegates to and the environment it delegates with, converts that
-trust into a checked property: the entry point either observes twelve
-genuine passes or it does not report a pass at all, regardless of which
+trust into a checked property: the entry point either observes every declared gate's
+genuine pass or it does not report a pass at all, regardless of which
 mechanism — present or future, textual, dynamic, or environmental — caused a
 gate not to run its own work.
 
@@ -156,7 +156,7 @@ Item 3's completion record is bound to a *run* (NFR-004-AC-5) but, until
 NFR-004-AC-9, not to a *gate*: `CI_GUARD_RUN_ID` is exported once into the
 top-level Make process and every recipe and subprocess in that run's process
 tree inherits it identically, so a completion record for any declared gate
-was writable by any of the twelve gates' own recipes, or anything they
+was writable by any of the gates' own recipes, or anything they
 shell out to, using nothing but a value already in their environment and a
 gate name already public in the Makefile. Reconciliation (item 3) is not an
 independent catch for this: `reconcile` only asks whether *some* record

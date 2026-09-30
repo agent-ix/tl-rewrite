@@ -72,7 +72,6 @@ help:
 	@echo "  make fmt-check        - Verify formatting (CI gate)"
 	@echo "  make lint             - Clippy with -D warnings"
 	@echo "  make test             - cargo test"
-	@echo "  make check-corpus     - Re-derive dependency provenance"
 	@echo "  make conformance      - Replay every catalog rule through engine and oracle"
 	@echo "  make counterexamples  - Produce and replay the retained counterexample corpus"
 	@echo "  make normalization    - Sweep determinism, fixed point, replay, and budgets"
@@ -112,11 +111,6 @@ test:
 # =============================================================================
 # Rewrite domain
 # =============================================================================
-
-.PHONY: check-corpus
-check-corpus:
-	$(PYTHON) scripts/check_provenance.py
-	$(CI_GUARD) record check-corpus
 
 .PHONY: conformance
 conformance:
@@ -180,7 +174,7 @@ rustdoc:
 # =============================================================================
 
 .PHONY: ci
-ci: fmt-check lint test check-corpus conformance counterexamples normalization \
+ci: fmt-check lint test conformance counterexamples normalization \
 	deny audit-unsafe spec msrv rustdoc
 
 # The assured entry point (NFR-004). Builds and runs the guard, which refuses

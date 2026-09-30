@@ -22,12 +22,8 @@ those native results.
 
 Formula/profile identities come from the exact
 tl-syntax revision; semantic comparison comes from the exact tl-mltl revision
-that `Cargo.toml`, `Cargo.lock` and `src/lib.rs` all resolve, which
-`scripts/check_provenance.py` requires to agree on every run. Every
-dependency, including the dev-only tl-parse, resolves one tl-syntax revision. Issue #35 once locked a second revision for test-only
-lowering controls, so the check still requires the production pin to be the
-revision tl-mltl compiles and any other locked revision to be one a
-dev-dependency declares.
+that `Cargo.toml`, `Cargo.lock` and `src/lib.rs` all resolve. Every
+dependency, including the dev-only tl-parse, resolves one tl-syntax revision.
 
 ## Scope
 

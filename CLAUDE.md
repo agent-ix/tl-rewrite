@@ -9,7 +9,6 @@ make fmt              # format with rustfmt
 make fmt-check        # verify formatting (CI gate)
 make lint             # clippy with -D warnings
 make test             # cargo test
-make check-corpus     # re-derive dependency provenance
 make conformance      # replay every catalog rule through engine and oracle
 make counterexamples  # produce and replay the retained counterexample corpus
 make normalization    # sweep determinism, fixed point, replay, and budgets

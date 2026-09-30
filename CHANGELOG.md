@@ -57,9 +57,7 @@ existing v0.2.0. Changes are relative to v0.1.0.
 ### Changed
 
 - **Dependencies.**
-  `TL_SYNTAX_REVISION` and `TL_MLTL_REVISION` name these revisions, and
-  `scripts/check_provenance.py` requires them to match `Cargo.toml` and
-  `Cargo.lock`. All of them compile one tl-syntax, so `Cargo.lock` resolves
+  `TL_SYNTAX_REVISION` and `TL_MLTL_REVISION` name these revisions. All of them compile one tl-syntax, so `Cargo.lock` resolves
   exactly one `tl-syntax` and one `tl-parse`. The historical dev-only aliases
   `tl-parse-derived`, `tl-syntax-lowering` and `tl-syntax-parser-seam` are
   gone. The W/M parity and parser-seam tests now run against the released

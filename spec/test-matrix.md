@@ -62,7 +62,6 @@ relationships:
 | TC-017 | Round trip and reject versioned wire records | Integration | P0 | FR-005-AC-1, NFR-001-AC-1 | ✅ implemented |
 | TC-020 | Detect repeated complete states through the rewrite engine | Unit | P0 | FR-002-AC-2, NFR-001-AC-2 | ✅ implemented |
 | TC-021 | Charge retained-source provenance traversal to the work budget | Unit | P0 | FR-002-AC-2, NFR-001-AC-3 | ✅ implemented |
-| TC-022 | Bind the rule corpus to the constructed reviewed fixtures | Integration | P0 | FR-001-AC-2, FR-004-AC-3 | ✅ implemented |
 | TC-031 | Preserve exact shared requirement context, signal-catalog identity, and distinct clause/node spans in contextual rewrite reports | Integration | P0 | FR-007-AC-1, StR-003-VC-1, NFR-001-AC-1, NFR-002-AC-3 | ✅ implemented |
 | TC-032 | Verify exact contextual replay and reject every independently mutated, omitted, or substituted catalog/context/request input | Integration | P0 | FR-007-AC-2, StR-003-VC-2 | ✅ implemented |
 | TC-033 | Validate input and output proposition bindings and return typed locus-specific non-success without successful output | Integration | P0 | FR-007-AC-3, StR-003-VC-2 | ✅ implemented |

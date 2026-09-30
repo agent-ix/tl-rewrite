@@ -32,7 +32,7 @@ const GATE_TOKENS_INCLUDE: &str = "-include target/ci-gates/.gate-tokens.mk\n";
 
 /// A fixture Makefile with two `ci` prerequisites, `gate-a` and `gate-b`,
 /// each running `cmd` and then calling this binary's `record` subcommand —
-/// exactly the pattern the real Makefile now uses for all 12 gates.
+/// exactly the pattern the real Makefile now uses for all gates.
 fn fixture_makefile(cmd: &str, extra_header: &str) -> String {
     let guard = ci_guard_bin();
     format!(
