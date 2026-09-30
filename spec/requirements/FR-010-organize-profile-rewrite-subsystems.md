@@ -54,7 +54,7 @@ The `infinite` arm admits only `mltl.infinite-trace/v1` and
 never turns on an infinite-trace feature in the tl-mltl bounded evaluator.
 Qualification uses the independent `tl-oracle` as a dev dependency.
 The default build does not enable tl-mltl's non-default `infinite-trace`
-feature. The opt-in `tl-rewrite/infinite-trace` feature enables the pinned
+feature. The opt-in `tl-rewrite/infinite-trace` feature enables the
 provider for trace-scoped differential conformance; it never supplies rule
 soundness authority. A runtime comparison remains a diagnostic rather than
 a soundness proof.
@@ -73,25 +73,6 @@ digests derived from those fields; it does not silently retain a stale producer
 identity. No parser, native-language, Contract-IR vocabulary, production
 monitor or evidence framework is added.
 
-The 2026-09-21 advance to tl-mltl 0.2.0 (agent-ix/tl-rewrite quire-observation
-dev-dependency removal, `agent-ix/tl-rewrite#42`/TL-175/TL-179) is the one
-exception to the "only revision fields and digests" claim above: tl-mltl 0.2.0
-removed `wire::request` and `wire::report` -- the pre-0.2.0 owner-admission
-API, itself coupled to quire-observation -- entirely, relocating that surface
-to the quire-observation-coupled bridge crate `quire-mltl`, which a TL-* crate
-must not depend on. `check_past_equivalence`'s own parameter and report shape
-moved with it. `PastEvaluationContext` (a TL-native formula/history/anchor/
-proposition-map bundle this crate now owns) replaces `ValidatedTemporalRequest`;
-`PastConformanceReport`'s `original_execution`/`rewritten_execution`/
-`original_truth`/`rewritten_truth` fields become `original_verdict`/
-`rewritten_verdict: Option<bool>`; and `PastConformanceReason::NonBooleanResult`
-is removed, because `tl_mltl::past::evaluate_past` (the TL-179 replacement) has
-no intermediate non-final result for the past lane -- what used to reach that
-reason now reports `OriginalEvaluatorError`/`RewrittenEvaluatorError`, same as
-any other evaluator refusal. FR-010-AC-4's own text is unaffected by this
-change: past equivalence still invokes only the pinned tl-mltl owner API,
-still detects every wrong fold, and still claims no universal proof.
-
 ## Acceptance Criteria
 
 | ID | Criteria | Verification |
@@ -99,7 +80,7 @@ still detects every wrong fold, and still claims no universal proof.
 | FR-010-AC-1 | Every existing future and past rule dispatches only through its selected profile catalog; cross-profile, mixed and unknown inputs never reach a rule body. | Test (TC-053) |
 | FR-010-AC-2 | Every successful graph passes the real tl-syntax strict reader and preserves contract/profile/source/proposition identity; unproved past forms remain byte-identical. | Test (TC-053) |
 | FR-010-AC-3 | Existing canonical graph, schema, status, diagnostic and work-accounting bytes remain unchanged across the source reorganization and public re-exports; only mandatory dependency-revision fields and report/replay digests derived from them advance. | Test (TC-053) |
-| FR-010-AC-4 | Past runtime equivalence invokes only the pinned tl-mltl owner API as a diagnostic, detects every wrong O/H/Y/S/T fold across both clocks and anchors, and claims no universal proof; qualification rule evidence uses `tl-oracle`. | Test (TC-053, TC-066) |
+| FR-010-AC-4 | Past runtime equivalence invokes only the tl-mltl owner API as a diagnostic, detects every wrong O/H/Y/S/T fold across both clocks and anchors, and claims no universal proof; qualification rule evidence uses `tl-oracle`. | Test (TC-053, TC-066) |
 | FR-010-AC-5 | Exact and one-over iteration/node/application/work/report/replay bounds preserve existing typed outcomes and expose no partial graph or report. | Test (TC-053) |
 | FR-010-AC-6 | Infinite inputs dispatch only through the infinite catalog, keep their profile/edition/fairness identities, and leave the bounded evaluator feature off in default builds; opt-in conformance remains trace-scoped. | Test (TC-067, TC-069) |
 

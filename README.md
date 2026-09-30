@@ -12,9 +12,8 @@ make guarded-ci
 make spec
 ```
 
-The library requires Rust 1.98.1 and consumes validated `tl-syntax.formula/v1` and
-`tl-syntax.formula/v2` documents pinned to revision
-`6aa9b11e29040d64b437da87c9944e3dedd34a86` (v0.3.0). Its immutable future catalog
+The library consumes validated `tl-syntax.formula/v1` and
+`tl-syntax.formula/v2` documents. Its immutable future catalog
 enables 38 closed-trace rules with stable identity, revision, profile,
 precondition, and derivation metadata. Two
 growth-sensitive nested Until/Release transformations from WEST paper Theorem 3
@@ -34,12 +33,11 @@ explicit iteration, node, application, and deterministic logical-work budgets.
 Only a fixed point carries a normalized formula. `replay` detects substituted
 inputs, catalog/options, steps, intermediates, or output. `check_equivalence`
 enumerates every valuation in a horizon-complete bounded closed-trace domain
-and delegates verdicts to pinned `tl-mltl` revision
-`1d9a97f6b601bcc5ee7f2b644bf8b5ea3d66e61e` (v0.3.0). This future-only conformance API
+and delegates verdicts to `tl-mltl`. This future-only conformance API
 continues to return a typed non-conclusive refusal for past profiles. Past-fold
 tests and `check_past_equivalence` compare two `PastEvaluationContext`s -- a
 formula paired with the exact history, anchor, and proposition-map identity it
-evaluates against -- through the pinned `tl_mltl::past::evaluate_past`
+evaluates against -- through the `tl_mltl::past::evaluate_past`
 evaluator over event-position and exact fixed-sample histories. Evaluator
 refusal, including a resource limit, remains a typed non-conclusive result and
 is never coerced to a verdict.
@@ -48,7 +46,7 @@ is never coerced to a verdict.
 `tl-syntax.formula-unbounded/v1` graphs and remaps ordered fairness roots. It
 exposes an output only after a bounded fixed point. The optional
 `infinite-trace` feature enables `check_infinite_rewrite`, which compares the
-original and rewritten graphs on one lasso through the pinned provider.
+original and rewritten graphs on one lasso through the provider.
 Independent rule checks use the dev-only `tl-oracle`; a runtime comparison is
 trace-scoped evidence, not a temporal proof.
 
@@ -70,11 +68,10 @@ the declared horizon-complete domain and profile.
 
 ## Corpus and evidence
 
-`corpus/west-v1/` is a checksum-pinned, byte-identical MIT-licensed subset of
-canonical WEST commit `21cd99ab…`. Ten selected published formulas exercise
-enabled rules and are independently checked with tl-mltl. Every enabled rule
-also has its own exhaustive small-domain fixture, bound by SHA-256 to
-`corpus/rules/manifest.json`. Agreement is conclusive only for the reported
+`corpus/west-v1/` is a byte-identical MIT-licensed subset of canonical WEST.
+Ten selected published formulas exercise enabled rules and are independently
+checked with tl-mltl. Every enabled rule also has its own exhaustive
+small-domain fixture. Agreement is conclusive only for the reported
 formula pair and domain; it is not a universal proof schema.
 
 `corpus/counterexamples/` is the counterevidence corpus: deliberately unsound
@@ -97,7 +94,7 @@ or make an automated release, accreditation, or certification decision.
 ## License
 
 Licensed under either of Apache License, Version 2.0 or MIT license at your
-option. Since tl-mltl 0.2.0 (TL-179) the dependency graph carries no
+option. The dependency graph carries no
 Quire Observation (or other AGPL-3.0-or-later) component, direct or
 transitive: this crate, and every crate it depends on for its production
 build, stay entirely independent of the agent-ix/Quire ecosystem, per the

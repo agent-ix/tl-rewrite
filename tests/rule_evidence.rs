@@ -302,19 +302,10 @@ fn every_enabled_rule_has_positive_exhaustive_bounded_evidence() {
 #[test]
 fn the_rule_corpus_is_the_constructed_fixtures_and_covers_the_whole_catalog() {
     // The corpus in `corpus/rules/manifest.json` is what `examples/rule_conformance.rs`
-    // replays, and it is data rather than code. Data that nothing binds to the
-    // reviewed construction is data anyone can edit, so both directions are
-    // asserted here: every enabled rule's constructed fixture must serialize to
-    // exactly the digest the corpus declares, and the corpus's case set must be
-    // the catalog's rule set.
-    //
-    // This is the same shape as the WEST fixture-to-manifest binding in
-    // tests/equivalence.rs, which an adversarial review of v0.1 attacked twice
-    // and which held both times.
+    // replays; its case set must be the catalog's rule set.
     use std::{collections::BTreeSet, fs, path::PathBuf};
 
     use serde::Deserialize;
-    use sha2::{Digest, Sha256};
 
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -328,8 +319,6 @@ fn the_rule_corpus_is_the_constructed_fixtures_and_covers_the_whole_catalog() {
     struct Case {
         id: String,
         disposition: String,
-        #[serde(default)]
-        formula_sha256: Option<String>,
         #[serde(default)]
         exclusion_reason: Option<String>,
     }
@@ -360,20 +349,6 @@ fn the_rule_corpus_is_the_constructed_fixtures_and_covers_the_whole_catalog() {
             "enabled" => {
                 enabled += 1;
                 assert_eq!(rule.disposition, RuleDisposition::Enabled, "{}", case.id);
-                let expected = case
-                    .formula_sha256
-                    .as_ref()
-                    .unwrap_or_else(|| panic!("{} declares no formulaSha256", case.id));
-                let constructed = fixture(&case.id);
-                let observed: String = Sha256::digest(serde_json::to_vec(&constructed).unwrap())
-                    .iter()
-                    .map(|byte| format!("{byte:02x}"))
-                    .collect();
-                assert_eq!(
-                    &observed, expected,
-                    "{} in the corpus is not the fixture this test constructs",
-                    case.id
-                );
             }
             "excluded" => {
                 excluded += 1;

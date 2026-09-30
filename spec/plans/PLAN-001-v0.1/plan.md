@@ -20,7 +20,6 @@ PGM-01 + exact tl-syntax and tl-mltl revisions
   -> bounded rewrite engine and replay traces
   -> bounded equivalence and WEST corpus binding
   -> review remediation and complete local gates
-  -> exact-candidate retained evidence
   -> human v0.1 source-release decision
 ```
 
@@ -33,11 +32,10 @@ PGM-01 + exact tl-syntax and tl-mltl revisions
 | Task-003 | Bounded engine and replay traces | Stable compaction, budget, fixed-point, trace, and replay tests |
 | Task-004 | Bounded equivalence and WEST evidence | Exact dependency/corpus identities and complete bounded comparisons |
 | Task-005 | Verification and review remediation | Complete local gate and resolved actionable review findings |
-| Task-006 | Exact-candidate evidence | Sealed PGM-01 validations and checksummed retained record |
 | Task-007 | Human source-release decision | Maintainer review and explicit release decision |
 
 ## Exit Criteria
 
 All matrix rows are backed by executable or retained inspection evidence, the
-complete CI gate passes, no blocking gap remains, and the Assurance Argument
-stays open until a human release owner records the source-release decision.
+complete CI gate passes, no blocking gap remains, and the release stays open
+until a human release owner records the source-release decision.

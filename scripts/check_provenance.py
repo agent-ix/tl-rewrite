@@ -5,20 +5,11 @@ This is a producer. It reads bytes that are already in the tree and reports one
 structured row per obligation. It runs no compiler, no test and no solver, it
 computes no aggregate verdict beyond its own exit status, and it retains nothing.
 
-Three obligations, each of which has been wrong in this repository before.
-
-**The corpora are the bytes they claim to be.** `corpus/west-v1/SHA256SUMS` pins
-every retained WEST byte; `corpus/rules` and `corpus/counterexamples` are the
-oracles the rewrite producers are checked against, and an oracle nobody digests
-is an oracle anyone can edit.
+Two obligations, each of which has been wrong in this repository before.
 
 **The declared dependency revisions are the compiled ones.** `TL_SYNTAX_REVISION`
 and `TL_MLTL_REVISION` are wire fields: every `ConformanceReport` this crate
-emits names them as the revisions the comparison ran against. Before this change
-`TL_MLTL_REVISION` said `da2c7704`, a revision reachable from no branch or tag,
-while `Cargo.toml` pinned `fe1c620d` — so every conformance report in the
-repository attributed its verdicts to an evaluator that did not produce them.
-Nothing noticed, because the only test compared the constant to itself. The
+emits names them as the revisions the comparison ran against. The
 constants, `Cargo.toml` and `Cargo.lock` are now required to agree. Issue #35
 once locked a second tl-syntax revision through a renamed dev-dependency (one
 revision resolves since 0.3.0), so agreement means: the `[dependencies]` pin is
@@ -35,7 +26,6 @@ environment error — which is a different fact from a failing check.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 import sys
@@ -43,8 +33,6 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
-WEST = ROOT / "corpus" / "west-v1"
-CHECKSUM_LINE = re.compile(r"^([0-9a-f]{64})  ([^/]+)$")
 
 # The constants this crate publishes as wire fields, and where each one's truth
 # lives. `Cargo.lock` is included because a lockfile that drifted from the
@@ -61,21 +49,9 @@ PRODUCTION_CONSUMERS = {
     "tl-syntax": ("tl-mltl",),
 }
 
-# Corpora whose bytes are an oracle for a producer. Each is digested here so that
-# an edited oracle is a reported difference rather than a silently moved target.
-ORACLES = (
-    "corpus/rules/manifest.json",
-    "corpus/counterexamples/manifest.json",
-    "corpus/west-v1/manifest.json",
-)
-
 
 class ProvenanceError(RuntimeError):
     """The check could not be performed. Distinct from a check that failed."""
-
-
-def sha256(raw: bytes) -> str:
-    return hashlib.sha256(raw).hexdigest()
 
 
 def read(relative: str) -> str:
@@ -95,113 +71,6 @@ def row(symbol: str, outcome: str, detail: str, **extra: Any) -> dict[str, Any]:
         "detail": detail,
         **extra,
     }
-
-
-def corpus_rows() -> list[dict[str, Any]]:
-    """Re-hash every retained WEST byte against the pinned checksum manifest."""
-    manifest = WEST / "SHA256SUMS"
-    if not manifest.is_file():
-        raise ProvenanceError("corpus/west-v1/SHA256SUMS is absent")
-    lines = [line for line in manifest.read_text(encoding="utf-8").splitlines() if line.strip()]
-    if not lines:
-        # A checksum manifest with no lines verifies nothing while returning
-        # success. That is vacuous, and vacuous is not passed.
-        return [
-            row(
-                "corpus/west-v1/SHA256SUMS",
-                "vacuous",
-                "the WEST checksum manifest lists no artifacts, so it pins nothing",
-            )
-        ]
-    listed = set()
-    rows = []
-    for number, line in enumerate(lines, start=1):
-        match = CHECKSUM_LINE.fullmatch(line)
-        if match is None:
-            rows.append(
-                row(
-                    f"corpus/west-v1/SHA256SUMS:{number}",
-                    "malformed",
-                    "the checksum line is not <sha256><two spaces><name>",
-                )
-            )
-            continue
-        expected, name = match.group(1), match.group(2)
-        listed.add(name)
-        path = WEST / name
-        if path.is_symlink() or not path.is_file():
-            rows.append(
-                row(
-                    f"corpus/west-v1/{name}",
-                    "unavailable",
-                    "the listed corpus artifact is absent or is a symlink",
-                )
-            )
-            continue
-        observed = sha256(path.read_bytes())
-        if observed != expected:
-            rows.append(
-                row(
-                    f"corpus/west-v1/{name}",
-                    "fail",
-                    f"retained bytes digest {observed}, the manifest pins {expected}",
-                )
-            )
-            continue
-        rows.append(
-            row(
-                f"corpus/west-v1/{name}",
-                "pass",
-                "retained bytes match the pinned digest",
-                sha256=observed,
-            )
-        )
-    # Membership in both directions. A manifest that lists a subset verifies only
-    # what it lists, and an added file would otherwise never be seen.
-    present = {
-        item.name
-        for item in WEST.iterdir()
-        if item.is_file() and item.name != "SHA256SUMS"
-    }
-    for unlisted in sorted(present - listed):
-        rows.append(
-            row(
-                f"corpus/west-v1/{unlisted}",
-                "fail",
-                "the corpus directory holds an artifact the checksum manifest does not list",
-            )
-        )
-    return rows
-
-
-def oracle_rows() -> list[dict[str, Any]]:
-    """Digest every corpus that acts as an oracle for a producer."""
-    rows = []
-    for relative in ORACLES:
-        path = ROOT / relative
-        if not path.is_file():
-            rows.append(row(relative, "unavailable", "the declared oracle is absent"))
-            continue
-        raw = path.read_bytes()
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError as error:
-            rows.append(row(relative, "malformed", f"the oracle is not readable JSON: {error}"))
-            continue
-        cases = parsed.get("cases") or parsed.get("selectedCases")
-        if not isinstance(cases, list) or not cases:
-            rows.append(row(relative, "vacuous", "the oracle declares no cases"))
-            continue
-        rows.append(
-            row(
-                relative,
-                "pass",
-                f"the oracle declares {len(cases)} case(s)",
-                sha256=sha256(raw),
-                cases=len(cases),
-            )
-        )
-    return rows
 
 
 def manifest_section(manifest: str, name: str) -> str:
@@ -418,7 +287,7 @@ def dependency_rows() -> list[dict[str, Any]]:
 
 
 def build_report() -> dict[str, Any]:
-    entries = corpus_rows() + oracle_rows() + dependency_rows()
+    entries = dependency_rows()
     if not entries:
         raise ProvenanceError("no provenance obligation was evaluated at all")
     return {

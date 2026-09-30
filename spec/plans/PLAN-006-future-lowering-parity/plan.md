@@ -29,7 +29,7 @@ lowering mutants. Production source and public APIs stay unchanged.
 
 ## Dependency Graph
 
-- `tl-syntax#40 (8dc18ee) + tl-parse#31 (9ca856b) -> Task-001`
+- `tl-syntax#40 + tl-parse#31 -> Task-001`
   Reason: the controls call the merged lowering and v2 parser.
 - `Task-001 -> Task-002`
   Reason: the gate and PR-time reviews assess the finished controls.
@@ -37,14 +37,14 @@ lowering mutants. Production source and public APIs stay unchanged.
 ### The seams
 
 - `Cargo.toml` `[dev-dependencies]`: `tl-syntax-lowering` and
-  `tl-parse-derived` aliases. tl-mltl `4bff387` still pins tl-syntax `26b801d`,
+  `tl-parse-derived` aliases. tl-mltl still compiles an older tl-syntax,
   and `src/equivalence.rs` hands `tl_syntax::Formula` to tl-mltl, so the
   production pin cannot move alone.
 - `tests/future_lowering_parity.rs`: builders, the formula v1 wire crossing,
   the parity comparator, the source scanner, and the mutants.
 - `scripts/check_provenance.py`: with two locked tl-syntax revisions, the
   production pin must be the one tl-mltl compiles and every other locked
-  revision must be a declared dev-dependency (TC-030 probes both).
+  revision must be a declared dev-dependency.
 
 ## Test Plan
 

@@ -36,9 +36,7 @@
 #   make ci CARGO=false PYTHON=false QUIRE=false
 #
 # exits 2 and stops at the first prerequisite. Prepend a single `.IGNORE:`
-# line and the identical command exits 0 after 27 ignored recipe failures,
-# with all 12 `ci` prerequisites reporting success. `make
-# guarded-ci` against the same `.IGNORE:`-prepended file refuses before Make
+# line and the identical command exits 0. `make guarded-ci` against the same `.IGNORE:`-prepended file refuses before Make
 # ever runs.
 
 CARGO ?= cargo
@@ -64,10 +62,6 @@ CI_GUARD ?= $(CARGO) run --quiet --bin ci_guard --
 # commit it.
 -include target/ci-gates/.gate-tokens.mk
 
-# Interpreter environment still built by hosted CI (`make assurance-env`).
-ASSURANCE_VENV ?= .venv-assurance
-ASSURANCE_PYTHON ?= $(ASSURANCE_VENV)/bin/python
-
 RULE_MANIFEST := corpus/rules/manifest.json
 COUNTEREXAMPLE_MANIFEST := corpus/counterexamples/manifest.json
 
@@ -78,18 +72,17 @@ help:
 	@echo "  make fmt-check        - Verify formatting (CI gate)"
 	@echo "  make lint             - Clippy with -D warnings"
 	@echo "  make test             - cargo test"
-	@echo "  make check-corpus     - Re-derive corpus, oracle, and dependency provenance"
+	@echo "  make check-corpus     - Re-derive dependency provenance"
 	@echo "  make conformance      - Replay every catalog rule through engine and oracle"
 	@echo "  make counterexamples  - Produce and replay the retained counterexample corpus"
 	@echo "  make normalization    - Sweep determinism, fixed point, replay, and budgets"
 	@echo "  make deny             - cargo deny check advisories, bans, licenses, sources"
 	@echo "  make audit-unsafe     - Enforce // SAFETY: comments on unsafe blocks"
 	@echo "  make spec             - Validate specification and coverage with Quire"
-	@echo "  make msrv             - Check all targets and features with Rust 1.98.1"
+	@echo "  make msrv             - Check all targets and features with the MSRV toolchain"
 	@echo "  make rustdoc          - Build warning-free public documentation"
 	@echo "  make build            - Release build"
-	@echo "  make clean            - cargo clean and drop the assurance environment"
-	@echo "  make assurance-env    - Create the interpreter environment hosted CI builds"
+	@echo "  make clean            - cargo clean"
 	@echo "  make ci               - All CI gates locally, unguarded (see Makefile header)"
 	@echo "  make guarded-ci       - The assured entry point: run this, not 'make ci'"
 
@@ -148,7 +141,6 @@ build:
 .PHONY: clean
 clean:
 	$(CARGO) clean
-	rm -rf $(ASSURANCE_VENV)
 
 # =============================================================================
 # Supply chain & safety
@@ -182,19 +174,6 @@ msrv:
 rustdoc:
 	RUSTDOCFLAGS=-Dwarnings $(CARGO) doc --no-deps --all-features
 	$(CI_GUARD) record rustdoc
-
-# =============================================================================
-# Hosted CI interpreter environment
-# =============================================================================
-
-$(ASSURANCE_PYTHON): requirements-assurance.txt
-	rm -rf $(ASSURANCE_VENV)
-	$(PYTHON) -m venv $(ASSURANCE_VENV)
-	$(ASSURANCE_VENV)/bin/pip install --quiet --disable-pip-version-check \
-		-r requirements-assurance.txt
-
-.PHONY: assurance-env
-assurance-env: $(ASSURANCE_PYTHON)
 
 # =============================================================================
 # Composite

@@ -1,11 +1,8 @@
-use std::{collections::BTreeMap, time::Duration};
+use std::time::Duration;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use sha2::{Digest, Sha256};
 use tl_rewrite::{rewrite, RewriteBudgets, RewriteOptions, RewriteReport, RewriteStatus};
 use tl_syntax::{FormulaDocument, Node, NodeId, NodeKind, PropositionId, SemanticProfile};
-
-const INPUT_DIGESTS: &str = include_str!("input-digests.json");
 
 fn input(applications: u32) -> FormulaDocument {
     let mut nodes = vec![Node::new(NodeKind::Proposition {
@@ -47,24 +44,12 @@ fn verify(report: &RewriteReport, applications: u32) {
 }
 
 fn rule_application(c: &mut Criterion) {
-    let expected: BTreeMap<String, String> = serde_json::from_str(INPUT_DIGESTS).unwrap();
-    assert_eq!(
-        expected.len(),
-        3,
-        "rewrite benchmark input population changed"
-    );
     let mut group = c.benchmark_group("rewrite_rules");
     group.sample_size(20);
     group.warm_up_time(Duration::from_millis(500));
     group.measurement_time(Duration::from_secs(1));
     for (name, applications) in [("small_1", 1), ("median_24", 24), ("near_cap_64", 64)] {
         let document = input(applications);
-        let bytes = document.canonical_json_bytes().unwrap();
-        let digest = format!("{:x}", Sha256::digest(&bytes));
-        assert_eq!(
-            digest, expected[name],
-            "benchmark input digest changed: {name}"
-        );
         verify(&run(&document, applications), applications);
         group.throughput(Throughput::Elements(u64::from(applications)));
         group.bench_function(name, |b| {

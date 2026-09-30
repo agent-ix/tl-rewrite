@@ -29,13 +29,10 @@ its own.
 
 ## Inputs
 
-- Formula graphs from `tl_syntax::FutureLoweringRequest::lower()` at the
-  production tl-syntax pin (v0.3.0, `4a5614193d21e5ae99950ae683b04ba0ec931358`),
-  where
+- Formula graphs from `tl_syntax::FutureLoweringRequest::lower()`, where
   `W[a,b](p,q)` lowers to `Or(U[a,b](p,q), G[a,b](p))` and `M[a,b](p,q)` lowers
   to `And(R[a,b](p,q), F[a,b](p))`.
-- Graphs from `tl_parse::parse_clean_ascii_v2` at tl-parse v0.3.0
-  (`496020aad5595b870f141b88995cdc2ea6a5994e`), which compiles the same
+- Graphs from `tl_parse::parse_clean_ascii_v2`, which compiles the same
   tl-syntax revision.
 - The same graphs built by hand from primitive nodes.
 
@@ -73,5 +70,4 @@ its own.
 
 Depends on FR-002 and FR-004. Implements tl-rewrite's part of tl-syntax FR-010
 (`agent-ix/tl-rewrite#35`), after tl-syntax#40 (lowering) and tl-parse#31
-(clean-ascii/v2). The production tl-syntax pin stays at `26b801d` while tl-mltl
-consumes that revision.
+(clean-ascii/v2).

@@ -26,7 +26,7 @@ identities.
 | ID | Criteria | Verification |
 |---|---|---|
 | FR-005-AC-1 | Round trips preserve every v1 field and reject unknown schemas or missing identities. | Test (TC-017) |
-| FR-005-AC-3 | Evidence and documentation preserve human authority and bounded-equivalence limitations without an automated release or qualification claim. | Inspection (TC-019) |
+| FR-005-AC-3 | Evidence and documentation preserve human authority and bounded-equivalence limitations without an automated release or qualification claim. | Inspection |
 
 ## Dependencies
 

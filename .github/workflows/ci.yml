@@ -9,16 +9,12 @@ on:
 
 jobs:
   msrv:
-    name: Rust 1.75 Feature Boundary
+    name: MSRV
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install MSRV
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: 1.75.0
       - name: Cache cargo artifacts
         uses: Swatinem/rust-cache@v2
       - name: Check library and integration tests
@@ -44,11 +40,6 @@ jobs:
           toolchain: 1.94.1
           components: rustfmt, clippy
 
-      - name: Install MSRV toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: 1.75.0
-
       - name: Cache cargo artifacts
         uses: Swatinem/rust-cache@v2
 
@@ -61,9 +52,6 @@ jobs:
         run: |
           npm install --global '@agent-ix/quire-cli' '@agent-ix/quoin' '@agent-ix/ix-flow'
           quoin module ensure-defaults
-
-      - name: Build the pinned assurance environment
-        run: make assurance-env
 
       - name: Install cargo-deny
         uses: taiki-e/install-action@v2

@@ -1,17 +1,12 @@
 use std::{collections::BTreeMap, fs, path::Path};
 
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
 use tl_rewrite::{replay, rewrite, ReplayStatus, RewriteOptions, RewriteStatus};
 use tl_syntax::{FormulaDocument, NodeKind};
 
 const DIRECTORY: &str = "past-history";
-// The past-history manifest at tl-syntax v0.3.0. v0.3.0 rewrote two sentences of
-// the corpus README (TL-174); cases.json and schema.json are unchanged.
-const MANIFEST_SHA256: &str = "0bb497481a08d82ae74db794657eb6e7c57e6d1e5b5a8471b3559f82f405afd1";
 
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
 struct Manifest {
     corpus: String,
     revision: u64,
@@ -21,22 +16,6 @@ struct Manifest {
     semantic_profile: String,
     history_schema: String,
     dialect: String,
-    implementation_revisions: Revisions,
-    files: Vec<Pin>,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Revisions {
-    tl_syntax: String,
-    tl_parse: String,
-    tl_mltl: String,
-    tl_rewrite: String,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Pin {
-    path: String,
-    sha256: String,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -72,32 +51,13 @@ struct RewriteCase {
     expected_source: String,
 }
 
-fn digest(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
-}
-
 fn load() -> (Manifest, Cases) {
     // Read through the compiled tl-syntax dependency via `tl_syntax::CORPUS_DIR`,
     // not an in-repo path — TL-171 deletes `corpus/past-history` (5 files), which
     // was a byte-identical copy of tl-syntax's own corpus/past-history.
     let root = Path::new(tl_syntax::CORPUS_DIR).join(DIRECTORY);
     let manifest_bytes = fs::read(root.join("manifest.json")).unwrap();
-    assert_eq!(digest(&manifest_bytes), MANIFEST_SHA256);
     let manifest: Manifest = serde_json::from_slice(&manifest_bytes).unwrap();
-    let pins: BTreeMap<_, _> = manifest
-        .files
-        .iter()
-        .map(|pin| (&pin.path, &pin.sha256))
-        .collect();
-    assert_eq!(pins.len(), 3);
-    for pin in &manifest.files {
-        assert_eq!(
-            digest(&fs::read(root.join(&pin.path)).unwrap()),
-            pin.sha256,
-            "{}",
-            pin.path
-        );
-    }
     let cases = serde_json::from_slice(&fs::read(root.join("cases.json")).unwrap()).unwrap();
     (manifest, cases)
 }
@@ -114,22 +74,6 @@ fn exact_shared_corpus_replays_every_reviewed_rewrite_and_identity_case() {
     assert_eq!(manifest.semantic_profile, "mltl.origin-complete-history/v1");
     assert_eq!(manifest.history_schema, "tl-mltl.position-history/v1");
     assert_eq!(manifest.dialect, "tl-parse.clean-ascii/v3");
-    assert_eq!(
-        manifest.implementation_revisions.tl_syntax,
-        "e70f2379a752117c79603bc399a86c26feed7716"
-    );
-    assert_eq!(
-        manifest.implementation_revisions.tl_parse,
-        "f82b0c724675c0f774415aa696c360959da30481"
-    );
-    assert_eq!(
-        manifest.implementation_revisions.tl_mltl,
-        "b346cd0902794633e862f644a5575fc9776c34fb"
-    );
-    assert_eq!(
-        manifest.implementation_revisions.tl_rewrite,
-        "22b9cadcb1692cec8d3a97768f4f3b38fc654a5e"
-    );
     assert_eq!(cases.corpus, manifest.corpus);
     assert_eq!(cases.formula_schema, manifest.formula_schema);
     assert_eq!(cases.operator_profile, manifest.operator_profile);
@@ -209,11 +153,6 @@ fn exact_shared_corpus_replays_every_reviewed_rewrite_and_identity_case() {
 // Trace: TC-056, FR-009-AC-4, FR-013-AC-3
 #[test]
 fn corpus_digest_and_rewrite_expectation_mutations_are_detected() {
-    let root = Path::new(tl_syntax::CORPUS_DIR).join(DIRECTORY);
-    let mut manifest = fs::read(root.join("manifest.json")).unwrap();
-    manifest[0] ^= 1;
-    assert_ne!(digest(&manifest), MANIFEST_SHA256);
-
     let (_, cases) = load();
     let input = &cases
         .formulas

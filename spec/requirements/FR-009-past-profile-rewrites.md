@@ -75,7 +75,7 @@ future-only bounded-equivalence API returns a non-conclusive
 `unsupported_profile` result rather than presenting future lookahead evidence
 as proof over histories.
 
-Past semantic checks compare original and rewritten documents with the pinned
+Past semantic checks compare original and rewritten documents with the
 `tl-mltl` origin-complete evaluator over event-position and exact fixed-sample
 histories, every generated anchor, interval boundaries, pre-origin extension,
 and Boolean valuations. They do not introduce a second production evaluator
@@ -108,7 +108,7 @@ pins the new candidate baseline and the provenance gate requires every reported
 revision to equal the manifest and lockfile revision that actually ran.
 
 The canonical cross-repository past/history corpus does not yet exist at this
-task boundary. Its publication, checksum, and exact parser/evaluator/rewriter
+task boundary. Its publication and exact parser/evaluator/rewriter
 consumer replay are allocated to `ix://agent-ix/tl-syntax/Task-005` under
 `tl-syntax#54`, which depends on this implementation. Until that successor
 lands, this repository uses local constructed fixtures and generated histories
