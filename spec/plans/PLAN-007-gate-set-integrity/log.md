@@ -24,7 +24,7 @@ description: "Implementation and verification record for NFR-004 / TL-64 (agent-
 - **2026-09-22 — Tasks 001–006 implemented.** `src/ci_guard.rs` (checkable
   logic: static Makefile scan with recursive `include`, MAKEFLAGS check,
   completion-record read/write/reset, declared/executed reconciliation with
-  run-id freshness) and `src/bin/ci_guard.rs` (the `ci`/`record` CLI). All 13
+  run-id freshness) and `src/bin/ci_guard.rs` (the `ci`/`record` CLI). All
   `ci` prerequisite recipes in `Makefile` now call `$(CI_GUARD) record
   <gate>` as their last step; a new `guarded-ci` target is the assured entry
   point. README, CLAUDE.md, and `.github/workflows/ci.yml` repointed from

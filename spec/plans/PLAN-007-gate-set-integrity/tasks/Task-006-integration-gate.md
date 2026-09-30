@@ -60,6 +60,5 @@ do not proceed to Task-007 until both pass.
   guard and a bare `make ci` could not.
 - Do not mark this task done on a green run against fixtures alone; the real
   HEAD run is required because fixtures cannot catch an entry-point bug that
-  only manifests against the actual 13-recipe Makefile (e.g. an
-  `assurance`-aggregate edge case Task-003 introduced).
+  only manifests against the actual Makefile.
 - Unblocks: Task-007.
