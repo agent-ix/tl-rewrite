@@ -58,7 +58,7 @@ tl-syntax#14 reviewed landing
 | Task-001 | FR-007, StR-003, matrix, assurance impacts, composite review | Grammar-clean specification and context-bound SR-012 with no unresolved blocking finding |
 | Task-002 | Exact shared pin, contextual v2 fields, strict version-dependent serialization, deterministic catalog/context identities | TC-031 and strict positive/negative wire controls without a local signal/context schema |
 | Task-003 | Context-aware rewrite and replay entry points, input/output binding, contextual request digest, mutation matrix | TC-032 and TC-033, including exact replay and every independent substitution class |
-| Task-004 | Context-aware bounded equivalence and existing native Quoin intake | TC-034 and TC-036 with no new generic runner, collector, adapter framework, or evidence envelope |
+| Task-004 | Context-aware bounded equivalence | TC-034 |
 | Task-005 | Context-free snapshots, full verification, code review, gap analysis, downstream contract | TC-035, exact-head local gate, resolved findings, and mltl#24 handoff |
 
 ## Implementation shape
@@ -90,15 +90,10 @@ tl-syntax#14 reviewed landing
   enumerating traces.
 - Keep clause-level context spans and `RewriteStep` node spans in their own
   fields. Do not manufacture either from the other.
-- Extend an existing native producer/intake declaration only as needed to prove
-  that Quoin retains a contextual domain result without executing the producer.
-  Do not create a new general producer protocol, evidence envelope, runner,
-  collector, retention store, or local Quire/Quoin replacement.
 
 ## Verification method
 
-TC-031 through TC-036 use native Rust unit/integration/snapshot tests and the
-existing producer-owned shared assurance path. The mutation table changes one
+TC-031 through TC-035 use native Rust unit/integration/snapshot tests. The mutation table changes one
 catalog declaration, name, domain, binding, requirement id, revision, clause,
 anchor, span, presence marker, formula, option, rule-catalog identity, or
 intermediate at a time, with an exact accepted control beside each class.

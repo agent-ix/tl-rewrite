@@ -28,7 +28,6 @@ tl-syntax = { version = "=0.3.0", git = "https://github.com/agent-ix/tl-syntax.g
 criterion = { version = "=0.5.1", default-features = false }
 tl-oracle = { version = "=0.1.0", git = "https://github.com/agent-ix/tl-oracle.git", rev = "2391e5b7402ae02e8d138f3901b43a1f07acd1b6" }
 proptest = "=1.5.0"
-serde_yaml_ng = "0.10"
 tempfile = "=3.10.1"
 # The parser feeds two test seams: tests/rewrite.rs (parser-to-rewriter,
 # FR-002-AC-4) and tests/future_lowering_parity.rs (clean-ascii/v2 W/M graphs,

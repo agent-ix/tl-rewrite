@@ -20,7 +20,7 @@
 //!
 //! This remediates Linear TL-64 / `agent-ix/tl-rewrite#11`: a single
 //! `.IGNORE:` line, or an equivalent execution-control surface, used to make
-//! all 13 `ci` prerequisites report success regardless of whether their own
+//! all 12 `ci` prerequisites report success regardless of whether their own
 //! recipe failed. See `spec/requirements/NFR-004-gate-set-integrity.md`.
 
 use std::{
@@ -1324,11 +1324,10 @@ mod tests {
             "spec",
             "msrv",
             "rustdoc",
-            "assurance",
         ] {
             write_record(dir.path(), gate, "run-1").unwrap();
         }
-        assert_eq!(read_records(dir.path()).len(), 13);
+        assert_eq!(read_records(dir.path()).len(), 12);
     }
 
     // Trace: TC-061, NFR-004-AC-5

@@ -4,10 +4,6 @@ title: Bind the declared and executed CI gate set
 type: NFR
 quality_attribute: reliability
 relationships:
-  - target: ix://agent-ix/tl-rewrite/FR-006
-    type: depends_on
-  - target: ix://agent-ix/tl-rewrite/NFR-003
-    type: extends
   - target: ix://agent-ix/tl-rewrite/StR-001
     type: traces_to
 ---
@@ -89,19 +85,7 @@ each:
 
 It does not own the correctness of any individual gate's recipe (formatting,
 lint, corpus, conformance, and the rest each remain owned by the requirement
-that specifies that gate's behavior), and it does not own producer-input
-integrity, which NFR-003 and the Quoin-bound `assurance-inputs` chain already
-establish by deriving attested results from a producer's own written bytes.
-Those two mechanisms are complementary rather than overlapping: the digest
-chain notices a producer that never ran by finding its output absent, and
-this requirement depends on that chain remaining intact so it need not
-duplicate coverage of the four gates re-run inside `assurance-inputs`. It is
-blind, however, to a gate — `fmt-check`, `lint`, `test`, `check-corpus`,
-`deny`, `audit-unsafe`, `rustdoc`, and the `quire validate` half of `spec` —
-whose recipe writes nothing the chain reads, and whose failure Make's own
-execution controls can suppress before it is ever observed. This requirement
-closes exactly that residual, and NFR-003's Scope section records the handoff
-rather than continuing to describe it as unowned.
+that specifies that gate's behavior).
 
 The binding this requirement establishes holds only for invocations that go
 through the entry point. `make ci` remains directly invocable as a Makefile
@@ -144,7 +128,7 @@ architectural change than a completion-record protocol, is not proposed
 here, and is out of scope for the reasons the paragraph above already gives
 for not generalizing this mechanism further. What item 4 closes is the
 inheritance-only forgery TL-202 described as exploitable "in principle" by
-any of the thirteen gates' own subprocesses with zero additional effort;
+any of the twelve gates' own subprocesses with zero additional effort;
 what it does not close is a subprocess that goes looking for the token store
 specifically, which was already a materially higher-effort, more deliberate
 action than the one this control removes.
@@ -163,7 +147,7 @@ assert either, since some of these overrides arrive through the environment
 rather than the file. Binding what was declared to what actually executed,
 from a vantage point outside Make and with the entry point controlling both
 the text it delegates to and the environment it delegates with, converts that
-trust into a checked property: the entry point either observes thirteen
+trust into a checked property: the entry point either observes twelve
 genuine passes or it does not report a pass at all, regardless of which
 mechanism — present or future, textual, dynamic, or environmental — caused a
 gate not to run its own work.
@@ -172,7 +156,7 @@ Item 3's completion record is bound to a *run* (NFR-004-AC-5) but, until
 NFR-004-AC-9, not to a *gate*: `CI_GUARD_RUN_ID` is exported once into the
 top-level Make process and every recipe and subprocess in that run's process
 tree inherits it identically, so a completion record for any declared gate
-was writable by any of the thirteen gates' own recipes, or anything they
+was writable by any of the twelve gates' own recipes, or anything they
 shell out to, using nothing but a value already in their environment and a
 gate name already public in the Makefile. Reconciliation (item 3) is not an
 independent catch for this: `reconcile` only asks whether *some* record

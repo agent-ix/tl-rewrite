@@ -1,10 +1,9 @@
-//! Replay every catalog rule through the real engine and oracle (FR-006-AC-2).
+//! Replay every catalog rule through the real engine and oracle.
 //!
 //! This is a producer. It runs the actual rewrite engine and the actual pinned
 //! `tl-mltl` evaluator over the checked rule corpus and writes one JSON object
-//! per catalog rule to stdout. It computes no aggregate verdict, retains
-//! nothing, and knows nothing about Quoin, Quire or attestations — the assurance
-//! chain reads the rows this writes and reports what they say.
+//! per catalog rule to stdout. It computes no aggregate verdict and retains
+//! nothing.
 //!
 //! Two outcome words carry weight here and are deliberately neither `pass` nor
 //! `fail`.
@@ -392,8 +391,7 @@ fn main() -> ExitCode {
 
     // A producer that reported a failing row must exit non-zero. `make
     // conformance` is a CI gate, and a gate whose command always returns 0 is
-    // not a gate. The rows remain the authority for the chain; this is the exit
-    // status for the shell.
+    // not a gate.
     if failed > 0 {
         eprintln!("{failed} catalog rule(s) disagreed with the corpus");
         return ExitCode::FAILURE;

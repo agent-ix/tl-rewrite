@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that this repository's stated provenance is the provenance it compiles (FR-006-AC-2).
+"""Check that this repository's stated provenance is the provenance it compiles.
 
 This is a producer. It reads bytes that are already in the tree and reports one
 structured row per obligation. It runs no compiler, no test and no solver, it
@@ -430,18 +430,14 @@ def build_report() -> dict[str, Any]:
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--json", action="store_true", help="emit the rows as JSON")
-    arguments = parser.parse_args(argv[1:])
+    parser.parse_args(argv[1:])
     try:
         report = build_report()
     except ProvenanceError as error:
         print(str(error), file=sys.stderr)
         return 2
-    if arguments.json:
-        print(json.dumps(report, indent=2, sort_keys=True))
-    else:
-        for entry in report["entries"]:
-            print(f"{entry['symbol']}: {entry['outcome']} ({entry['detail']})")
+    for entry in report["entries"]:
+        print(f"{entry['symbol']}: {entry['outcome']} ({entry['detail']})")
     if not report["matched"]:
         print("the declared provenance is not the compiled provenance", file=sys.stderr)
         return 1
