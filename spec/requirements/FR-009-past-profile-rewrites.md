@@ -100,10 +100,7 @@ or qualify a monitor.
 
 ## Compatibility and Dependency Policy
 
-Formula-v1 bytes and future rewrite semantics remain unchanged. Revision-bearing
-report bytes advance when this repository deliberately advances the exact
-compiled `tl-syntax` or `tl-mltl` revisions; the report schemas, fields, status
-meanings, and deterministic identical-call guarantee do not change.
+Formula-v1 bytes and future rewrite semantics remain unchanged.
 
 The canonical cross-repository past/history corpus does not yet exist at this
 task boundary. Its publication and exact parser/evaluator/rewriter

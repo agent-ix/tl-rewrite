@@ -6,7 +6,7 @@ use common::{document, proposition, west_document};
 use serde::Deserialize;
 use tl_rewrite::{
     check_equivalence, rewrite, ConformanceOptions, ConformanceReason, ConformanceStatus,
-    RewriteOptions, RewriteStatus, TL_MLTL_REVISION,
+    RewriteOptions, RewriteStatus,
 };
 use tl_syntax::{Interval, Node, NodeId, NodeKind, SemanticProfile, SourceSpan};
 
@@ -56,7 +56,6 @@ fn supported_pair_is_exhaustively_equivalent_over_horizon() {
     assert_eq!(report.trace_length, Some(3));
     assert_eq!(report.total_traces, Some(8));
     assert_eq!(report.traces_checked, 8);
-    assert_eq!(report.evaluator_revision, TL_MLTL_REVISION);
 }
 
 // Trace: TC-040, FR-002-AC-4

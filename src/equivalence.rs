@@ -14,7 +14,7 @@ use crate::{
     catalog::catalog_for_profile,
     engine::{binding_check, BindingCheck},
     hash::sha256_json,
-    TL_MLTL_REVISION, TL_SYNTAX_REVISION, WEST_REVISION,
+    WEST_REVISION,
 };
 
 const MAX_MATERIALIZED_INSTANTS: u64 = 100_000;
@@ -151,10 +151,6 @@ pub struct PastConformanceReport {
     pub status: ConformanceStatus,
     /// Typed non-conclusive reason.
     pub reason: Option<PastConformanceReason>,
-    /// Exact tl-syntax owner revision for both request formulas.
-    pub syntax_revision: String,
-    /// Exact tl-mltl owner revision invoked by this comparison.
-    pub evaluator_revision: String,
     /// Scope boundary: one exact owner context is evidence, not a universal proof.
     pub limitation: String,
 }
@@ -173,10 +169,6 @@ pub struct ConformanceReport {
     pub rewritten_sha256: String,
     /// Exact semantic profile when supported.
     pub semantic_profile: String,
-    /// Exact syntax dependency revision.
-    pub syntax_revision: String,
-    /// Exact evaluator dependency revision.
-    pub evaluator_revision: String,
     /// Exact WEST corpus source revision.
     pub west_revision: String,
     /// Stable catalog identity.
@@ -231,8 +223,6 @@ struct ConformanceReportV1Wire {
     original_sha256: String,
     rewritten_sha256: String,
     semantic_profile: String,
-    syntax_revision: String,
-    evaluator_revision: String,
     west_revision: String,
     catalog_version: String,
     catalog_sha256: String,
@@ -261,8 +251,6 @@ struct ConformanceReportV2Wire {
     original_sha256: String,
     rewritten_sha256: String,
     semantic_profile: String,
-    syntax_revision: String,
-    evaluator_revision: String,
     west_revision: String,
     catalog_version: String,
     catalog_sha256: String,
@@ -292,8 +280,6 @@ impl ConformanceReport {
             original_sha256: wire.original_sha256,
             rewritten_sha256: wire.rewritten_sha256,
             semantic_profile: wire.semantic_profile,
-            syntax_revision: wire.syntax_revision,
-            evaluator_revision: wire.evaluator_revision,
             west_revision: wire.west_revision,
             catalog_version: wire.catalog_version,
             catalog_sha256: wire.catalog_sha256,
@@ -328,8 +314,6 @@ impl ConformanceReport {
             original_sha256: wire.original_sha256,
             rewritten_sha256: wire.rewritten_sha256,
             semantic_profile: wire.semantic_profile,
-            syntax_revision: wire.syntax_revision,
-            evaluator_revision: wire.evaluator_revision,
             west_revision: wire.west_revision,
             catalog_version: wire.catalog_version,
             catalog_sha256: wire.catalog_sha256,
@@ -410,8 +394,6 @@ fn report_base(
         original_sha256: sha256_json(&original.semantic_view()),
         rewritten_sha256: sha256_json(&rewritten.semantic_view()),
         semantic_profile: original.semantic_profile().as_str().to_owned(),
-        syntax_revision: TL_SYNTAX_REVISION.to_owned(),
-        evaluator_revision: TL_MLTL_REVISION.to_owned(),
         west_revision: WEST_REVISION.to_owned(),
         catalog_version: rule_catalog.catalog_version,
         catalog_sha256: rule_catalog.catalog_sha256,
@@ -629,8 +611,6 @@ pub fn check_past_equivalence(
         rewritten_verdict: None,
         status: ConformanceStatus::NonConclusive,
         reason: None,
-        syntax_revision: TL_SYNTAX_REVISION.to_owned(),
-        evaluator_revision: TL_MLTL_REVISION.to_owned(),
         limitation: "owner-backed agreement covers only the exact admitted history, clock, anchor and formulas; it does not prove a universal rewrite schema or qualify a consuming tool".to_owned(),
     };
     if original.formula.semantic_profile() != SemanticProfile::OriginCompleteHistoryV1
@@ -694,8 +674,6 @@ pub fn check_equivalence_with_context(
         options,
         signal_catalog,
         &requirement_context,
-        TL_SYNTAX_REVISION,
-        TL_MLTL_REVISION,
         WEST_REVISION,
         &rule_catalog.catalog_version,
         &rule_catalog.catalog_sha256,

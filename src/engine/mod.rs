@@ -20,7 +20,6 @@ use crate::{
         BindingFailure, BindingLocus, BudgetKind, RewriteBudgets, RewriteOptions, RewriteReport,
         RewriteStatus, RewriteStep,
     },
-    TL_SYNTAX_REVISION,
 };
 
 /// Closed local interpretation of one shared-catalog binding attempt.
@@ -473,7 +472,6 @@ fn report_base(
         schema_version: "tl-rewrite.report/v1".to_owned(),
         formula_id,
         engine_source_revision: source_revision,
-        syntax_revision: TL_SYNTAX_REVISION.to_owned(),
         catalog_sha256,
         input_sha256: sha256_json(&input.semantic_view()),
         request_sha256,
@@ -514,13 +512,11 @@ fn contextual_report_base(
         &catalog_sha256,
         signal_catalog,
         &requirement_context,
-        TL_SYNTAX_REVISION,
     ));
     RewriteReport {
         schema_version: "tl-rewrite.report/v2".to_owned(),
         formula_id,
         engine_source_revision: source_revision,
-        syntax_revision: TL_SYNTAX_REVISION.to_owned(),
         catalog_sha256,
         input_sha256: sha256_json(&input.semantic_view()),
         request_sha256,

@@ -9,7 +9,7 @@ type: NFR
 ## Statement
 
 Every rule and exchanged record shall identify its semantic derivation or
-primary source, schema, source/dependency revisions, corpus license,
+primary source, schema, source revisions, corpus license,
 and human decision boundary.
 
 ## Scope
@@ -38,7 +38,7 @@ human decisions.
 | ID | Criteria | Verification |
 |---|---|---|
 | NFR-002-AC-1 | No rule is enabled without complete provenance, applicability, and revision metadata. | Test (TC-001, TC-002) |
-| NFR-002-AC-2 | Every exchanged record names the exact tl-syntax, tl-mltl, WEST, and catalog identities the run used, and no record claims universal proof or release. | Test (TC-016) |
+| NFR-002-AC-2 | Every exchanged record names the exact WEST and catalog identities the run used, and no record claims universal proof or release. | Test (TC-016) |
 | NFR-002-AC-3 | Every contextual native result preserves the exact supplied shared requirement context and identifies the complete supplied signal catalog without claiming that tl-rewrite validated the truth of either provenance statement. | Test (TC-031, TC-034) |
 
 ## Dependencies

@@ -150,8 +150,6 @@ pub struct RewriteReport {
     pub formula_id: String,
     /// Exact engine source identity supplied by the build or caller.
     pub engine_source_revision: String,
-    /// Exact syntax dependency revision.
-    pub syntax_revision: String,
     /// Catalog digest participating in replay.
     pub catalog_sha256: String,
     /// Canonical input document digest.
@@ -199,7 +197,6 @@ struct RewriteReportV1Wire {
     schema_version: String,
     formula_id: String,
     engine_source_revision: String,
-    syntax_revision: String,
     catalog_sha256: String,
     input_sha256: String,
     request_sha256: String,
@@ -223,7 +220,6 @@ struct RewriteReportV2Wire {
     schema_version: String,
     formula_id: String,
     engine_source_revision: String,
-    syntax_revision: String,
     catalog_sha256: String,
     input_sha256: String,
     request_sha256: String,
@@ -250,7 +246,6 @@ impl RewriteReport {
             schema_version: w.schema_version,
             formula_id: w.formula_id,
             engine_source_revision: w.engine_source_revision,
-            syntax_revision: w.syntax_revision,
             catalog_sha256: w.catalog_sha256,
             input_sha256: w.input_sha256,
             request_sha256: w.request_sha256,
@@ -281,7 +276,6 @@ impl RewriteReport {
             schema_version: w.schema_version,
             formula_id: w.formula_id,
             engine_source_revision: w.engine_source_revision,
-            syntax_revision: w.syntax_revision,
             catalog_sha256: w.catalog_sha256,
             input_sha256: w.input_sha256,
             request_sha256: w.request_sha256,
