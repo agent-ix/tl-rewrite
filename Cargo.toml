@@ -9,6 +9,9 @@ license = "MIT OR Apache-2.0"
 publish = false
 repository = "https://github.com/agent-ix/tl-rewrite"
 
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"
+
 [lib]
 name = "tl_rewrite"
 path = "src/lib.rs"

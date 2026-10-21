@@ -1159,9 +1159,9 @@ mod tests {
     // Trace: TC-060, NFR-004-AC-4
     #[test]
     fn parse_prerequisites_handles_continuation_lines() {
-        let text = "ci: fmt-check lint \\\n\tdeny audit-unsafe\n";
+        let text = "ci: fmt-check lint \\\n\tdeny rustdoc\n";
         let declared = parse_prerequisites(text, "ci").unwrap();
-        let expected: BTreeSet<String> = ["fmt-check", "lint", "deny", "audit-unsafe"]
+        let expected: BTreeSet<String> = ["fmt-check", "lint", "deny", "rustdoc"]
             .into_iter()
             .map(String::from)
             .collect();
@@ -1319,14 +1319,13 @@ mod tests {
             "counterexamples",
             "normalization",
             "deny",
-            "audit-unsafe",
             "spec",
             "msrv",
             "rustdoc",
         ] {
             write_record(dir.path(), gate, "run-1").unwrap();
         }
-        assert_eq!(read_records(dir.path()).len(), 11);
+        assert_eq!(read_records(dir.path()).len(), 10);
     }
 
     // Trace: TC-061, NFR-004-AC-5

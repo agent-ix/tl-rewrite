@@ -76,7 +76,6 @@ help:
 	@echo "  make counterexamples  - Produce and replay the retained counterexample corpus"
 	@echo "  make normalization    - Sweep determinism, fixed point, replay, and budgets"
 	@echo "  make deny             - cargo deny check advisories, bans, licenses, sources"
-	@echo "  make audit-unsafe     - Enforce // SAFETY: comments on unsafe blocks"
 	@echo "  make spec             - Validate specification and coverage with Quire"
 	@echo "  make msrv             - Check all targets and features with the MSRV toolchain"
 	@echo "  make rustdoc          - Build warning-free public documentation"
@@ -148,11 +147,6 @@ deny:
 	$(CARGO) deny check sources
 	$(CI_GUARD) record deny
 
-.PHONY: audit-unsafe
-audit-unsafe:
-	bash scripts/check_unsafe_comments.sh
-	$(CI_GUARD) record audit-unsafe
-
 .PHONY: spec
 spec:
 	$(QUIRE) validate --scope . 'spec/**/*.md' 'docs/*.md' --strict --summary
@@ -175,7 +169,7 @@ rustdoc:
 
 .PHONY: ci
 ci: fmt-check lint test conformance counterexamples normalization \
-	deny audit-unsafe spec msrv rustdoc
+	deny spec msrv rustdoc
 
 # The assured entry point (NFR-004). Builds and runs the guard, which refuses
 # to invoke `make ci` at all if this file's execution controls or the calling
