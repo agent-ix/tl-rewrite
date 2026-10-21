@@ -13,7 +13,6 @@ make conformance      # replay every catalog rule through engine and oracle
 make counterexamples  # produce and replay the retained counterexample corpus
 make normalization    # sweep determinism, fixed point, replay, and budgets
 make deny             # cargo deny check advisories, bans, licenses, sources
-make audit-unsafe     # check that every unsafe block has a // SAFETY: comment
 make spec             # validate and cover specifications with quire
 make msrv             # check all targets and features with the MSRV toolchain
 make rustdoc          # build warning-free public documentation
@@ -51,7 +50,7 @@ Backported from `agent-ix/ecaz`:
 
 - `clippy.toml` caps cognitive complexity / arg count
 - `deny.toml` allow-lists licenses and denies unknown registries/git sources
-- `scripts/check_unsafe_comments.sh` runs in CI and locally via `make audit-unsafe`. Every `unsafe {` block must have a `// SAFETY:` comment within the 3 preceding lines, or be listed in `scripts/unsafe_comment_baseline.txt`. Update the baseline with `bash scripts/check_unsafe_comments.sh --update-baseline`.
+- Clippy lints deny undocumented unsafe blocks; Rust lints forbid unsafe code.
 - `rustfmt.toml` uses only stable 100-character-width settings. CI fails on drift.
 
 ## Layout
@@ -64,6 +63,5 @@ corpus/west-v1/           # selected WEST inputs
 corpus/rules/             # the rule corpus
 corpus/counterexamples/   # the counterevidence corpus and its count oracle
 spec/                     # requirements, reviews, and typed plan bundles
-scripts/                  # unsafe-comment checks
 ```
 
