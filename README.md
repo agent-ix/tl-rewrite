@@ -99,3 +99,5 @@ Quire Observation (or other AGPL-3.0-or-later) component, direct or
 transitive: this crate, and every crate it depends on for its production
 build, stay entirely independent of the agent-ix/Quire ecosystem, per the
 TL-175 architect ruling.
+
+<!-- STD-30 language-boundary canary: inert README change. -->
