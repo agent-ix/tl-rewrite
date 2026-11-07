@@ -26,9 +26,26 @@ and does not evaluate formulas itself.
   <img alt="A formula document goes into rewrite, which applies the 38 enabled rules of the catalog (2 more are excluded) bottom-up, first match, under explicit budgets, and returns a RewriteReport whose output is the normal form. replay re-runs the request and reports Verified or Mismatch. check_equivalence compares the original and the normal form on every trace within the horizon and reports Equivalent, or Mismatch with the first counterexample trace." src="docs/images/hero-light.svg">
 </picture>
 
-> **Status: prerelease.** The API is not stable. The crate has `publish = false`
-> and other TL crates depend on it through git. Registry publication waits for
-> the v0.1 assurance review.
+## Getting started
+
+tl-rewrite is not on crates.io. Depend on it through git:
+
+```toml
+[dependencies]
+tl-rewrite = { git = "https://github.com/agent-ix/tl-rewrite" }
+```
+
+Add `rev = "<commit>"` to pin a commit. It needs the Rust version in `rust-version` in `Cargo.toml`, or newer.
+
+Enable the `infinite-trace` feature for the infinite-trace catalog: `features = ["infinite-trace"]`.
+
+To build from a clone:
+
+```sh
+git clone https://github.com/agent-ix/tl-rewrite.git
+cd tl-rewrite
+cargo build --release
+```
 
 ## Usage
 
