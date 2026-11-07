@@ -11,8 +11,6 @@ tl-rewrite rewrites Mission-time Linear Temporal Logic (MLTL) formulas to a norm
 | [api-reference.md](api-reference.md) | Public types and functions by module. |
 | [DER-001-rule-derivations.md](DER-001-rule-derivations.md) | The rule derivations: the argument for each rule in the future catalog. |
 
-## Scope
+## Evidence
 
-The crate rewrites validated tl-syntax formula documents and checks its own rewrites. It does not parse text (tl-parse), define the formula types (tl-syntax), evaluate formulas for callers (tl-mltl) or connect to Quire (quire-mltl). tl-mltl is the only evaluator it calls at run time. tl-oracle is an independent reference evaluator used only in tests.
-
-Agreement between a formula and its rewrite is evidence for one formula pair and one bounded domain. It is not a proof that a rule is sound for every formula. The crate does not qualify a production monitor, validate a consuming project, or make a release, accreditation or certification decision. The public API is not stable and the crate has `publish = false`.
+Agreement between a formula and its rewrite is evidence for one formula pair and one bounded domain.
