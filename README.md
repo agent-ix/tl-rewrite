@@ -4,22 +4,15 @@
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
 [![Rust](https://img.shields.io/badge/rust-1.98.1%2B-orange?logo=rust)](Cargo.toml)
 
-tl-rewrite is a Rust crate that rewrites Mission-time Linear Temporal Logic (MLTL)
-formulas into a normal form by applying a fixed catalog of semantics-preserving
-rules. It is one of the TL family:
-[tl-syntax](https://github.com/agent-ix/tl-syntax),
-[tl-parse](https://github.com/agent-ix/tl-parse),
-[tl-mltl](https://github.com/agent-ix/tl-mltl),
-[tl-oracle](https://github.com/agent-ix/tl-oracle) and
-[quire-mltl](https://github.com/agent-ix/quire-mltl).
+tl-rewrite simplifies a Mission-time Linear Temporal Logic (MLTL) formula to a
+normal form with a catalog of semantics-preserving rules, and records what it did.
+The report holds the rewritten document, every rule applied in order, and a digest
+for every step.
 
-The crate takes a validated tl-syntax formula document and returns a report with
-the rewritten document, the ordered list of rule applications and a digest for
-every step. A report can be replayed to confirm that it was produced by this
-catalog and these options. A separate comparison enumerates every trace within a
-formula's horizon, evaluates both formulas with tl-mltl and returns either
-agreement or the first trace on which they differ. The crate does not parse text
-and does not evaluate formulas itself.
+Replay a report to confirm that it came from this catalog and these options. The
+equivalence check shows that the original and the normal form agree on every
+trace within the formula's horizon, or returns the first trace on which they
+differ.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.svg">
@@ -50,7 +43,7 @@ cargo build --release
 ## Usage
 
 This rewrites `not (not (true and p3))`, replays the report and checks the result
-against the input. It compiles and runs against the default features.
+against the input.
 
 ```rust
 use tl_rewrite::{
@@ -81,10 +74,8 @@ let check = check_equivalence(&input, output, "demo", ConformanceOptions::defaul
 assert_eq!(check.status, ConformanceStatus::Equivalent);
 ```
 
-The test `primitive_and_nested_derivations_reach_expected_root` in
-`tests/rewrite.rs` checks the same kind of nested rule application. More
-examples, including budgets, counterexamples and strict report reading, are in
-[docs/examples.md](docs/examples.md).
+More examples, including budgets, counterexamples and strict report reading, are
+in [docs/examples.md](docs/examples.md).
 
 ## Reference
 
@@ -114,17 +105,12 @@ See [docs/api-reference.md](docs/api-reference.md) and [docs/rules.md](docs/rule
 
 ## The TL stack
 
-tl-rewrite depends on tl-syntax for the formula types and on tl-mltl for the
-evaluator that its equivalence checks use. tl-oracle and tl-parse are
-development-only dependencies used by its tests.
+tl-rewrite works on tl-syntax formulas and uses the tl-mltl evaluator for its equivalence checks.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/tl-stack-dark.svg">
   <img alt="The TL crates. tl-syntax defines the formula graph, profiles and signal catalog, and tl-parse, tl-oracle, tl-mltl, tl-rewrite and quire-mltl all depend on it. tl-rewrite depends on tl-mltl. quire-mltl depends on tl-mltl and quire-observation, and is the single bridge to Quire. Dashed lines are development-only: tl-mltl and tl-rewrite test against tl-oracle, and tl-rewrite tests against tl-parse." src="docs/images/tl-stack-light.svg">
 </picture>
-
-[docs/how-it-works.md](docs/how-it-works.md) shows where each crate sits in the
-text-to-outcome pipeline.
 
 ## Building and testing
 
@@ -145,23 +131,16 @@ make normalization     # sweep a generated formula family
 make spec              # validate the spec and the rule derivations with quire
 ```
 
-The Rust version is pinned in `rust-toolchain.toml` (1.98.1). Hosted CI is
-manual-only; the checks run locally. The conformance, counterexample and
+The conformance, counterexample and
 normalization targets run the programs in `examples/` and print one JSON row per
 case.
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and [CLA.md](CLA.md). Work is specified
-before it is implemented; see [CLAUDE.md](CLAUDE.md) for the workflow and
-commands. The change history is in [CHANGELOG.md](CHANGELOG.md). Agent-assisted
-contributions go through the same requirements, testing, provenance and release
-review as any other contribution.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and [CLA.md](CLA.md). The change history is in
+[CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
 Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or the
-[MIT license](LICENSE-MIT) at your option. The production dependency graph
-contains no Quire Observation or other AGPL-3.0-or-later component, direct or
-transitive. This crate does not qualify a production monitor, validate a
-consuming project, or make a release, accreditation or certification decision.
+[MIT license](LICENSE-MIT) at your option.
