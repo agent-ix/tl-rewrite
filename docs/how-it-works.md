@@ -66,3 +66,69 @@ A formula passes through several crates on its way from text to a Quire outcome.
 </picture>
 
 The calling program moves documents from one stage to the next. The dependency structure between the crates is in the [README](../README.md#the-tl-stack).
+
+## A worked example
+
+The TL crates answer one question each when a requirement fails on a recorded trace. This page covers step 3 of that walkthrough, normalization. The walkthrough follows the requirement `F[0,3] p2` over a four-instant trace from the retained R2U2 case `r2u2-future-deadline-v1`. tl-rewrite receives the formula document from tl-parse and tl-syntax, and returns a rewritten document with a record of each rule that fired.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/scenario-sequence-dark.svg">
+  <img alt="A deadline requirement fails on a recorded trace, and the engineer asks why. The engineer sends F[0,3] p2 to tl-parse and gets a formula document, binds p2 to signal s2 with tl-syntax, and sends the document to tl-rewrite, which reports Unchanged. tl-mltl evaluates the formula and trace and returns false at time 0 with a buffer of 4 instants, and R2U2, which runs outside the crates, returns false at time 0 for the C2PO expression F[0,3](p2). tl-oracle evaluates the same formula and trace independently and returns false. quire-mltl maps the result to Value false. Numbered rings mark where to look at each step." src="images/scenario-sequence-light.svg">
+</picture>
+
+### What to look for at this step
+
+Read the report `status` first. For this requirement it is `Unchanged` under the closed-trace profile, with no steps, so the formula that tl-mltl evaluates is the formula that tl-parse produced. Under the online-prefix profile, the profile the R2U2 adapter requires, the status is `UnsupportedProfile`, because the engine has no rule set for that profile. Step 3 contributes nothing to the failure in either case.
+
+The program below runs the engine on the requirement. Save it as a file in `examples/` of this repository and run it with `cargo run --example <name>`. It also runs a second formula, `F[0,0] p0`, which is not part of the walkthrough. That formula contains a rule from the catalog, and the output shows what a report looks like when a rule fires.
+
+```rust
+use tl_parse::{parse, ParseLimits};
+use tl_rewrite::{check_equivalence, replay, rewrite, ConformanceOptions, RewriteOptions};
+use tl_syntax::SemanticProfile;
+
+fn main() {
+    for (text, profile) in [
+        ("F[0,3] p2", SemanticProfile::OnlinePrefixV1),
+        ("F[0,3] p2", SemanticProfile::ClosedTraceV1),
+        ("F[0,0] p0", SemanticProfile::ClosedTraceV1),
+    ] {
+        let doc = parse(text, profile, ParseLimits::default()).document.unwrap();
+        let r = rewrite(&doc, "demo", RewriteOptions::default(), "walkthrough");
+        println!("{text} under {profile:?}: {:?}, {} steps", r.status, r.steps.len());
+        for s in &r.steps {
+            println!("  step {}: rule {} rev {} on node {}", s.sequence, s.rule_id, s.rule_revision, s.source_node);
+        }
+        if let Some(out) = &r.output {
+            println!("  output nodes: {}", serde_json::to_string(&out.nodes()).unwrap());
+            if !r.steps.is_empty() {
+                let rep = replay(&doc, &r);
+                println!("  replay: {:?}", rep.status);
+                let eq = check_equivalence(&doc, out, "demo", ConformanceOptions::default());
+                println!("  equivalence: {:?}, horizon {:?}, trace length {:?}, {} of {:?} traces", eq.status, eq.horizon, eq.trace_length, eq.traces_checked, eq.total_traces);
+            }
+        }
+    }
+}
+```
+
+The output:
+
+```text
+F[0,3] p2 under OnlinePrefixV1: UnsupportedProfile, 0 steps
+F[0,3] p2 under ClosedTraceV1: Unchanged, 0 steps
+  output nodes: [{"kind":"proposition","proposition":2,"span":{"start":7,"end":9}},{"kind":"future","interval":{"start":0,"end":3},"operand":0,"span":{"start":0,"end":9}}]
+F[0,0] p0 under ClosedTraceV1: Normalized, 1 steps
+  step 0: rule temporal.future.singleton rev 1 on node 1
+  output nodes: [{"kind":"proposition","proposition":0,"span":{"start":7,"end":9}}]
+  replay: Verified
+  equivalence: Equivalent, horizon Some(0), trace length Some(1), 2 of Some(2) traces
+```
+
+The first two lines are the requirement from the walkthrough. The output of the `Unchanged` run has the same two nodes as the parsed document: proposition 2 and a `future` node with interval `[0,3]`.
+
+The last four lines are another formula. `F[0,0] p0` is a deadline with a zero-width window, and the catalog rule `temporal.future.singleton` replaces it with `p0`. The report names the rule and its revision and the node it fired on. `replay` re-runs the request and returns `Verified`, which shows the report is the result of this input and these options. `check_equivalence` evaluates the original and the rewritten formula on every trace of the bounded domain with tl-mltl and reports `Equivalent`: horizon 0, traces of one instant, and both of the 2 possible traces agree. The same rule is one case in `corpus/rules/manifest.json`, and `cargo run --example rule_conformance -- --manifest corpus/rules/manifest.json` reports that case as `pass`. Of its 40 rows, 38 are `pass` and the 2 excluded rules are `unsupported`. That agreement covers this domain and does not prove the rule for every formula.
+
+If a verdict changes after normalization, a step in the report has the `rule_id` that did it, and `check_equivalence` returns the first trace on which the two formulas differ. For `F[0,3] p2` there is no step to inspect.
+
+What was run and what was described: the program above, saved as a temporary example, and the `rule_conformance` example were run on this repository, and the output is pasted from those runs. The remaining steps of the walkthrough were not run here. They are in the [walkthrough in tl-mltl](https://github.com/agent-ix/tl-mltl/blob/main/docs/scenario.md).
