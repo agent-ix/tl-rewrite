@@ -4,7 +4,7 @@ tl-rewrite rewrites Mission-time Linear Temporal Logic (MLTL) formulas to a norm
 
 | Page | What it covers |
 | --- | --- |
-| [how-it-works.md](how-it-works.md) | The rewrite engine, budgets, report statuses, the three profiles and where the crate sits in the pipeline from text to a Quire outcome. |
+| [how-it-works.md](how-it-works.md) | The rewrite engine, budgets, report statuses, the three profiles, where the crate sits in the pipeline from text to a Quire outcome, and its step in the [debugging walkthrough](https://github.com/agent-ix/tl-mltl/blob/main/docs/scenario.md). |
 | [rules.md](rules.md) | The rule catalogs summarized by family, with preconditions, the excluded rules and the rule identifiers. |
 | [replay-and-evidence.md](replay-and-evidence.md) | Replay, bounded equivalence, counterexamples, the record readers and the corpora. |
 | [examples.md](examples.md) | Runnable examples: budgets, counterexamples, strict report reading, the past catalog. |
