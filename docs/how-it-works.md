@@ -67,7 +67,7 @@ A formula passes through several crates on its way from text to a Quire outcome.
 
 The calling program moves documents from one stage to the next. The dependency structure between the crates is in the [README](../README.md#the-tl-stack).
 
-## In a debugging session
+## A worked example
 
 The TL crates answer one question each when a requirement fails on a recorded trace. This page covers step 3 of that walkthrough, normalization. The walkthrough follows the requirement `F[0,3] p2` over a four-instant trace from the retained R2U2 case `r2u2-future-deadline-v1`. tl-rewrite receives the formula document from tl-parse and tl-syntax, and returns a rewritten document with a record of each rule that fired.
 
