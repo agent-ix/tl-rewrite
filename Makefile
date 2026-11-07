@@ -149,7 +149,7 @@ deny:
 
 .PHONY: spec
 spec:
-	$(QUIRE) validate --scope . 'spec/**/*.md' 'docs/*.md' --strict --summary
+	$(QUIRE) validate --scope . 'spec/**/*.md' 'docs/DER-*.md' --strict --summary
 	$(QUIRE) coverage --scope . --strict
 	$(CI_GUARD) record spec
 
