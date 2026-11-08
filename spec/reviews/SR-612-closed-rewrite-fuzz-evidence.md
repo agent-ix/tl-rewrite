@@ -53,11 +53,11 @@ target was run from an empty or seed-only corpus.
 
 | ID | Severity | Summary | Refs |
 | --- | --- | --- | --- |
-| FND-6201 | low | `closed_rewrite` found no verdict difference between the input and rewritten formula in any recorded run, for either the closed-trace future family or the origin-complete past family. | campaign.json |
-| FND-6202 | low | `infinite_rewrite` (existing target) ran for the first time on a scratch copy of its seeds: no crash. | campaign.json |
-| FND-6203 | medium | The repository had no fuzz gate. `make fuzz-check` (builds every target, audits the fuzz crate with cargo-deny, now in `make ci`) and `make fuzz-smoke` (corpus replay) were added; NCSA, the license of libFuzzer, is allow-listed for the fuzz crate only. | Makefile, deny.toml |
-| FND-6204 | low | While developing the target, a generated formula with shared operands expanded to an unshared tree large enough to exceed libFuzzer's RSS limit when converted to the oracle's owned trees. The target now skips inputs whose unshared tree exceeds 4096 nodes and builds oracle trees from the root only. | fuzz/fuzz_targets/closed_rewrite.rs |
-| FND-6205 | low | On macOS libFuzzer counts the address sanitizer's freed memory toward RSS, so the default 2048 MB limit is too low; recorded runs pass `-rss_limit_mb=8192`. | fuzz/README |
+| FND-61201 | low | `closed_rewrite` found no verdict difference between the input and rewritten formula in any recorded run, for either the closed-trace future family or the origin-complete past family. | campaign.json |
+| FND-61202 | low | `infinite_rewrite` (existing target) ran for the first time on a scratch copy of its seeds: no crash. | campaign.json |
+| FND-61203 | medium | The repository had no fuzz gate. `make fuzz-check` (builds every target, audits the fuzz crate with cargo-deny, now in `make ci`) and `make fuzz-smoke` (corpus replay) were added; NCSA, the license of libFuzzer, is allow-listed in `deny.toml`. That file is shared with the main crate's `make deny`, but only `libfuzzer-sys` in the fuzz workspace carries the license, so the main crate's graph is unaffected. | Makefile, deny.toml |
+| FND-61204 | low | While developing the target, a generated formula with shared operands expanded to an unshared tree large enough to exceed libFuzzer's RSS limit when converted to the oracle's owned trees. The target now skips inputs whose unshared tree exceeds 4096 nodes and builds oracle trees from the root only. | fuzz/fuzz_targets/closed_rewrite.rs |
+| FND-61205 | low | On macOS libFuzzer counts the address sanitizer's freed memory toward RSS, so the default 2048 MB limit is too low; recorded runs pass `-rss_limit_mb=8192`. | fuzz/README |
 
 ## Limitations
 

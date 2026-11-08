@@ -9,10 +9,7 @@
    "cargo_fuzz": "cargo-fuzz 0.13.1",
    "host": "aarch64-apple-darwin",
    "sanitizer": "address (cargo-fuzz default)",
-   "libfuzzer_flags": "-max_total_time=60 -max_len=256 -rss_limit_mb=8192",
-   "final_corpus_entries_after": {
-    "closed_rewrite": 1769
-   }
+   "libfuzzer_flags": "-max_total_time=60 -max_len=256 -rss_limit_mb=8192"
   },
   {
    "repo": "tl-rewrite",
@@ -22,11 +19,7 @@
    "cargo_fuzz": "cargo-fuzz 0.13.1",
    "host": "aarch64-apple-darwin",
    "sanitizer": "address (cargo-fuzz default)",
-   "libfuzzer_flags": "-max_total_time=60 -max_len=256 -rss_limit_mb=8192",
-   "final_corpus_entries_after": {
-    "closed_rewrite": 1864,
-    "infinite_rewrite": 4730
-   }
+   "libfuzzer_flags": "-max_total_time=60 -max_len=256 -rss_limit_mb=8192"
   }
  ],
  "runs": [
