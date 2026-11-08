@@ -14,3 +14,5 @@ tl-rewrite rewrites Mission-time Linear Temporal Logic (MLTL) formulas to a norm
 ## Evidence
 
 Agreement between a formula and its rewrite is evidence for one formula pair and one bounded domain.
+
+This crate does not make any release, qualification, accreditation or certification decision, because human reviewers keep authority over them; it records evidence only. Bounded equivalence covers only the stated formulas and trace domain and does not prove a rewrite for every formula.
