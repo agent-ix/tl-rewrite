@@ -67,7 +67,7 @@ fn observations(
         .collect()
 }
 
-// Trace: TC-076; FR-019-AC-3.
+// Trace: TC-076, FR-019-AC-3.
 #[test]
 fn owner_cases_cross_parser_rewriter_and_provider() {
     let root = Path::new(CORPUS_DIR).join("infinite-trace");

@@ -37,7 +37,7 @@ medium/low findings, all fixed — a `Violation.kind` string→enum conversion,
 missing test-trace comments, a missing `deny_unknown_fields`) and
 `spec/reviews/SR-078-tl-64-gate-set-gap-analysis.md` (no unbacked Test
 Matrix row, no unowned code; CONDITIONAL on 3 procedural, non-functional
-notes). See log.md for the full closing record and individual task files'
+notes). See the individual task files'
 `status`.
 
 ## Requirements Summary

@@ -52,14 +52,12 @@ Criteria in this plan's Requirements Summary.
   pre-existing `spec/test-matrix.md` header mismatch) was accepted by the
   coordinator as sufficient evidence ("both fail for the same reason as bare
   `make ci`"), so this is no longer held open.
-- [x] Append a closing entry to `log.md` naming the merge revision and the
-  final `make`-via-entry-point result, matching PLAN-006's `log.md` style.
 
 ## Deliverables
 
 - Review findings resolved.
 - `spec/test-matrix.md` updated.
-- Plan bundle (`plan.md`, `log.md`) closed out.
+- Plan bundle (`plan.md`) closed out.
 
 ## Notes
 
