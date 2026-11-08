@@ -166,69 +166,62 @@ fn tree_size(document: &FormulaDocument) -> usize {
     sizes[usize::try_from(document.root().0).unwrap()]
 }
 
-// Adapts public syntax structure into oracle-owned trees; no evaluator logic
-// or production semantic function is shared.
-fn oracle_tree(document: &FormulaDocument) -> OracleFormula {
+// Adapts public syntax structure into oracle-owned trees, from the root only so
+// unreferenced nodes are never expanded; no evaluator logic or production
+// semantic function is shared.
+fn oracle_tree(document: &FormulaDocument, id: NodeId) -> OracleFormula {
     use OracleFormula as F;
-    let mut trees: Vec<OracleFormula> = Vec::with_capacity(document.nodes().len());
-    for node in document.nodes() {
-        let child = |id: NodeId| trees[usize::try_from(id.0).unwrap()].clone();
-        let span = |value: Interval| OracleInterval::Closed {
-            start: usize::try_from(value.start()).unwrap(),
-            end: usize::try_from(value.end()).unwrap(),
-        };
-        let b = Box::new;
-        let tree = match node.kind {
-            NodeKind::False => F::False,
-            NodeKind::True => F::True,
-            NodeKind::Proposition { proposition } => F::Atom(proposition),
-            NodeKind::Not { operand } => F::Not(b(child(operand))),
-            NodeKind::And { left, right } => F::And(b(child(left)), b(child(right))),
-            NodeKind::Or { left, right } => F::Or(b(child(left)), b(child(right))),
-            NodeKind::Implies { left, right } => F::Implies(b(child(left)), b(child(right))),
-            NodeKind::Equivalent { left, right } => {
-                F::Equivalent(b(child(left)), b(child(right)))
-            }
-            NodeKind::Future { interval, operand } => F::Future(span(interval), b(child(operand))),
-            NodeKind::Globally { interval, operand } => {
-                F::Globally(span(interval), b(child(operand)))
-            }
-            NodeKind::Until {
-                interval,
-                left,
-                right,
-            } => F::Until(span(interval), b(child(left)), b(child(right))),
-            NodeKind::Release {
-                interval,
-                left,
-                right,
-            } => F::Release(span(interval), b(child(left)), b(child(right))),
-            NodeKind::Once { interval, operand } => F::Once(span(interval), b(child(operand))),
-            NodeKind::Historically { interval, operand } => {
-                F::Historically(span(interval), b(child(operand)))
-            }
-            NodeKind::StrongPrevious { operand } => F::StrongPrevious(b(child(operand))),
-            NodeKind::Since {
-                interval,
-                left,
-                right,
-            } => F::Since(span(interval), b(child(left)), b(child(right))),
-            NodeKind::Triggered {
-                interval,
-                left,
-                right,
-            } => F::Triggered(span(interval), b(child(left)), b(child(right))),
-        };
-        trees.push(tree);
+    let b = |id: NodeId| Box::new(oracle_tree(document, id));
+    let span = |value: Interval| OracleInterval::Closed {
+        start: usize::try_from(value.start()).unwrap(),
+        end: usize::try_from(value.end()).unwrap(),
+    };
+    match document.nodes()[usize::try_from(id.0).unwrap()].kind {
+        NodeKind::False => F::False,
+        NodeKind::True => F::True,
+        NodeKind::Proposition { proposition } => F::Atom(proposition),
+        NodeKind::Not { operand } => F::Not(b(operand)),
+        NodeKind::And { left, right } => F::And(b(left), b(right)),
+        NodeKind::Or { left, right } => F::Or(b(left), b(right)),
+        NodeKind::Implies { left, right } => F::Implies(b(left), b(right)),
+        NodeKind::Equivalent { left, right } => F::Equivalent(b(left), b(right)),
+        NodeKind::Future { interval, operand } => F::Future(span(interval), b(operand)),
+        NodeKind::Globally { interval, operand } => F::Globally(span(interval), b(operand)),
+        NodeKind::Until {
+            interval,
+            left,
+            right,
+        } => F::Until(span(interval), b(left), b(right)),
+        NodeKind::Release {
+            interval,
+            left,
+            right,
+        } => F::Release(span(interval), b(left), b(right)),
+        NodeKind::Once { interval, operand } => F::Once(span(interval), b(operand)),
+        NodeKind::Historically { interval, operand } => F::Historically(span(interval), b(operand)),
+        NodeKind::StrongPrevious { operand } => F::StrongPrevious(b(operand)),
+        NodeKind::Since {
+            interval,
+            left,
+            right,
+        } => F::Since(span(interval), b(left), b(right)),
+        NodeKind::Triggered {
+            interval,
+            left,
+            right,
+        } => F::Triggered(span(interval), b(left), b(right)),
     }
-    trees[usize::try_from(document.root().0).unwrap()].clone()
 }
 
 // Trace: TC-066, TC-070, FR-004-AC-1, FR-020-AC-1.
 fuzz_target!(|data: &[u8]| {
     let mut u = Unstructured::new(data);
-    let Ok(past) = u.arbitrary::<bool>() else { return };
-    let Some(input) = formula(&mut u, past) else { return };
+    let Ok(past) = u.arbitrary::<bool>() else {
+        return;
+    };
+    let Some(input) = formula(&mut u, past) else {
+        return;
+    };
     let Some(cells) = trace(&mut u) else { return };
     if tree_size(&input) > MAX_TREE {
         return;
@@ -260,8 +253,8 @@ fuzz_target!(|data: &[u8]| {
     if tree_size(output) > MAX_TREE {
         return;
     }
-    let before = oracle_tree(&input);
-    let after = oracle_tree(output);
+    let before = oracle_tree(&input, input.root());
+    let after = oracle_tree(output, output.root());
     let limits = Limits::default();
     for position in 0..cells.len() {
         let Ok(expected) = evaluate(&before, &cells, position, limits) else {
