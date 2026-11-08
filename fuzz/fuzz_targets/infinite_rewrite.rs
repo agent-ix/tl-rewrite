@@ -42,7 +42,7 @@ fn trace() -> LassoTraceDocument {
     .unwrap()
 }
 
-// Trace: TC-072, FR-020-AC-3, FR-046-AC-1.
+// Trace: TC-072, FR-020-AC-3.
 fuzz_target!(|data: &[u8]| {
     if data.len() > 4096 {
         return;

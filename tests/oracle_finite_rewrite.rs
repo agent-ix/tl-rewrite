@@ -196,7 +196,7 @@ fn words() -> Vec<Vec<BTreeMap<PropositionId, bool>>> {
         .collect()
 }
 
-// Trace: TC-066, TC-070; FR-004-AC-1, FR-020-AC-1.
+// Trace: TC-066, TC-070, FR-004-AC-1, FR-020-AC-1.
 #[test]
 fn every_finite_and_past_catalog_family_agrees_with_independent_oracle() {
     let finite_families = [
@@ -301,7 +301,7 @@ fn every_finite_and_past_catalog_family_agrees_with_independent_oracle() {
     assert_eq!(compared, 3_840);
 }
 
-// Trace: TC-070; FR-020-AC-1.
+// Trace: TC-070, FR-020-AC-1.
 #[test]
 fn wrong_bounded_and_origin_past_rules_yield_concrete_counterexamples() {
     let p = PropositionId(0);

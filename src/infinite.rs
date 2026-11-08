@@ -1030,7 +1030,7 @@ mod conformance_classification_tests {
         }
     }
 
-    // Trace: TC-184, FR-047-AC-2; TC-074, FR-021-AC-2
+    // Trace: TC-074, FR-021-AC-2
     #[test]
     fn each_nonconclusive_result_axis_has_its_own_typed_reason() {
         let baseline = completed_result();
@@ -1114,7 +1114,7 @@ mod conformance_classification_tests {
         }
     }
 
-    // Trace: TC-184, FR-047-AC-2; TC-069, FR-019-AC-3
+    // Trace: TC-069, FR-019-AC-3
     #[test]
     fn every_compared_result_axis_can_prevent_false_equivalence() {
         let before = completed_result();

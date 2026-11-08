@@ -62,7 +62,7 @@ fn load() -> (Manifest, Cases) {
     (manifest, cases)
 }
 
-// Trace: TC-056, FR-009-AC-2, FR-009-AC-4, FR-013-AC-3
+// Trace: FR-009-AC-2, FR-009-AC-4
 #[test]
 fn exact_shared_corpus_replays_every_reviewed_rewrite_and_identity_case() {
     let (manifest, cases) = load();
@@ -150,7 +150,7 @@ fn exact_shared_corpus_replays_every_reviewed_rewrite_and_identity_case() {
     }
 }
 
-// Trace: TC-056, FR-009-AC-4, FR-013-AC-3
+// Trace: FR-009-AC-4
 #[test]
 fn corpus_and_rewrite_expectation_mutations_are_detected() {
     let (_, cases) = load();

@@ -8,7 +8,6 @@ description: "Contents of the tl-rewrite v0.1 implementation plan bundle."
 ## Contents
 
 - [Plan overview](./plan.md)
-- [Update log](./log.md)
 - [Task-001: Specification and assurance foundation](./tasks/Task-001-foundation.md)
 - [Task-002: Versioned rule catalog](./tasks/Task-002-catalog.md)
 - [Task-003: Bounded engine and replay traces](./tasks/Task-003-engine-traces.md)

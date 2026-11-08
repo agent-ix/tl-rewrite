@@ -8,7 +8,6 @@ description: "Contents of the NFR-004 / TL-64 gate-set-integrity remediation pla
 ## Contents
 
 - [Plan overview](./plan.md)
-- [Update log](./log.md)
 - [Task-001: Entry-point scaffold + static Makefile inspection](./tasks/Task-001-entry-point-static-inspection.md)
 - [Task-002: Invocation-environment control](./tasks/Task-002-invocation-environment-control.md)
 - [Task-003: Per-gate completion records across the ci prerequisites](./tasks/Task-003-completion-records.md)
