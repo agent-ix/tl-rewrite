@@ -14,7 +14,7 @@ relationships:
 ## Dependency DAG
 
 ```text
-PGM-01 + exact tl-syntax and tl-mltl revisions
+exact tl-syntax and tl-mltl revisions
   -> specification and assurance foundation
   -> versioned rule catalog and derivations
   -> bounded rewrite engine and replay traces
