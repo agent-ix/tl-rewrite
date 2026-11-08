@@ -16,8 +16,8 @@ const CLAIM_WORDS: [&str; 6] = [
     "accredit",
 ];
 const NEGATIONS: [&str; 8] = [
-    "no ",
-    "not ",
+    " no ",
+    " not ",
     "never",
     "without",
     "cannot",
@@ -54,7 +54,7 @@ fn corpus() -> Vec<(String, String)> {
 /// Sentences that mention a claim word without an explicit negation.
 fn unnegated_claims(text: &str) -> Vec<String> {
     text.split(['.', '\n', ';'])
-        .map(|s| s.trim().to_lowercase())
+        .map(|s| format!(" {} ", s.trim().to_lowercase()))
         .filter(|s| CLAIM_WORDS.iter().any(|w| s.contains(w)))
         .filter(|s| !NEGATIONS.iter().any(|n| s.contains(n)))
         .collect()
