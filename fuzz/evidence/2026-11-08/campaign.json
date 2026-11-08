@@ -1,0 +1,130 @@
+{
+ "repository": "tl-rewrite",
+ "campaigns": [
+  {
+   "repo": "tl-rewrite",
+   "source_revision": "919cba5fd8a940e035b8788f2d3ac222735a9d34",
+   "dirty": false,
+   "rustc": "rustc 1.100.0-nightly (1303417c4 2026-09-21)",
+   "cargo_fuzz": "cargo-fuzz 0.13.1",
+   "host": "aarch64-apple-darwin",
+   "sanitizer": "address (cargo-fuzz default)",
+   "libfuzzer_flags": "-max_total_time=60 -max_len=256 -rss_limit_mb=8192"
+  },
+  {
+   "repo": "tl-rewrite",
+   "source_revision": "0e5ef107df953ca77adf69277919a3075efea63f",
+   "dirty": false,
+   "rustc": "rustc 1.100.0-nightly (1303417c4 2026-09-21)",
+   "cargo_fuzz": "cargo-fuzz 0.13.1",
+   "host": "aarch64-apple-darwin",
+   "sanitizer": "address (cargo-fuzz default)",
+   "libfuzzer_flags": "-max_total_time=60 -max_len=256 -rss_limit_mb=8192"
+  }
+ ],
+ "runs": [
+  {
+   "target": "closed_rewrite",
+   "seed": 101,
+   "scratch_corpus": false,
+   "starting_corpus_files": 0,
+   "requested_seconds": 60,
+   "observed_seconds": 61,
+   "executions": 80411,
+   "final_cov_edges": 3458,
+   "final_features": 14275,
+   "final_corpus_entries": 1074,
+   "exit_status": 0,
+   "crash": null,
+   "panic": null,
+   "wall_seconds_including_build": 62
+  },
+  {
+   "target": "closed_rewrite",
+   "seed": 102,
+   "scratch_corpus": false,
+   "starting_corpus_files": null,
+   "requested_seconds": 60,
+   "observed_seconds": 61,
+   "executions": 84074,
+   "final_cov_edges": 3520,
+   "final_features": 17131,
+   "final_corpus_entries": 1264,
+   "exit_status": 0,
+   "crash": null,
+   "panic": null,
+   "wall_seconds_including_build": 62
+  },
+  {
+   "target": "closed_rewrite",
+   "seed": 103,
+   "scratch_corpus": false,
+   "starting_corpus_files": null,
+   "requested_seconds": 60,
+   "observed_seconds": 61,
+   "executions": 67407,
+   "final_cov_edges": 3531,
+   "final_features": 17523,
+   "final_corpus_entries": 1294,
+   "exit_status": 0,
+   "crash": null,
+   "panic": null,
+   "wall_seconds_including_build": 63
+  },
+  {
+   "target": "infinite_rewrite",
+   "seed": 101,
+   "scratch_corpus": true,
+   "starting_corpus_files": 3,
+   "requested_seconds": 60,
+   "observed_seconds": 61,
+   "executions": 3431389,
+   "final_cov_edges": 3664,
+   "final_features": 7258,
+   "final_corpus_entries": 1909,
+   "exit_status": 0,
+   "crash": null,
+   "panic": null,
+   "wall_seconds_including_build": 62
+  },
+  {
+   "target": "infinite_rewrite",
+   "seed": 102,
+   "scratch_corpus": true,
+   "starting_corpus_files": null,
+   "requested_seconds": 60,
+   "observed_seconds": 61,
+   "executions": 2753343,
+   "final_cov_edges": 3705,
+   "final_features": 7786,
+   "final_corpus_entries": 1769,
+   "exit_status": 0,
+   "crash": null,
+   "panic": null,
+   "wall_seconds_including_build": 62
+  },
+  {
+   "target": "infinite_rewrite",
+   "seed": 103,
+   "scratch_corpus": true,
+   "starting_corpus_files": null,
+   "requested_seconds": 60,
+   "observed_seconds": 61,
+   "executions": 2401132,
+   "final_cov_edges": 3732,
+   "final_features": 8200,
+   "final_corpus_entries": 1788,
+   "exit_status": 0,
+   "crash": null,
+   "panic": null,
+   "wall_seconds_including_build": 62
+  }
+ ],
+ "seeded_faults": [
+  {
+   "target": "closed_rewrite",
+   "fault": "`bool.not.false` rewrite rule emits `true` instead of `false` (src/engine/boolean.rs, one token)",
+   "result": "found after 736 executions from an empty corpus (seed 228, `rewrite changed verdict` assertion, oracle disagreement at position 0)"
+  }
+ ]
+}
