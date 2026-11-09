@@ -246,7 +246,7 @@ fn check(profile: SemanticProfile, shape: &Shape, word: &Word) -> Result<(), Tes
 
 proptest! {
     #![proptest_config(ProptestConfig {
-        cases: if cfg!(miri) { 4 } else { 256 },
+        cases: 256,
         failure_persistence: None,
         ..ProptestConfig::default()
     })]

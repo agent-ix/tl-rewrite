@@ -19,16 +19,12 @@ use crate::{
 
 /// Longest trace, in instants, that bounded equivalence will materialize.
 ///
-/// Miri builds substitute a smaller value so the boundary tests interpret in
+/// Miri builds use a smaller value so the in-crate boundary test interprets in
 /// reasonable time; the code path is the same (NFR-006-AC-4).
 #[cfg(not(miri))]
-pub const MAX_MATERIALIZED_INSTANTS: u64 = 100_000;
-/// Longest trace, in instants, that bounded equivalence will materialize.
-///
-/// Miri builds substitute a smaller value so the boundary tests interpret in
-/// reasonable time; the code path is the same (NFR-006-AC-4).
+const MAX_MATERIALIZED_INSTANTS: u64 = 100_000;
 #[cfg(miri)]
-pub const MAX_MATERIALIZED_INSTANTS: u64 = 64;
+const MAX_MATERIALIZED_INSTANTS: u64 = 64;
 
 /// Formula and signal-catalog documents are validated by their constructors and by
 /// deserialization, so a document in hand always validates.
@@ -717,4 +713,46 @@ pub fn check_equivalence_with_context(
     observed.requirement_context = report.requirement_context;
     observed.request_sha256 = report.request_sha256;
     observed
+}
+
+#[cfg(test)]
+mod tests {
+    use tl_syntax::{Interval, Node, NodeId};
+
+    use super::*;
+
+    fn always_true(end: u32) -> FormulaDocument {
+        let nodes = vec![
+            Node::new(NodeKind::True),
+            Node::new(NodeKind::Globally {
+                interval: Interval::new(0, end).unwrap(),
+                operand: NodeId(0),
+            }),
+        ];
+        FormulaDocument::new(SemanticProfile::ClosedTraceV1, NodeId(1), nodes).unwrap()
+    }
+
+    // Trace: TC-080, NFR-006-AC-4
+    #[test]
+    fn materialized_instant_limit_accepts_the_limit_and_refuses_one_past() {
+        // A formula with no propositions has one trace whatever its length, so only
+        // the materialization ceiling can refuse it.
+        let limit = MAX_MATERIALIZED_INSTANTS;
+        let end = |instants: u64| u32::try_from(instants - 1).unwrap();
+        let options = ConformanceOptions {
+            max_propositions: 8,
+            max_horizon: u64::MAX,
+            max_traces: 1 << 20,
+        };
+        let check = |instants: u64| {
+            let formula = always_true(end(instants));
+            check_equivalence(&formula, &formula, "boundary", options)
+        };
+        let at = check(limit);
+        assert_eq!(at.trace_length, Some(limit));
+        assert_eq!(at.status, ConformanceStatus::Equivalent);
+        let past = check(limit + 1);
+        assert_eq!(past.trace_length, Some(limit + 1));
+        assert_eq!(past.reason, Some(ConformanceReason::TraceDomainLimit));
+    }
 }

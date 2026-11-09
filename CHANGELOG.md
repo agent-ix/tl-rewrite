@@ -7,17 +7,24 @@ distributed as a git source release (`publish = false`); versions are git tags.
 
 ### Added
 
-- `MAX_MATERIALIZED_INSTANTS` is public. Miri builds use a smaller value so the
-  boundary tests interpret in reasonable time.
+- A boundary test for the private `MAX_MATERIALIZED_INSTANTS` ceiling, run
+  in-crate; Miri builds use a smaller value so it interprets in reasonable time.
 - `make miri` runs the pure-computation suites under Miri on the pinned nightly
   and is part of `make ci` (NFR-006).
 - Boundary tests accept each declared limit at its value and refuse one past it
   with the typed error that names the limit.
 
+### Fixed
+
+- `rewrite_infinite`, and so `replay_infinite` and `check_infinite_rewrite`,
+  refuse a deserialized `FairnessPremisesDocument` whose roots lie outside the
+  graph with `InfiniteRewriteFailure::IdentityMismatch` instead of panicking
+  on an out-of-range index.
+
 ### Removed
 
-No input can produce these variants, and each was a fail-closed arm over an
-invariant the types already guarantee. This is a breaking change to an
+No input can produce these variants through a validated document, and each was
+a fail-closed arm over an invariant the types already guarantee. This is a breaking change to an
 exhaustive `match`, and the wire spellings `failed` and `internal` are gone.
 
 - `RewriteStatus::Failed` and `InfiniteRewriteFailure::Internal`. The graph

@@ -4,8 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use tl_syntax::{
-    FairnessPremisesDocument, InfiniteFormulaDocument, InfiniteNode, InfiniteNodeKind, NodeId,
-    SourceSpan, TemporalInterval,
+    FairnessPremisesDocument, InfiniteFormulaDocument, InfiniteFormulaError, InfiniteNode,
+    InfiniteNodeKind, NodeId, SourceSpan, TemporalInterval,
 };
 
 type Kind = InfiniteNodeKind;
@@ -501,11 +501,20 @@ fn compact(
         .iter()
         .map(|id| mapped[id.0 as usize])
         .collect::<Vec<_>>();
-    // The owner refuses a graph past its own node ceiling; that is a resource
-    // refusal, not a malformed graph, because every reachable operand is mapped.
+    // The owner refuses a graph past its node or depth ceiling; both are resource
+    // refusals reported as the node budget. The profile and clock are the input's,
+    // the root and every operand are remapped to earlier compacted nodes, and no
+    // identity is generated here, so the owner's remaining errors cannot occur and
+    // are reported as an identity mismatch.
     let output =
         InfiniteFormulaDocument::new(input.semantic_profile(), input.clock(), root, compacted)
-            .map_err(|_| InfiniteRewriteFailure::Budget(BudgetKind::Nodes))?;
+            .map_err(|error| match error {
+                InfiniteFormulaError::NodeLimit { .. }
+                | InfiniteFormulaError::DepthLimit { .. } => {
+                    InfiniteRewriteFailure::Budget(BudgetKind::Nodes)
+                }
+                _ => InfiniteRewriteFailure::IdentityMismatch,
+            })?;
     Ok((output, fairness))
 }
 
@@ -579,6 +588,12 @@ pub fn rewrite_infinite(
             premises.graph_identity() != report.input_identity
                 || premises.clock() != input.clock()
                 || report.input_fairness_identity.is_none()
+                // A deserialized document checks its roots for order and duplicates but
+                // not against the graph, so refuse a root outside it before indexing.
+                || premises
+                    .roots()
+                    .iter()
+                    .any(|root| root.0 as usize >= input.nodes().len())
         })
     {
         report.fail(InfiniteRewriteFailure::IdentityMismatch, 0, 0);

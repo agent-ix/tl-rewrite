@@ -10,16 +10,16 @@ mod common;
 
 use common::{document, proposition};
 use tl_rewrite::{
-    check_equivalence, rewrite, rewrite_infinite, rewrite_with_context, BudgetKind,
-    ConformanceOptions, ConformanceReason, ConformanceStatus, InfiniteRewriteFailure,
+    check_equivalence, replay_infinite, rewrite, rewrite_infinite, rewrite_with_context,
+    BudgetKind, ConformanceOptions, ConformanceReason, ConformanceStatus, InfiniteRewriteFailure,
     InfiniteRewriteReport, RecordLimits, RecordReadErrorCode, RewriteBudgets, RewriteOptions,
-    RewriteReport, RewriteStatus, MAX_INFINITE_REPORT_BYTES, MAX_MATERIALIZED_INSTANTS,
+    RewriteReport, RewriteStatus, MAX_INFINITE_REPORT_BYTES,
 };
 use tl_syntax::{
-    FormulaDocument, InfiniteClock, InfiniteFormulaDocument, InfiniteNode,
-    InfiniteNodeKind as InfKind, Interval, Node, NodeId, NodeKind, OwnedSignalDeclaration,
-    PropositionBinding, PropositionId, SemanticProfile, SignalCatalogDocument, SignalDomain,
-    SignalId,
+    FairnessPremisesDocument, FormulaDocument, InfiniteClock, InfiniteFormulaDocument,
+    InfiniteNode, InfiniteNodeKind as InfKind, Interval, Node, NodeId, NodeKind,
+    OwnedSignalDeclaration, PropositionBinding, PropositionId, SemanticProfile,
+    SignalCatalogDocument, SignalDomain, SignalId,
 };
 
 /// The caller-lowered limit the Miri run substitutes for the owner value.
@@ -158,6 +158,46 @@ fn infinite_double_negation() -> InfiniteFormulaDocument {
         .collect(),
     )
     .unwrap()
+}
+
+// Trace: TC-081, NFR-006-AC-5
+#[test]
+fn a_deserialized_fairness_root_outside_the_graph_is_refused() {
+    let input = infinite_double_negation();
+    let identity = input.content_identity().unwrap();
+    let fairness = FairnessPremisesDocument::new(
+        &input,
+        identity,
+        InfiniteClock::EventPosition,
+        vec![NodeId(0)],
+    )
+    .unwrap();
+    // The serde path checks roots for order and duplicates, not against the graph,
+    // so a document with a matching graph identity can name a node that is absent.
+    let mut wire = serde_json::to_value(&fairness).unwrap();
+    wire["roots"] = serde_json::json!([999]);
+    let forged: FairnessPremisesDocument = serde_json::from_value(wire).unwrap();
+    let report = rewrite_infinite(
+        &input,
+        Some(&forged),
+        RewriteOptions::default(),
+        "source",
+        1_000_000,
+    );
+    assert!(!report.succeeded());
+    assert_eq!(
+        report.failure,
+        Some(InfiniteRewriteFailure::IdentityMismatch)
+    );
+    let accepted = rewrite_infinite(
+        &input,
+        Some(&fairness),
+        RewriteOptions::default(),
+        "source",
+        1_000_000,
+    );
+    assert!(accepted.succeeded());
+    assert!(!replay_infinite(&input, Some(&forged), &accepted, "source"));
 }
 
 fn infinite_outcome(report: &InfiniteRewriteReport) -> Outcome {
@@ -439,26 +479,6 @@ fn conformance_trace_limit_accepts_the_limit_and_refuses_one_past() {
     );
     assert_eq!(past.reason, Some(ConformanceReason::TraceDomainLimit));
     assert_eq!(past.status, ConformanceStatus::NonConclusive);
-}
-
-// Trace: TC-080, NFR-006-AC-4
-#[test]
-fn materialized_instant_limit_accepts_the_limit_and_refuses_one_past() {
-    // A formula with no propositions has one trace whatever its length, so only
-    // the materialization ceiling can refuse it. Miri reads a smaller constant
-    // by the same name.
-    let limit = MAX_MATERIALIZED_INSTANTS;
-    let end = |instants: u64| u32::try_from(instants - 1).unwrap();
-    let options = ConformanceOptions {
-        max_horizon: u64::MAX,
-        ..generous()
-    };
-    let at = compare(&always_true(end(limit)), options);
-    assert_eq!(at.trace_length, Some(limit));
-    assert_eq!(at.status, ConformanceStatus::Equivalent);
-    let past = compare(&always_true(end(limit + 1)), options);
-    assert_eq!(past.trace_length, Some(limit + 1));
-    assert_eq!(past.reason, Some(ConformanceReason::TraceDomainLimit));
 }
 
 fn catalog_binding(proposition: u32) -> SignalCatalogDocument {

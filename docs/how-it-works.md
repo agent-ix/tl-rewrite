@@ -6,7 +6,7 @@
 
 The engine works in passes. In each pass it visits the nodes bottom-up, rebuilds each node from its already-rewritten operands and applies the first rule in the catalog whose precondition matches. Rule order is the catalog order, so the result does not depend on hash order or on the order in which the caller listed the nodes. Identical subtrees are merged into one node, which is how an idempotence rule such as `p and p` can recognize its operands. The engine repeats passes until one changes nothing. That state is a fixed point.
 
-The outcome is one of eight statuses in `RewriteStatus`:
+The outcome is one of seven statuses in `RewriteStatus`:
 
 | Status | Meaning |
 | --- | --- |

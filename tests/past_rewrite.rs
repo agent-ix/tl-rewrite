@@ -661,7 +661,7 @@ fn future_only_conformance_api_refuses_past_without_claiming_a_proof() {
 }
 
 proptest! {
-    #![proptest_config(ProptestConfig { cases: if cfg!(miri) { 4 } else { 192 }, ..ProptestConfig::default() })]
+    #![proptest_config(ProptestConfig { cases: 192, ..ProptestConfig::default() })]
 
     // Trace: TC-052, FR-009-AC-6
     #[test]
