@@ -239,6 +239,7 @@ mutants:
 .PHONY: mutants-diff
 mutants-diff:
 	$(PYTHON) scripts/run_mutants.py --jobs $(MUTANTS_JOBS) --diff-base $(MUTANTS_BASE) $(MUTANTS_OUT)
+	$(CI_GUARD) record mutants-diff
 
 .PHONY: coverage
 coverage:
@@ -258,7 +259,7 @@ coverage-branch:
 
 .PHONY: ci
 ci: fmt-check lint test test-features conformance counterexamples normalization \
-	deny fuzz-check spec msrv rustdoc miri
+	deny fuzz-check spec msrv rustdoc miri mutants-diff
 
 # The assured entry point (NFR-004). Builds and runs the guard, which refuses
 # to invoke `make ci` at all if this file's execution controls or the calling

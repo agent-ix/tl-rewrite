@@ -10,5 +10,20 @@ exclude_globs = [
 
 additional_cargo_args = ["--all-features"]
 
-minimum_test_timeout = 60
+# A timeout must mean a hang, not a loaded machine: the 2026-11-09 first full tl-parse run
+# at a 60 s floor counted 277 load-induced timeouts, so the floor is well above any loaded run.
+minimum_test_timeout = 300
 timeout_multiplier = 3.0
+
+# Equivalent mutants (one-line reason each). A pattern that names a line pins one mutant;
+# when the line moves the mutant resurfaces as a survivor and needs a fresh justification.
+exclude_re = [
+    # Equivalent: the dropped arm yields the default arm's operands, or `operands` already returns None as the right operand for a unary node.
+    'engine/mod\.rs:(106|127):\d+: delete match arm .* in retained_operands',
+    # Equivalent: `minimum` returns the same value for `<` and `<=`, because equal operands give equal results.
+    'report\.rs:\d+:\d+: replace < with <= in minimum',
+    # Unreachable: the compacted graph keeps the input profile and clock and remaps its operands to earlier nodes, so the owner constructor never reports a node or depth limit.
+    'infinite\.rs:512:\d+: delete match arm InfiniteFormulaError::NodeLimit',
+    # Equivalent: a report that fails the revision or catalog check is also refused by the byte comparison with its reproduction.
+    'infinite\.rs:763:\d+: replace \|\| with && in replay_infinite',
+]
