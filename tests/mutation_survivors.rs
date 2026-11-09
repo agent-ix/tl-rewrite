@@ -375,6 +375,124 @@ fn infinite_rewrite_counts_the_passes_it_ran() {
     assert!(dead.steps.is_empty());
 }
 
+// Trace: TC-014, FR-004-AC-1
+#[test]
+fn counterexample_search_distinguishes_formulas_that_differ_only_at_a_later_step() {
+    // `F[0,1] p0` and `F[0,1] p0 | (p1 & !F[1,1] p0 & !p0)` differ only on a trace where p1
+    // holds at time 0, p0 holds at neither step and so `F[1,1] p0` is false at time 0.
+    let eventually_p0 = document(
+        SemanticProfile::ClosedTraceV1,
+        vec![
+            proposition(0),
+            Node::new(NodeKind::Future {
+                interval: Interval::new(0, 1).unwrap(),
+                operand: NodeId(0),
+            }),
+        ],
+    );
+    let widened = document(
+        SemanticProfile::ClosedTraceV1,
+        vec![
+            proposition(0),
+            Node::new(NodeKind::Future {
+                interval: Interval::new(0, 1).unwrap(),
+                operand: NodeId(0),
+            }),
+            proposition(1),
+            Node::new(NodeKind::Future {
+                interval: Interval::new(1, 1).unwrap(),
+                operand: NodeId(0),
+            }),
+            Node::new(NodeKind::Not { operand: NodeId(3) }),
+            Node::new(NodeKind::Not { operand: NodeId(0) }),
+            Node::new(NodeKind::And {
+                left: NodeId(4),
+                right: NodeId(5),
+            }),
+            Node::new(NodeKind::And {
+                left: NodeId(2),
+                right: NodeId(6),
+            }),
+            Node::new(NodeKind::Or {
+                left: NodeId(1),
+                right: NodeId(7),
+            }),
+        ],
+    );
+    let report = check_equivalence(
+        &eventually_p0,
+        &widened,
+        "later-step",
+        ConformanceOptions::default(),
+    );
+    assert_eq!(report.status, ConformanceStatus::Mismatch);
+    assert!(report.counterexample.is_some());
+}
+
+// Trace: TC-066, FR-019-AC-1
+#[test]
+fn infinite_rewrite_reports_the_node_budget_when_the_rewritten_graph_outgrows_the_owner_limit() {
+    // `F p0` is shared, so rewriting `!F p0` to `G !p0` keeps `F p0` and adds two nodes to a
+    // graph that already holds the owner maximum of 100000. The caller's budget is higher
+    // than the owner limit, so the owner refusal is what reports the node budget.
+    let leaves = 49_998u32;
+    let mut kinds: Vec<K> = (1..=leaves).map(infinite_proposition).collect();
+    let mut level: Vec<u32> = (0..leaves).collect();
+    while level.len() > 1 {
+        let mut next = Vec::new();
+        for pair in level.chunks(2) {
+            if let [left, right] = pair {
+                kinds.push(K::Or {
+                    left: NodeId(*left),
+                    right: NodeId(*right),
+                });
+                next.push(u32::try_from(kinds.len() - 1).unwrap());
+            } else {
+                next.push(pair[0]);
+            }
+        }
+        level = next;
+    }
+    let tree_root = level[0];
+    let at = |kinds: &Vec<K>| u32::try_from(kinds.len()).unwrap();
+    let p0 = at(&kinds);
+    kinds.push(infinite_proposition(0));
+    let eventually = at(&kinds);
+    kinds.push(K::Future {
+        interval: tl_syntax::TemporalInterval::Closed(Interval::new(0, 1).unwrap()),
+        operand: NodeId(p0),
+    });
+    let negated = at(&kinds);
+    kinds.push(K::Not {
+        operand: NodeId(eventually),
+    });
+    let both = at(&kinds);
+    kinds.push(K::And {
+        left: NodeId(eventually),
+        right: NodeId(negated),
+    });
+    let root = at(&kinds);
+    kinds.push(K::Or {
+        left: NodeId(tree_root),
+        right: NodeId(both),
+    });
+    assert_eq!(kinds.len(), 100_000);
+    let input = infinite_graph(kinds, root);
+    let options = RewriteOptions {
+        budgets: RewriteBudgets {
+            max_nodes: 300_000,
+            max_work_units: 1_000_000_000,
+            ..RewriteBudgets::default()
+        },
+        ..RewriteOptions::default()
+    };
+    let report = rewrite_infinite(&input, None, options, "revision", 10_000_000);
+    assert_eq!(
+        report.failure,
+        Some(InfiniteRewriteFailure::Budget(BudgetKind::Nodes))
+    );
+}
+
 // Trace: TC-066, FR-019-AC-1
 #[test]
 fn infinite_rewrite_report_byte_ceiling_is_exact() {

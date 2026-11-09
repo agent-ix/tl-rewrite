@@ -47,8 +47,7 @@ The Campaign runner cannot contain `make mutants` (TL-28, 2026-09-24): cargo-mut
 in a new process group, and the runner refuses a descendant whose process group differs from its producer. That
 containment is unresolved, so `make mutants` is the supported way to run the mutation gate.
 
-The cargo-mutants test-timeout floor is 300 s (`minimum_test_timeout` in `.cargo/mutants.toml`): a timeout must
-mean a hang, and on a loaded machine a shorter floor reports slow test runs as hangs. Timeouts count as unkilled.
+The cargo-mutants test-timeout floor is 300 s (`minimum_test_timeout` in `.cargo/mutants.toml`); a mutant times out when its test run exceeds the larger of that floor and three times the baseline. The floor cannot tell a hang from a run that a loaded host slowed past it, so run `make mutants` on an unloaded machine. Timeouts count as unkilled.
 
 ## Coverage
 

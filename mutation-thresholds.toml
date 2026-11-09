@@ -16,33 +16,17 @@ exclude = ["src/ci_guard.rs", "src/bin/ci_guard.rs"]
 [[group]]
 name = "engine-core"
 globs = ["src/engine/*.rs"]
-min_kill_percent = 99.4
+min_kill_percent = 100.0
 
 # whole crate
 [[group]]
 name = "crate"
 globs = ["src/*.rs", "src/*/*.rs"]
-min_kill_percent = 98.7
-
-[[survivor]]
-file = "src/engine/mod.rs"
-reason = "differs only for a caller budget above the owner default of 100000 nodes, which needs a graph of that size to observe; the budget check just above refuses the same graph at the default budget"
-names = [
-    "delete field formula_nodes from struct SyntaxArtifactLimits expression in build_pass",
-]
-
-[[survivor]]
-file = "src/equivalence.rs"
-reason = "the trace enumeration visits every mask, so the mutated bit layout still finds a counterexample whenever one exists; only which counterexample is reported can differ"
-names = [
-    "replace * with + in trace",
-]
+min_kill_percent = 99.7
 
 [[survivor]]
 file = "src/infinite.rs"
-reason = "NonConvergent iteration count and the fairness identity guard: the catalog terminates, so no input reaches a repeated state, and each fairness operand is also refused by a later check with the same status"
+reason = "`input_fairness_identity` is None only when a fairness document cannot be hashed, which no constructible document does; the other operands of the guard are killed"
 names = [
-    "replace + with * in rewrite_infinite",
-    "replace + with - in rewrite_infinite",
     "replace || with && in rewrite_infinite",
 ]
