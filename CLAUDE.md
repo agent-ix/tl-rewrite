@@ -14,6 +14,7 @@ make counterexamples  # produce and replay the retained counterexample corpus
 make normalization    # sweep determinism, fixed point, replay, and budgets
 make deny             # cargo deny check advisories, bans, licenses, sources
 make spec             # validate and cover specifications with quire
+make miri             # run the pure suites under Miri on the pinned nightly
 make msrv             # check all targets and features with the MSRV toolchain
 make rustdoc          # build warning-free public documentation
 make ci               # every gate locally, unguarded (see Makefile header)

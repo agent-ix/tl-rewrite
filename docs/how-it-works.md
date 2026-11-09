@@ -2,7 +2,7 @@
 
 ## The rewrite engine
 
-`rewrite(input, formula_id, options, source_revision)` takes a `FormulaDocument` from tl-syntax. The document must pass `validate()` and carry the closed-trace or the origin-complete-history profile. A document with any other profile gets the status `UnsupportedProfile`, and an invalid document gets `InvalidInput`. Neither produces an output.
+`rewrite(input, formula_id, options, source_revision)` takes a `FormulaDocument` from tl-syntax. The document must pass `validate()` and carry the closed-trace or the origin-complete-history profile. A document with any other profile gets the status `UnsupportedProfile`, and a rewrite whose rebuilt formula the syntax owner refuses gets `InvalidInput`. Neither produces an output.
 
 The engine works in passes. In each pass it visits the nodes bottom-up, rebuilds each node from its already-rewritten operands and applies the first rule in the catalog whose precondition matches. Rule order is the catalog order, so the result does not depend on hash order or on the order in which the caller listed the nodes. Identical subtrees are merged into one node, which is how an idempotence rule such as `p and p` can recognize its operands. The engine repeats passes until one changes nothing. That state is a fixed point.
 
@@ -14,8 +14,7 @@ The outcome is one of eight statuses in `RewriteStatus`:
 | `Normalized` | A changed fixed point was reached. An input whose identical subtrees were merged without a rule application also reports this status. |
 | `BudgetExhausted` | A configured ceiling stopped the attempt. `exhausted_budget` names it. |
 | `NonConvergent` | A complete formula state reappeared before a fixed point. |
-| `Failed` | An internal consistency or evaluator failure prevented completion. |
-| `InvalidInput` | The document failed structural validation. |
+| `InvalidInput` | The request identity or the rebuilt graph was refused by the syntax owner. |
 | `UnsupportedProfile` | No enabled rule set exists for the input profile. |
 | `UnresolvedBinding` | A contextual request named a proposition that the signal catalog does not bind. |
 

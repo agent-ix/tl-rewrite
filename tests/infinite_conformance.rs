@@ -231,10 +231,6 @@ fn fr021_every_infinite_conformance_reason_has_a_typed_disposition() {
             Fr341Disposition::Unsupported,
         ),
         (
-            InfiniteConformanceReason::InvalidTrace,
-            Fr341Disposition::Unsupported,
-        ),
-        (
             InfiniteConformanceReason::ConflictingObservation,
             Fr341Disposition::NoTemporalVerdict,
         ),
@@ -283,5 +279,47 @@ fn fr021_every_infinite_conformance_reason_has_a_typed_disposition() {
     assert_eq!(
         infinite_conformance_disposition(InfiniteConformanceStatus::NonConclusive, None),
         Err(DispositionMappingError::MissingReason),
+    );
+}
+
+// Trace: TC-081, NFR-006-AC-5
+#[test]
+fn a_provider_refusal_is_returned_for_a_trace_over_other_propositions() {
+    let input = graph();
+    let rewrite = rewrite_infinite(&input, None, RewriteOptions::default(), REVISION, 1_000_000);
+    let propositions = vec![PropositionId(5)];
+    let foreign = LassoTraceDocument::new(
+        SemanticProfile::InfiniteTraceV1,
+        InfiniteClock::EventPosition,
+        "map".to_owned(),
+        propositions.clone(),
+        Vec::new(),
+        vec![TraceObservation {
+            position: 0,
+            valuation: PartialValuation::new(
+                "map".to_owned(),
+                &propositions,
+                vec![ValuationEntry {
+                    proposition: PropositionId(5),
+                    value: PartialValue::True,
+                }],
+            )
+            .unwrap(),
+        }],
+    )
+    .unwrap();
+    let check = check_infinite_rewrite(
+        &input,
+        None,
+        &foreign,
+        &rewrite,
+        0,
+        REVISION,
+        EvaluationLimit::default(),
+    );
+    assert_eq!(check.status, InfiniteConformanceStatus::NonConclusive);
+    assert_eq!(
+        check.reason,
+        Some(InfiniteConformanceReason::ProviderRefusal)
     );
 }

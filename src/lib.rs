@@ -29,7 +29,7 @@ pub use engine::{rewrite, rewrite_with_context};
 pub use equivalence::{
     check_equivalence, check_equivalence_with_context, check_past_equivalence, ConformanceOptions,
     ConformanceReason, ConformanceReport, ConformanceStatus, PastConformanceReason,
-    PastConformanceReport, PastEvaluationContext,
+    PastConformanceReport, PastEvaluationContext, MAX_MATERIALIZED_INSTANTS,
 };
 #[cfg(feature = "infinite-trace")]
 pub use infinite::{

@@ -22,7 +22,6 @@ fn tc_073_rewrite_statuses_never_claim_temporal_proof() {
             Fr341Disposition::ResourceIncomplete,
         ),
         (RewriteStatus::NonConvergent, Fr341Disposition::Failed),
-        (RewriteStatus::Failed, Fr341Disposition::Failed),
         (RewriteStatus::InvalidInput, Fr341Disposition::Unsupported),
         (
             RewriteStatus::UnsupportedProfile,
@@ -53,10 +52,6 @@ fn tc_073_rewrite_statuses_never_claim_temporal_proof() {
 #[test]
 fn tc_073_conformance_reasons_have_exhaustive_typed_mapping() {
     let cases = [
-        (
-            ConformanceReason::InvalidInput,
-            Fr341Disposition::Unsupported,
-        ),
         (
             ConformanceReason::UnsupportedProfile,
             Fr341Disposition::Unsupported,

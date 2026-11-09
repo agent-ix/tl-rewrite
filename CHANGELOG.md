@@ -3,6 +3,33 @@
 All notable user-visible changes to `tl-rewrite` are recorded here. The crate is
 distributed as a git source release (`publish = false`); versions are git tags.
 
+## Unreleased
+
+### Added
+
+- `MAX_MATERIALIZED_INSTANTS` is public. Miri builds use a smaller value so the
+  boundary tests interpret in reasonable time.
+- `make miri` runs the pure-computation suites under Miri on the pinned nightly
+  and is part of `make ci` (NFR-006).
+- Boundary tests accept each declared limit at its value and refuse one past it
+  with the typed error that names the limit.
+
+### Removed
+
+No input can produce these variants, and each was a fail-closed arm over an
+invariant the types already guarantee. This is a breaking change to an
+exhaustive `match`, and the wire spellings `failed` and `internal` are gone.
+
+- `RewriteStatus::Failed` and `InfiniteRewriteFailure::Internal`. The graph
+  remap and compaction paths now index by the topological order the owner
+  already enforces, and a rebuilt graph the owner refuses past its node ceiling
+  is `InfiniteRewriteFailure::Budget(BudgetKind::Nodes)`.
+- `ConformanceReason::InvalidInput`. Formula and signal-catalog documents are
+  validated at construction.
+- `InfiniteConformanceReason::InvalidTrace`. A lasso trace and an infinite
+  formula each admit only the infinite-trace profile and the event-position
+  clock.
+
 ## 0.3.0
 
 `tl-rewrite` is the last of the four MLTL crates (`tl-syntax`, `tl-parse`,

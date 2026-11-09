@@ -30,8 +30,6 @@ pub enum InfiniteRewriteFailure {
     IdentityMismatch,
     /// Distinct premise roots could not be represented after rewriting.
     UnmappableFairness,
-    /// An internal candidate violated the syntax owner's graph invariants.
-    Internal,
     /// A configured work or output ceiling was exhausted.
     Budget(BudgetKind),
     /// The canonical output report exceeded its byte ceiling.
@@ -93,7 +91,6 @@ impl InfiniteRewriteReport {
             InfiniteRewriteFailure::Budget(_) | InfiniteRewriteFailure::ReportBytes => {
                 RewriteStatus::BudgetExhausted
             }
-            InfiniteRewriteFailure::Internal => RewriteStatus::Failed,
             InfiniteRewriteFailure::NonConvergent => RewriteStatus::NonConvergent,
         };
         self.failure = Some(reason);
@@ -378,43 +375,42 @@ fn previous(interval: TemporalInterval) -> bool {
     matches!(interval, TemporalInterval::Closed(range) if range.start() == 1 && range.end() == 1)
 }
 
-fn remap(kind: Kind, mapped: &[NodeId]) -> Option<Kind> {
-    let id = |old: NodeId| {
-        usize::try_from(old.0)
-            .ok()
-            .and_then(|index| mapped.get(index))
-            .copied()
-    };
-    Some(match kind {
+/// Rebuilds `kind` over the already-mapped operand identities.
+///
+/// A validated graph lists every operand before its user, so each operand has
+/// been mapped by the time its user is remapped.
+fn remap(kind: Kind, mapped: &[NodeId]) -> Kind {
+    let id = |old: NodeId| mapped[old.0 as usize];
+    match kind {
         Kind::False => Kind::False,
         Kind::True => Kind::True,
         Kind::Proposition { proposition } => Kind::Proposition { proposition },
         Kind::Not { operand } => Kind::Not {
-            operand: id(operand)?,
+            operand: id(operand),
         },
         Kind::And { left, right } => Kind::And {
-            left: id(left)?,
-            right: id(right)?,
+            left: id(left),
+            right: id(right),
         },
         Kind::Or { left, right } => Kind::Or {
-            left: id(left)?,
-            right: id(right)?,
+            left: id(left),
+            right: id(right),
         },
         Kind::Implies { left, right } => Kind::Implies {
-            left: id(left)?,
-            right: id(right)?,
+            left: id(left),
+            right: id(right),
         },
         Kind::Equivalent { left, right } => Kind::Equivalent {
-            left: id(left)?,
-            right: id(right)?,
+            left: id(left),
+            right: id(right),
         },
         Kind::Future { interval, operand } => Kind::Future {
             interval,
-            operand: id(operand)?,
+            operand: id(operand),
         },
         Kind::Globally { interval, operand } => Kind::Globally {
             interval,
-            operand: id(operand)?,
+            operand: id(operand),
         },
         Kind::Until {
             interval,
@@ -422,8 +418,8 @@ fn remap(kind: Kind, mapped: &[NodeId]) -> Option<Kind> {
             right,
         } => Kind::Until {
             interval,
-            left: id(left)?,
-            right: id(right)?,
+            left: id(left),
+            right: id(right),
         },
         Kind::Release {
             interval,
@@ -431,19 +427,19 @@ fn remap(kind: Kind, mapped: &[NodeId]) -> Option<Kind> {
             right,
         } => Kind::Release {
             interval,
-            left: id(left)?,
-            right: id(right)?,
+            left: id(left),
+            right: id(right),
         },
         Kind::Once { interval, operand } => Kind::Once {
             interval,
-            operand: id(operand)?,
+            operand: id(operand),
         },
         Kind::Historically { interval, operand } => Kind::Historically {
             interval,
-            operand: id(operand)?,
+            operand: id(operand),
         },
         Kind::StrongPrevious { operand } => Kind::StrongPrevious {
-            operand: id(operand)?,
+            operand: id(operand),
         },
         Kind::Since {
             interval,
@@ -451,8 +447,8 @@ fn remap(kind: Kind, mapped: &[NodeId]) -> Option<Kind> {
             right,
         } => Kind::Since {
             interval,
-            left: id(left)?,
-            right: id(right)?,
+            left: id(left),
+            right: id(right),
         },
         Kind::Triggered {
             interval,
@@ -460,10 +456,10 @@ fn remap(kind: Kind, mapped: &[NodeId]) -> Option<Kind> {
             right,
         } => Kind::Triggered {
             interval,
-            left: id(left)?,
-            right: id(right)?,
+            left: id(left),
+            right: id(right),
         },
-    })
+    }
 }
 
 fn compact(
@@ -477,14 +473,11 @@ fn compact(
     pending.push(root);
     pending.extend_from_slice(fairness);
     while let Some(id) = pending.pop() {
-        let index = usize::try_from(id.0).map_err(|_| InfiniteRewriteFailure::Internal)?;
-        let present = reachable
-            .get_mut(index)
-            .ok_or(InfiniteRewriteFailure::Internal)?;
-        if *present {
+        let index = id.0 as usize;
+        if reachable[index] {
             continue;
         }
-        *present = true;
+        reachable[index] = true;
         pending.extend(nodes[index].kind.operands().into_iter().flatten());
     }
     let mut mapped = vec![NodeId(0); nodes.len()];
@@ -493,7 +486,7 @@ fn compact(
         if !reachable[index] {
             continue;
         }
-        let kind = remap(node.kind, &mapped).ok_or(InfiniteRewriteFailure::Internal)?;
+        let kind = remap(node.kind, &mapped);
         mapped[index] = NodeId(
             u32::try_from(compacted.len())
                 .map_err(|_| InfiniteRewriteFailure::Budget(BudgetKind::Nodes))?,
@@ -503,23 +496,29 @@ fn compact(
             span: node.span,
         });
     }
-    let map_root = |id: NodeId| -> Result<NodeId, InfiniteRewriteFailure> {
-        usize::try_from(id.0)
-            .ok()
-            .and_then(|index| mapped.get(index))
-            .copied()
-            .ok_or(InfiniteRewriteFailure::Internal)
-    };
-    let root = map_root(root)?;
+    let root = mapped[root.0 as usize];
     let fairness = fairness
         .iter()
-        .copied()
-        .map(map_root)
-        .collect::<Result<Vec<_>, _>>()?;
+        .map(|id| mapped[id.0 as usize])
+        .collect::<Vec<_>>();
+    // The owner refuses a graph past its own node ceiling; that is a resource
+    // refusal, not a malformed graph, because every reachable operand is mapped.
     let output =
         InfiniteFormulaDocument::new(input.semantic_profile(), input.clock(), root, compacted)
-            .map_err(|_| InfiniteRewriteFailure::Internal)?;
+            .map_err(|_| InfiniteRewriteFailure::Budget(BudgetKind::Nodes))?;
     Ok((output, fairness))
+}
+
+/// Records one complete graph state, refusing a state seen before.
+fn observe_state(
+    seen: &mut BTreeSet<String>,
+    identity: String,
+) -> Result<(), InfiniteRewriteFailure> {
+    if seen.insert(identity) {
+        Ok(())
+    } else {
+        Err(InfiniteRewriteFailure::NonConvergent)
+    }
 }
 
 fn base(
@@ -605,10 +604,7 @@ pub fn rewrite_infinite(
                 report.fail(reason, state.work, iteration);
                 return report;
             }
-            let Some(kind) = remap(node.kind, &mapped) else {
-                report.fail(InfiniteRewriteFailure::Internal, state.work, iteration);
-                return report;
-            };
+            let kind = remap(node.kind, &mapped);
             let application = match state.apply(kind, node.span) {
                 Ok(value) => value,
                 Err(reason) => {
@@ -627,10 +623,9 @@ pub fn rewrite_infinite(
                     );
                     return report;
                 }
-                let Some(after) = state.kind(replacement) else {
-                    report.fail(InfiniteRewriteFailure::Internal, state.work, iteration);
-                    return report;
-                };
+                let after = state
+                    .kind(replacement)
+                    .expect("a rule replacement is emitted before it is looked up");
                 let before_sha256 = sha256_json(&kind);
                 let after_sha256 = sha256_json(&after);
                 rolling = sha256_bytes(
@@ -659,20 +654,11 @@ pub fn rewrite_infinite(
             };
             mapped.push(output);
         }
-        let map = |id: NodeId| -> Option<NodeId> {
-            usize::try_from(id.0)
-                .ok()
-                .and_then(|index| mapped.get(index))
-                .copied()
-        };
-        let Some(root) = map(current.root()) else {
-            report.fail(InfiniteRewriteFailure::Internal, state.work, iteration);
-            return report;
-        };
-        let Some(next_roots) = roots.iter().copied().map(map).collect::<Option<Vec<_>>>() else {
-            report.fail(InfiniteRewriteFailure::Internal, state.work, iteration);
-            return report;
-        };
+        let root = mapped[current.root().0 as usize];
+        let next_roots = roots
+            .iter()
+            .map(|id| mapped[id.0 as usize])
+            .collect::<Vec<_>>();
         let (candidate, candidate_roots) = match compact(&current, &state.nodes, root, &next_roots)
         {
             Ok(value) => value,
@@ -681,13 +667,9 @@ pub fn rewrite_infinite(
                 return report;
             }
         };
-        let candidate_identity = match candidate.content_identity() {
-            Ok(value) => value,
-            Err(_) => {
-                report.fail(InfiniteRewriteFailure::Internal, state.work, iteration);
-                return report;
-            }
-        };
+        let candidate_identity = candidate
+            .content_identity()
+            .expect("an admitted graph serializes to its identity");
         let candidate_fairness = if fairness.is_some() {
             match FairnessPremisesDocument::new(
                 &candidate,
@@ -720,25 +702,15 @@ pub fn rewrite_infinite(
             report.work_units = state.work;
             report.steps = all_steps;
             report.output_identity = Some(candidate_identity);
-            report.output_fairness_identity = match candidate_fairness.as_ref() {
-                Some(value) => match value.content_identity() {
-                    Ok(identity) => Some(identity),
-                    Err(_) => {
-                        report.fail(InfiniteRewriteFailure::Internal, state.work, iteration + 1);
-                        return report;
-                    }
-                },
-                None => None,
-            };
+            report.output_fairness_identity = candidate_fairness.as_ref().map(|value| {
+                value
+                    .content_identity()
+                    .expect("admitted fairness premises serialize to their identity")
+            });
             report.output = Some(candidate);
             report.output_fairness = candidate_fairness;
-            let encoded = match serde_json::to_vec(&report) {
-                Ok(bytes) => bytes,
-                Err(_) => {
-                    report.fail(InfiniteRewriteFailure::Internal, state.work, iteration + 1);
-                    return report;
-                }
-            };
+            let encoded =
+                serde_json::to_vec(&report).expect("a derive-serialized report always encodes");
             if encoded.len() > report.max_report_bytes {
                 report.fail(
                     InfiniteRewriteFailure::ReportBytes,
@@ -748,12 +720,8 @@ pub fn rewrite_infinite(
             }
             return report;
         }
-        if !seen.insert(candidate_identity) {
-            report.fail(
-                InfiniteRewriteFailure::NonConvergent,
-                state.work,
-                iteration + 1,
-            );
+        if let Err(reason) = observe_state(&mut seen, candidate_identity) {
+            report.fail(reason, state.work, iteration + 1);
             return report;
         }
         current = candidate;
@@ -815,8 +783,6 @@ pub enum InfiniteConformanceStatus {
 pub enum InfiniteConformanceReason {
     /// The rewrite record cannot be replayed against the trusted inputs.
     InvalidRewrite,
-    /// The trace and formula have incompatible profile or clock identities.
-    InvalidTrace,
     /// Conflicting evidence was present before either provider evaluation.
     ConflictingObservation,
     /// Neither graph had any completion admitted by fairness.
@@ -868,9 +834,6 @@ pub fn check_infinite_rewrite(
     if !replay_infinite(input, fairness, report, trusted_source_revision) {
         return refuse(InfiniteConformanceReason::InvalidRewrite);
     }
-    if trace.semantic_profile() != input.semantic_profile() || trace.clock() != input.clock() {
-        return refuse(InfiniteConformanceReason::InvalidTrace);
-    }
     // Classify the whole admitted trace before evaluating either formula: a
     // Boolean fold may otherwise hide conflicting evidence in a dead branch.
     if trace
@@ -888,9 +851,9 @@ pub fn check_infinite_rewrite(
     let Some(output_identity) = report.output_identity.as_deref() else {
         return refuse(InfiniteConformanceReason::InvalidRewrite);
     };
-    let Ok(trace_id) = trace.content_identity() else {
-        return refuse(InfiniteConformanceReason::InvalidTrace);
-    };
+    let trace_id = trace
+        .content_identity()
+        .expect("an admitted lasso trace serializes to its identity");
     let original = LassoRequest {
         formula: input,
         trace,
@@ -1144,5 +1107,23 @@ mod conformance_classification_tests {
                 (InfiniteConformanceStatus::Mismatch, None)
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod state_tests {
+    use super::{observe_state, InfiniteRewriteFailure};
+    use std::collections::BTreeSet;
+
+    // Trace: TC-081, NFR-006-AC-5
+    #[test]
+    fn a_repeated_complete_state_is_non_convergent() {
+        let mut seen = BTreeSet::new();
+        assert_eq!(observe_state(&mut seen, "first".to_owned()), Ok(()));
+        assert_eq!(observe_state(&mut seen, "second".to_owned()), Ok(()));
+        assert_eq!(
+            observe_state(&mut seen, "first".to_owned()),
+            Err(InfiniteRewriteFailure::NonConvergent)
+        );
     }
 }
