@@ -5,6 +5,14 @@ distributed as a git source release (`publish = false`); versions are git tags.
 
 ## Unreleased
 
+### Documented
+
+- `WEST_REVISION` is kept. It is the commit of the external WEST corpus repository,
+  which is not a Cargo dependency, so it duplicates no Cargo pin. Every conformance
+  report emits it as `westRevision` and contextual reports fold it into
+  `requestSha256`; FR-005 and NFR-002-AC-2 require records to name the WEST identity
+  the run used. Removing it would change the wire format. No behavior change.
+
 ### Added
 
 - A boundary test for the private `MAX_MATERIALIZED_INSTANTS` ceiling, run

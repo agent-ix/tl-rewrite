@@ -47,4 +47,9 @@ pub use report::{
 };
 
 /// Exact canonical WEST source revision from which permitted fixtures were selected.
+///
+/// This is product identity, not a copy of a Cargo pin: WEST is an external corpus
+/// repository, not a Cargo dependency, so no manifest or lockfile carries this value.
+/// Every conformance report emits it as `westRevision` and contextual reports fold it
+/// into `requestSha256` (FR-005, NFR-002-AC-2).
 pub const WEST_REVISION: &str = "21cd99ab2e6095a099dd179029cfdeb54268ad3f";
