@@ -10,5 +10,22 @@ exclude_globs = [
 
 additional_cargo_args = ["--all-features"]
 
-minimum_test_timeout = 60
+# The floor is high so that a slow test run on a loaded machine is not reported as a hang;
+# a timeout counts as unkilled either way (SR-231 records the measurement).
+minimum_test_timeout = 300
 timeout_multiplier = 3.0
+
+# Equivalent mutants (one-line reason each). A pattern that names a line pins one mutant;
+# when the line moves the mutant resurfaces as a survivor and needs a fresh justification.
+exclude_re = [
+    # Equivalent: the dropped arm yields the default arm's operands, or `operands` already returns None as the right operand for a unary node.
+    'engine/mod\.rs:(106|127):\d+: delete match arm .* in retained_operands',
+    # Equivalent: `minimum` returns the same value for `<` and `<=`, because equal operands give equal results.
+    'report\.rs:\d+:\d+: replace < with <= in minimum',
+    # Equivalent: `FormulaDocument::new` already refuses a graph past the owner default of 100000 nodes, so the explicit `formula_nodes` limit never changes an admission.
+    'engine/mod\.rs:\d+:\d+: delete field formula_nodes from struct SyntaxArtifactLimits expression in build_pass',
+    # Unreachable: the infinite catalog terminates, so a pass never reaches a graph it has already seen and the repeated-state report (and its iteration count) never exists.
+    'infinite\.rs:739:\d+: replace \+ with [-*] in rewrite_infinite',
+    # Equivalent: a report that fails the revision or catalog check is also refused by the byte comparison with its reproduction.
+    'infinite\.rs:763:\d+: replace \|\| with && in replay_infinite',
+]
