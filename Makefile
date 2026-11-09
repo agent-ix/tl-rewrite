@@ -171,19 +171,27 @@ spec:
 	$(QUIRE) coverage --scope . --strict
 	$(CI_GUARD) record spec
 
-# Miri runs a fast pure-computation subset: the library tests, the NFR-006
-# boundary tests, the property suite, and the disposition mapping. The corpus,
-# oracle, and replay suites hash and evaluate far too much to interpret in a
-# gate, so they stay native. Suites that spawn processes or read
-# the corpus from disk need the host and stay native. Property suites lower
-# their case count under `cfg(miri)`, and the owner-value boundary tests
-# substitute caller-lowered limits (and a smaller `MAX_MATERIALIZED_INSTANTS`)
-# for the owner constants (NFR-006-AC-2 to NFR-006-AC-4). Isolation stays on,
-# so a test that touches the host fails; the `ci_guard` unit tests drive Make
-# and the file system, so they stay native.
+# Miri runs the library tests, the NFR-006 boundary tests, the property suite,
+# the disposition mapping, the catalog and wire-record suites, the rewrite and
+# rule-evidence suites, and the corpus, oracle and replay suites (replay,
+# past_history_corpus, infinite_conformance, oracle_finite_rewrite,
+# infinite_owner_corpus, oracle_equivalence_properties and
+# tc_053_profile_subsystems). The corpus suites read repository files, so the
+# run passes `-Zmiri-disable-isolation`. Property suites lower their case count
+# under `cfg(miri)`, and the owner-value boundary tests substitute caller-lowered
+# limits (and a smaller `MAX_MATERIALIZED_INSTANTS`) for the owner constants
+# (NFR-006-AC-2 to NFR-006-AC-4).
+# Excluded suites, each for its measured or structural reason (NFR-006-AC-6):
+#   process or file system, not interpretable: ci_guard (drives Make; its unit
+#   tests are also skipped by `--skip ci_guard::`), doc_claims,
+#   infinite_fuzz_seeds, infinite_rules, equivalence.
+#   measured too slow, with no lowerable limit: past_rewrite (over 70 minutes for
+#   the single test every_admitted_past_fold_preserves_event_and_fixed_sample_verdicts),
+#   future_lowering_parity (over 15 minutes, fixed corpus), contextual_rewrite
+#   (over 15 minutes, fixed corpus).
 MIRI_TOOLCHAIN ?= nightly-2026-08-21
-MIRIFLAGS ?= -Zmiri-strict-provenance -Zmiri-symbolic-alignment-check -Zmiri-env-forward=PROPTEST_DISABLE_FAILURE_PERSISTENCE
-MIRI_SUITES ?= --lib --test robustness --test property --test infinite_disposition
+MIRIFLAGS ?= -Zmiri-disable-isolation -Zmiri-strict-provenance -Zmiri-symbolic-alignment-check -Zmiri-env-forward=PROPTEST_DISABLE_FAILURE_PERSISTENCE
+MIRI_SUITES ?= --lib --test robustness --test property --test infinite_disposition --test catalog --test wire_records --test rewrite --test rule_evidence --test replay --test past_history_corpus --test infinite_conformance --test oracle_finite_rewrite --test infinite_owner_corpus --test oracle_equivalence_properties --test tc_053_profile_subsystems
 
 .PHONY: miri
 miri:
