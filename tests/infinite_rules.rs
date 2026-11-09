@@ -824,7 +824,7 @@ fn tc_075_replay_refuses_identity_mutations() {
         "test-source"
     ));
     let mut inconsistent_success = report.clone();
-    inconsistent_success.failure = Some(InfiniteRewriteFailure::Internal);
+    inconsistent_success.failure = Some(InfiniteRewriteFailure::IdentityMismatch);
     assert!(!inconsistent_success.succeeded());
     assert!(!replay_infinite(
         &input,
@@ -849,8 +849,8 @@ fn tc_074_non_success_statuses_cannot_be_promoted_by_report_replay() {
             Some(InfiniteRewriteFailure::Budget(BudgetKind::WorkUnits)),
         ),
         (
-            RewriteStatus::Failed,
-            Some(InfiniteRewriteFailure::Internal),
+            RewriteStatus::InvalidInput,
+            Some(InfiniteRewriteFailure::UnmappableFairness),
         ),
     ];
 

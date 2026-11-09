@@ -77,6 +77,7 @@ help:
 	@echo "  make normalization    - Sweep determinism, fixed point, replay, and budgets"
 	@echo "  make deny             - cargo deny check advisories, bans, licenses, sources"
 	@echo "  make spec             - Validate specification and coverage with Quire"
+	@echo "  make miri             - Run the pure suites under Miri on the pinned nightly"
 	@echo "  make msrv             - Check all targets and features with the MSRV toolchain"
 	@echo "  make rustdoc          - Build warning-free public documentation"
 	@echo "  make build            - Release build"
@@ -153,6 +154,25 @@ spec:
 	$(QUIRE) coverage --scope . --strict
 	$(CI_GUARD) record spec
 
+# Miri runs a fast pure-computation subset: the library tests, the NFR-006
+# boundary tests, the property suite, and the disposition mapping. The corpus,
+# oracle, and replay suites hash and evaluate far too much to interpret in a
+# gate, so they stay native. Suites that spawn processes or read
+# the corpus from disk need the host and stay native. Property suites lower
+# their case count under `cfg(miri)`, and the owner-value boundary tests
+# substitute caller-lowered limits (and a smaller `MAX_MATERIALIZED_INSTANTS`)
+# for the owner constants (NFR-006-AC-2 to NFR-006-AC-4). Isolation stays on,
+# so a test that touches the host fails; the `ci_guard` unit tests drive Make
+# and the file system, so they stay native.
+MIRI_TOOLCHAIN ?= nightly-2026-08-21
+MIRIFLAGS ?= -Zmiri-strict-provenance -Zmiri-symbolic-alignment-check -Zmiri-env-forward=PROPTEST_DISABLE_FAILURE_PERSISTENCE
+MIRI_SUITES ?= --lib --test robustness --test property --test infinite_disposition
+
+.PHONY: miri
+miri:
+	PROPTEST_DISABLE_FAILURE_PERSISTENCE=1 MIRIFLAGS="$(MIRIFLAGS)" rustup run $(MIRI_TOOLCHAIN) $(CARGO) miri test $(MIRI_SUITES) -- --skip ci_guard::
+	$(CI_GUARD) record miri
+
 .PHONY: msrv
 msrv:
 	rustup run 1.98.1 $(CARGO) check --locked --all-targets --all-features
@@ -188,7 +208,7 @@ fuzz-smoke:
 
 .PHONY: ci
 ci: fmt-check lint test conformance counterexamples normalization \
-	deny fuzz-check spec msrv rustdoc
+	deny fuzz-check spec msrv rustdoc miri
 
 # The assured entry point (NFR-004). Builds and runs the guard, which refuses
 # to invoke `make ci` at all if this file's execution controls or the calling

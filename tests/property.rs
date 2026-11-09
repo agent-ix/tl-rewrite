@@ -132,7 +132,7 @@ fn reflexive_boolean_fixture(
 
 proptest! {
     #![proptest_config(ProptestConfig {
-        cases: 32,
+        cases: if cfg!(miri) { 4 } else { 32 },
         failure_persistence: None,
         ..ProptestConfig::default()
     })]

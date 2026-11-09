@@ -55,7 +55,7 @@ pub const fn rewrite_disposition(status: RewriteStatus) -> Fr341Disposition {
     match status {
         RewriteStatus::Unchanged | RewriteStatus::Normalized => Fr341Disposition::NoTemporalVerdict,
         RewriteStatus::BudgetExhausted => Fr341Disposition::ResourceIncomplete,
-        RewriteStatus::NonConvergent | RewriteStatus::Failed => Fr341Disposition::Failed,
+        RewriteStatus::NonConvergent => Fr341Disposition::Failed,
         RewriteStatus::InvalidInput
         | RewriteStatus::UnsupportedProfile
         | RewriteStatus::UnresolvedBinding => Fr341Disposition::Unsupported,
@@ -77,8 +77,7 @@ pub const fn conformance_disposition(
         }
         (ConformanceStatus::NonConclusive, None) => Err(DispositionMappingError::MissingReason),
         (ConformanceStatus::NonConclusive, Some(reason)) => Ok(match reason {
-            ConformanceReason::InvalidInput
-            | ConformanceReason::UnsupportedProfile
+            ConformanceReason::UnsupportedProfile
             | ConformanceReason::OriginalBinding
             | ConformanceReason::RewrittenBinding => Fr341Disposition::Unsupported,
             ConformanceReason::PropositionLimit
@@ -108,7 +107,6 @@ pub const fn infinite_conformance_disposition(
         }
         (InfiniteConformanceStatus::NonConclusive, Some(reason)) => Ok(match reason {
             InfiniteConformanceReason::InvalidRewrite
-            | InfiniteConformanceReason::InvalidTrace
             | InfiniteConformanceReason::ProviderRefusal => Fr341Disposition::Unsupported,
             InfiniteConformanceReason::ConflictingObservation
             | InfiniteConformanceReason::EmptyFairAdmission => Fr341Disposition::NoTemporalVerdict,

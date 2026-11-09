@@ -38,6 +38,7 @@ relationships:
 | NFR-001 | deterministic and resource-bound tests | TC-004 through TC-008, TC-015, TC-017, TC-021, TC-031, TC-035, TC-047, TC-049, TC-050 | ✅ covered |
 | NFR-002 | catalog, corpus, context, and provenance inspection | TC-001, TC-002, TC-016, TC-031, TC-034, TC-046, TC-052 | ✅ covered |
 | NFR-004 | static Makefile/environment inspection, per-gate completion records, declared/executed reconciliation, and per-gate record binding | TC-057 through TC-065 | ✅ implemented |
+| NFR-006 | boundary, variant-production, and Miri tests | TC-077 through TC-082 | ✅ implemented |
 
 ## Test Case Summary
 
@@ -93,6 +94,12 @@ relationships:
 | TC-065 | Inspect README, CLAUDE.md, and `.github/workflows/*.yml` for every reference to running the full local gate set; each names the entry point (`make guarded-ci`), not a bare `make ci`, and a bare `make ci` substituted into each is reported | Integration | P1 | NFR-004-AC-8 | ✅ implemented |
 | TC-076 | Replay the 15-case syntax owner corpus over the parser, rewriter, and evaluator boundaries, with finite-prefix evaluation for the finite-prefix subject | Integration | P0 | FR-019-AC-3 | ✅ implemented |
 | TC-905 | Read README, docs, and the limitation text the crate emits: human-authority and bounded-equivalence limitation statements are present, and no automated release, qualification, certification, or accreditation claim appears outside an explicit negation | Integration | P1 | FR-005-AC-3 | ✅ implemented |
+| TC-077 | Succeed at each rewrite budget equal to the need and return BudgetExhausted with the matching BudgetKind one less | Unit | P0 | NFR-006-AC-1 | ✅ implemented |
+| TC-078 | Accept an infinite report at the report-byte limit, refuse one byte past it with ReportBytes, and clamp larger caller values | Unit | P0 | NFR-006-AC-2 | ✅ implemented |
+| TC-079 | Accept a record at each record-reader ceiling and refuse one past it with ResourceLimit; clamp larger caller values | Unit | P0 | NFR-006-AC-3 | ✅ implemented |
+| TC-080 | Accept each conformance domain limit and the materialized-instant limit at its value and refuse one past it with the matching reason | Unit | P0 | NFR-006-AC-4 | ✅ implemented |
+| TC-081 | Produce every public status, reason, failure, and error variant through its producing API, or remove it | Unit | P0 | NFR-006-AC-5 | ✅ implemented |
+| TC-082 | Run the unit and property suites under Miri with documented reduced settings | Unit | P1 | NFR-006-AC-6 | ✅ implemented |
 
 ## TL-235 rewrite benchmark adjunct
 

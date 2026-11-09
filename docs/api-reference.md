@@ -27,12 +27,12 @@ The crate root re-exports the items below. The module paths are `catalog`, `engi
 | `RewriteStrategy` | `BottomUpFirstMatch`. |
 | `RewriteBudgets` | `max_iterations` 32, `max_nodes` 100,000, `max_rule_applications` 100,000, `max_work_units` 1,000,000 by default. |
 | `BudgetKind` | `Iterations`, `Nodes`, `RuleApplications`, `WorkUnits`. |
-| `RewriteStatus` | `Unchanged`, `Normalized`, `BudgetExhausted`, `NonConvergent`, `Failed`, `InvalidInput`, `UnsupportedProfile`, `UnresolvedBinding`. |
+| `RewriteStatus` | `Unchanged`, `Normalized`, `BudgetExhausted`, `NonConvergent`, `InvalidInput`, `UnsupportedProfile`, `UnresolvedBinding`. |
 | `RewriteReport` | Identities and digests, options, counters, `steps`, `status`, `exhausted_budget`, `detail`, `binding_failure` and `output`. Schemas `tl-rewrite.report/v1` and `v2`. |
 | `RewriteStep` | `sequence`, `pass`, `source_node`, `source_span`, `rule_id`, `rule_revision`, `before_sha256`, `after_sha256`, `intermediate_sha256`. |
 | `BindingFailure`, `BindingLocus` | The first unbound proposition of a contextual request, and whether it was in the `Input` or the `Output`. |
 | `InfiniteRewriteReport` | Infinite-trace report with identities, `steps`, `output`, `output_fairness`, and `failure`. `succeeded()`. |
-| `InfiniteRewriteFailure` | `IdentityMismatch`, `UnmappableFairness`, `Internal`, `Budget(BudgetKind)`, `ReportBytes`, `NonConvergent`. |
+| `InfiniteRewriteFailure` | `IdentityMismatch`, `UnmappableFairness`, `Budget(BudgetKind)`, `ReportBytes`, `NonConvergent`. |
 | `MAX_INFINITE_REPORT_BYTES` | 64 MiB ceiling for one infinite report. |
 
 ## Catalog types
@@ -63,7 +63,7 @@ The crate root re-exports the items below. The module paths are `catalog`, `engi
 | `ConformanceOptions` | `max_propositions` 4, `max_horizon` 8, `max_traces` 1,000,000 by default. |
 | `ConformanceReport` | `status`, `reason`, `horizon`, `trace_length`, `total_traces`, `traces_checked`, `counterexample`, both verdicts and a `limitation` string. Schemas `tl-rewrite.conformance/v1` and `v2`. |
 | `ConformanceStatus` | `Equivalent`, `Mismatch`, `NonConclusive`. |
-| `ConformanceReason` | `InvalidInput`, `UnsupportedProfile`, `PropositionLimit`, `HorizonLimit`, `TraceDomainLimit`, `EvaluatorError`, `OriginalBinding`, `RewrittenBinding`. |
+| `ConformanceReason` | `UnsupportedProfile`, `PropositionLimit`, `HorizonLimit`, `TraceDomainLimit`, `EvaluatorError`, `OriginalBinding`, `RewrittenBinding`. |
 | `PastEvaluationContext` | A formula, its identity, a position history, an anchor and a proposition-map identity. |
 | `PastConformanceReport`, `PastConformanceReason` | Result of a past comparison and its typed non-conclusive reason. Schema `tl-rewrite.past-conformance/v2`. |
 | `InfiniteConformanceReport`, `InfiniteConformanceStatus`, `InfiniteConformanceReason` | Result of an infinite comparison (feature `infinite-trace`). |

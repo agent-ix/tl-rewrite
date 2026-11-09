@@ -17,7 +17,18 @@ use crate::{
     WEST_REVISION,
 };
 
+/// Longest trace, in instants, that bounded equivalence will materialize.
+///
+/// Miri builds use a smaller value so the in-crate boundary test interprets in
+/// reasonable time; the code path is the same (NFR-006-AC-4).
+#[cfg(not(miri))]
 const MAX_MATERIALIZED_INSTANTS: u64 = 100_000;
+#[cfg(miri)]
+const MAX_MATERIALIZED_INSTANTS: u64 = 64;
+
+/// Formula and signal-catalog documents are validated by their constructors and by
+/// deserialization, so a document in hand always validates.
+const VALIDATED_AT_CONSTRUCTION: &str = "syntax documents are validated at construction";
 
 /// Explicit exhaustive-domain ceilings.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -57,8 +68,6 @@ pub enum ConformanceStatus {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ConformanceReason {
-    /// Either document was structurally invalid.
-    InvalidInput,
     /// Profiles differed or were not closed-trace v1.
     UnsupportedProfile,
     /// The proposition population exceeded its ceiling.
@@ -432,12 +441,8 @@ pub fn check_equivalence(
     options: ConformanceOptions,
 ) -> ConformanceReport {
     let mut report = report_base(original, rewritten, comparison_id.into(), options);
-    let Ok(original_formula) = original.validate() else {
-        return non_conclusive(report, ConformanceReason::InvalidInput);
-    };
-    let Ok(rewritten_formula) = rewritten.validate() else {
-        return non_conclusive(report, ConformanceReason::InvalidInput);
-    };
+    let original_formula = original.validate().expect(VALIDATED_AT_CONSTRUCTION);
+    let rewritten_formula = rewritten.validate().expect(VALIDATED_AT_CONSTRUCTION);
     if original.semantic_profile() != rewritten.semantic_profile()
         || original.semantic_profile() != SemanticProfile::ClosedTraceV1
     {
@@ -679,12 +684,8 @@ pub fn check_equivalence_with_context(
         &rule_catalog.catalog_sha256,
     )));
     report.requirement_context = Some(requirement_context);
-    let Ok(catalog) = signal_catalog.validate() else {
-        return non_conclusive(report, ConformanceReason::InvalidInput);
-    };
-    let Ok(original_formula) = original.validate() else {
-        return non_conclusive(report, ConformanceReason::InvalidInput);
-    };
+    let catalog = signal_catalog.validate().expect(VALIDATED_AT_CONSTRUCTION);
+    let original_formula = original.validate().expect(VALIDATED_AT_CONSTRUCTION);
     match binding_check(catalog, original_formula, crate::BindingLocus::Input) {
         BindingCheck::Bound => {}
         BindingCheck::Missing(binding_failure) => {
@@ -695,9 +696,7 @@ pub fn check_equivalence_with_context(
             return non_conclusive(report, ConformanceReason::OriginalBinding);
         }
     }
-    let Ok(rewritten_formula) = rewritten.validate() else {
-        return non_conclusive(report, ConformanceReason::InvalidInput);
-    };
+    let rewritten_formula = rewritten.validate().expect(VALIDATED_AT_CONSTRUCTION);
     match binding_check(catalog, rewritten_formula, crate::BindingLocus::Output) {
         BindingCheck::Bound => {}
         BindingCheck::Missing(binding_failure) => {
@@ -714,4 +713,46 @@ pub fn check_equivalence_with_context(
     observed.requirement_context = report.requirement_context;
     observed.request_sha256 = report.request_sha256;
     observed
+}
+
+#[cfg(test)]
+mod tests {
+    use tl_syntax::{Interval, Node, NodeId};
+
+    use super::*;
+
+    fn always_true(end: u32) -> FormulaDocument {
+        let nodes = vec![
+            Node::new(NodeKind::True),
+            Node::new(NodeKind::Globally {
+                interval: Interval::new(0, end).unwrap(),
+                operand: NodeId(0),
+            }),
+        ];
+        FormulaDocument::new(SemanticProfile::ClosedTraceV1, NodeId(1), nodes).unwrap()
+    }
+
+    // Trace: TC-080, NFR-006-AC-4
+    #[test]
+    fn materialized_instant_limit_accepts_the_limit_and_refuses_one_past() {
+        // A formula with no propositions has one trace whatever its length, so only
+        // the materialization ceiling can refuse it.
+        let limit = MAX_MATERIALIZED_INSTANTS;
+        let end = |instants: u64| u32::try_from(instants - 1).unwrap();
+        let options = ConformanceOptions {
+            max_propositions: 8,
+            max_horizon: u64::MAX,
+            max_traces: 1 << 20,
+        };
+        let check = |instants: u64| {
+            let formula = always_true(end(instants));
+            check_equivalence(&formula, &formula, "boundary", options)
+        };
+        let at = check(limit);
+        assert_eq!(at.trace_length, Some(limit));
+        assert_eq!(at.status, ConformanceStatus::Equivalent);
+        let past = check(limit + 1);
+        assert_eq!(past.trace_length, Some(limit + 1));
+        assert_eq!(past.reason, Some(ConformanceReason::TraceDomainLimit));
+    }
 }
