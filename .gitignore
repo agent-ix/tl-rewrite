@@ -3,7 +3,6 @@ Cargo.lock.bak
 .DS_Store
 .idea/
 .vscode/
-__pycache__/
 *.pyc
 proptest-regressions/
 

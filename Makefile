@@ -33,7 +33,7 @@
 # longer true of `make guarded-ci`, measured on this file with the command
 # named so it can be re-derived:
 #
-#   make ci CARGO=false PYTHON=false QUIRE=false
+#   make ci CARGO=false QUIRE=false
 #
 # exits 2 and stops at the first prerequisite. Prepend a single `.IGNORE:`
 # line and the identical command exits 0. `make guarded-ci` against the same
@@ -52,7 +52,7 @@ CI_GUARD ?= $(CARGO) run --quiet --bin ci_guard --
 # and writes it here just before invoking Make. Target-specific `export`
 # lines in the generated file below deliver each gate's token into only that
 # gate's own recipe environment, so a subprocess of a *different* gate's own
-# recipe (a compromised or buggy `cargo test`/`cargo clippy`/python/quire/
+# recipe (a compromised or buggy `cargo test`/`cargo clippy`/quire/
 # quoin invocation, the concrete risk TL-202 names) cannot bind a completion
 # record to a gate it did not itself run. `-include` — not `include` — is
 # deliberate: this file is absent outside a `ci_guard ci` run (a bare `make
@@ -246,7 +246,6 @@ mutants:
 
 .PHONY: mutants-diff
 mutants-diff:
-	rm -f $(MUTANTS_OUT)/mutants.out/outcomes.json
 	$(GATE) mutants --jobs $(MUTANTS_JOBS) --diff-base $(MUTANTS_BASE) $(MUTANTS_OUT)
 	$(CI_GUARD) record mutants-diff
 
