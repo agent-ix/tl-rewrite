@@ -40,7 +40,7 @@
 # `.IGNORE:`-prepended file refuses before Make ever runs.
 
 CARGO ?= cargo
-PYTHON ?= python3
+GATE ?= $(CARGO) run --quiet --manifest-path tools/gate/Cargo.toml --
 QUIRE ?= quire
 
 # `ci_guard record` is the last step of every `ci` prerequisite's recipe, so
@@ -239,15 +239,15 @@ COVERAGE_MIN_LINES ?= 85
 COVERAGE_IGNORE = '(ci_guard)'
 
 # The wrapper accepts cargo-mutants' "survivors found" status and judges the
-# result against mutation-thresholds.toml (see scripts/run_mutants.py).
+# result against mutation-thresholds.toml (see tools/gate).
 .PHONY: mutants
 mutants:
-	$(PYTHON) scripts/run_mutants.py --jobs $(MUTANTS_JOBS) $(MUTANTS_OUT)
+	$(GATE) mutants --jobs $(MUTANTS_JOBS) $(MUTANTS_OUT)
 
 .PHONY: mutants-diff
 mutants-diff:
 	rm -f $(MUTANTS_OUT)/mutants.out/outcomes.json
-	$(PYTHON) scripts/run_mutants.py --jobs $(MUTANTS_JOBS) --diff-base $(MUTANTS_BASE) $(MUTANTS_OUT)
+	$(GATE) mutants --jobs $(MUTANTS_JOBS) --diff-base $(MUTANTS_BASE) $(MUTANTS_OUT)
 	$(CI_GUARD) record mutants-diff
 
 .PHONY: coverage

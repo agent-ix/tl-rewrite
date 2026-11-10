@@ -1,4 +1,4 @@
-# Kill-rate thresholds checked by scripts/mutation_gate.py (TL-231, TL-371).
+# Kill-rate thresholds checked by tl-gate gate (TL-231, TL-371).
 # Kill rate = caught / (caught + missed + timeout); unviable mutants count on
 # neither side. `min_kill_percent` is the floor measured by the first full
 # `make mutants` run (a ratchet: raise it when survivors are killed, never
@@ -9,6 +9,7 @@
 # excluded in .cargo/mutants.toml.
 # `diff_min_kill_percent` applies to `make mutants-diff`: every mutant in the
 # changed code must be killed.
+require_survivor_reasons = true
 diff_min_kill_percent = 100.0
 exclude = ["src/ci_guard.rs", "src/bin/ci_guard.rs"]
 
