@@ -6,13 +6,13 @@ the gates enforce; it carries no measured results. Floors live in `mutation-thre
 and the Linear tickets.
 
 Tools (inputs): cargo-mutants 27.0.0, cargo-llvm-cov 0.8.7 (branch coverage needs a nightly toolchain with
-llvm-tools), Python 3.11 or newer (the gate reads TOML with `tomllib`).
+llvm-tools).
 
 ## Targets
 
 | Target | What it does |
 | --- | --- |
-| `make mutants` | Full cargo-mutants run (`--no-shuffle`, so the population and order are fixed), then `scripts/mutation_gate.py` against `mutation-thresholds.toml`. Takes hours; run it weekly. |
+| `make mutants` | Full cargo-mutants run (`--no-shuffle`, so the population and order are fixed), then `tl-gate gate` against `mutation-thresholds.toml`. Takes hours; run it weekly. |
 | `make mutants-diff` | A gate in `make ci`. cargo-mutants on `git diff $(MUTANTS_BASE)...HEAD` (default `origin/main`) only; every mutant in the diff must be killed. Only committed changes are mutated; uncommitted edits are not. |
 | `make coverage` | `cargo llvm-cov` line, function and region coverage on the pinned toolchain, failing below `COVERAGE_MIN_LINES`. |
 | `make coverage-branch` | The same on nightly, adding branch coverage. |
@@ -33,12 +33,11 @@ Every missed or timed-out mutant must also appear in a `[[survivor]]` table of `
 one-line reason (FR-022-AC-5). A survivor that is not listed fails the gate, however high the kill rate. A listing
 names the file and the mutant without its `file:line:col:` prefix, so it survives edits that move code.
 
-`scripts/run_mutants.py` accepts cargo-mutants exit statuses 0, 2 (survivors) and 3 (timeouts) so that
+`tl-gate mutants` accepts cargo-mutants exit statuses 0, 2 (survivors) and 3 (timeouts) so that
 the gate always runs and prints its table; any other status is passed on.
-The NFR-004 Makefile guard (`src/ci_guard.rs`) rejects Makefile recipes that join commands with a bare `;`, so the cargo-mutants exit-status handling lives in `scripts/run_mutants.py` and the Makefile only invokes it (help strings must not contain `;` either).
+The NFR-004 Makefile guard (`src/ci_guard.rs`) rejects Makefile recipes that join commands with a bare `;`, so the cargo-mutants exit-status handling lives in `tl-gate mutants` and the Makefile only invokes it (help strings must not contain `;` either).
 
-`scripts/mutation_gate.py` and `scripts/run_mutants.py` are the same in tl-syntax, tl-parse, tl-rewrite and
-tl-mltl (tl-mltl alone has `--source-env`); a shared copy is a separate follow-up.
+The gate and the runner are one Rust package, `tools/tl-gate` in tl-syntax; this repository builds it through the `tools/gate` shim, whose `Cargo.toml` names the tl-syntax revision. A thresholds file sets `require_survivor_reasons = true` to demand a `[[survivor]]` entry with a reason for every missed or timed-out mutant.
 
 ## Limits of the recorded measurements
 
