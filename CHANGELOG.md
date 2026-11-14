@@ -60,17 +60,20 @@ exhaustive `match`.
 - **Wire break (serialized records).** The record types reject unknown fields, so
   0.4.0 refuses records written by v0.3.0 that still carry a removed field.
   Schema identities were not bumped, by decision for the pre-release 0.x line.
-  A retained v0.3.0 `tl-rewrite.report/v1` report cannot be admitted by 0.4.0 at
-  all: it is refused for the removed `syntaxRevision` field, and stripping that
-  field does not help, because the report's digests were computed over a preimage
-  that included it and 0.4.0 refuses the bytes as not the exact canonical encoding.
-  Regenerate such reports with 0.4.0.
-  - `tl-rewrite.report/v1`: Migration: regenerate the report with 0.4.0 from the same input and options; v0.3.0 bytes that carry `syntaxRevision` are refused and cannot be repaired by deleting the field. Replay-proven: a v0.3.0 report is refused with `unknown field syntaxRevision`, and the same bytes without the field are refused as not canonical.
-  - `tl-rewrite.conformance/v1`: Migration: regenerate the report with 0.4.0, or delete `syntaxRevision` and `evaluatorRevision` from the retained bytes; v0.3.0 bytes that carry either are refused. Replay-proven: a v0.3.0 report is refused with `unknown field evaluatorRevision`, and the same bytes without both fields decode.
-  - `tl-rewrite.report/v2`: Migration: regenerate the report with 0.4.0; v0.3.0 contextual reports carry the removed `syntaxRevision` and their digests no longer match. Reviewer-checked, not replay-proven.
-  - `tl-rewrite.conformance/v2` and `tl-rewrite.past-conformance/v2`: Migration: regenerate the report with 0.4.0, or delete `syntaxRevision` and `evaluatorRevision` from the retained bytes where the digests allow; v0.3.0 bytes that carry either are refused. Reviewer-checked, not replay-proven.
+  Deleting the removed keys from the retained bytes (a byte-level edit that keeps
+  the key order; re-serializing through a map reorders keys and fails the exact
+  canonical encoding check) makes the record decode, but a record that
+  carries a contextual request digest no longer reproduces under 0.4.0, so
+  regenerate those. What was checked, by writing records with the v0.3.0 tag and
+  decoding them with 0.4.0 (v0.3.0 commit `9e656c39`, one closed-trace
+  formula, one contextual catalog and context, one past history):
+  - `tl-rewrite.report/v1`: Migration: delete `syntaxRevision` from the retained bytes (keep the rest as it is) or regenerate the report; 0.4.0 refuses v0.3.0 reports that carry `syntaxRevision`. Replay-proven: the v0.3.0 report is refused with `unknown field syntaxRevision`; with that one key deleted at the byte level it decodes, re-serializes to the same bytes, and `replay` under 0.4.0 returns `Verified`, so its digests still hold.
+  - `tl-rewrite.conformance/v1`: Migration: delete `syntaxRevision` and `evaluatorRevision` from the retained bytes (keep the rest as it is) or regenerate the report; v0.3.0 reports that carry either are refused. Replay-proven: refused with `unknown field evaluatorRevision`; with both keys deleted it decodes and equals the report 0.4.0 regenerates for the same inputs.
+  - `tl-rewrite.report/v2`: Migration: regenerate the report with 0.4.0; a v0.3.0 report that carries `syntaxRevision` is refused, and with the key deleted it decodes but `replay_with_context` under 0.4.0 returns `Mismatch`, so its digests no longer hold. Replay-proven for the refusal, the decode and the mismatch; that the cause is the contextual request digest is reviewer-checked.
+  - `tl-rewrite.conformance/v2`: Migration: regenerate the report with 0.4.0; v0.3.0 reports that carry `syntaxRevision` or `evaluatorRevision` are refused, and with both keys deleted the report decodes but its `requestSha256` differs from the one 0.4.0 computes (every other field is equal). Replay-proven.
+  - `tl-rewrite.past-conformance/v2`: Migration: delete `syntaxRevision` and `evaluatorRevision` from the retained bytes or regenerate the report; v0.3.0 reports that carry either are refused. Replay-proven for the refusal and for decoding after deleting both keys; digest agreement with a regenerated report was not checked, so that part is reviewer-checked.
   - `ConformanceReason::InvalidInput` (wire value `invalid_input`, in `tl-rewrite.conformance/v1` and `/v2`): Migration: a retained report whose `reason` is `invalid_input` is refused; regenerate it, since a validated document can no longer produce that reason. Reviewer-checked, not replay-proven.
-  - `tl-rewrite.replay/v1` and `tl-rewrite.replay/v2` carry digests and a status only, so v0.3.0 replay reports still decode (replay-proven for v1); replaying a retained v0.3.0 report is not possible, because that report cannot be admitted.
+  - `tl-rewrite.replay/v1`: carries digests and a status only, so v0.3.0 replay reports still decode (replay-proven). `tl-rewrite.replay/v2` is the same shape and is reviewer-checked.
 - `RewriteStatus::Failed` and `InfiniteRewriteFailure::Internal` (both introduced
   after v0.3.0 and removed before this release, so they are not API breaks against
   v0.3.0). The graph remap and compaction paths index by the topological order the
