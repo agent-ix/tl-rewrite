@@ -81,7 +81,7 @@ fn owner_cases_cross_parser_rewriter_and_provider() {
         cases.len(),
         manifest["case_count"].as_u64().unwrap() as usize
     );
-    assert_eq!(cases.len(), 15);
+    assert_eq!(cases.len(), 18);
 
     let mut compared = 0;
     let mut refused = 0;
@@ -162,7 +162,11 @@ fn owner_cases_cross_parser_rewriter_and_provider() {
         let formatted = format_clean_ascii_v4(&formula, Some(&fairness), FormatLimits::default());
         let parsed = if matches!(
             id,
-            "fair-loop-satisfies-premise" | "unfair-loop-has-no-admitted-trace"
+            "fair-loop-satisfies-premise"
+                | "unfair-loop-has-no-admitted-trace"
+                | "until-guard-starts-at-lower-bound"
+                | "release-guard-starts-at-lower-bound"
+                | "until-bounded-guard-starts-at-lower-bound"
         ) {
             // This owner graph has topology V4 text cannot reproduce exactly.
             // The formatter must refuse rather than change its node identity;
@@ -297,6 +301,6 @@ fn owner_cases_cross_parser_rewriter_and_provider() {
         }
         compared += 1;
     }
-    assert_eq!(compared, 11);
+    assert_eq!(compared, 14);
     assert_eq!(refused, 4);
 }
