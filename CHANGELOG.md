@@ -3,7 +3,15 @@
 All notable user-visible changes to `tl-rewrite` are recorded here. The crate is
 distributed as a git source release (`publish = false`); versions are git tags.
 
-## Unreleased
+## 0.4.0
+
+Part of the second coordinated release of the MLTL crates (`tl-syntax`,
+`tl-parse`, `tl-mltl`, `tl-rewrite`). All four crates move to 0.4.0 together.
+This crate depends on `tl-syntax` 0.4.0 (release commit
+`9607722f24ac1978b5e0e0ceeb0cb2a828e10177`) and `tl-mltl` 0.4.0 (release commit
+`011a4324dba88a93eddd21ad9ba25d3c5cdc4bef`), both at exact versions. Changes are
+relative to v0.3.0. This is a breaking 0.x release; the API migration inventory
+below lists every break reported by `cargo-semver-checks` 0.50.0.
 
 ### Documented
 
@@ -15,12 +23,18 @@ distributed as a git source release (`publish = false`); versions are git tags.
 
 ### Added
 
+- Infinite-trace rewriting behind the `infinite-trace` feature
+  (`rewrite_infinite`, `replay_infinite`, `check_infinite_rewrite`, the
+  `tl-rewrite.infinite-catalog/v1` and `tl-rewrite.infinite-report/v1`
+  records, `infinite_catalog`, `infinite_conformance_disposition`).
 - A boundary test for the private `MAX_MATERIALIZED_INSTANTS` ceiling, run
   in-crate; Miri builds use a smaller value so it interprets in reasonable time.
 - `make miri` runs the pure-computation suites under Miri on the pinned nightly
   and is part of `make ci` (NFR-006).
 - Boundary tests accept each declared limit at its value and refuse one past it
   with the typed error that names the limit.
+- Oracle-checked rewrite-equivalence properties, a closed-rewrite fuzz target,
+  and the cargo-mutants configuration with a kill-rate gate.
 
 ### Fixed
 
@@ -31,19 +45,62 @@ distributed as a git source release (`publish = false`); versions are git tags.
 
 ### Removed
 
-No input can produce these variants through a validated document, and each was
-a fail-closed arm over an invariant the types already guarantee. This is a breaking change to an
-exhaustive `match`, and the wire spellings `failed` and `internal` are gone.
+No input can produce the removed variants through a validated document, and each was
+a fail-closed arm over an invariant the types already guarantee. Removing one is a breaking change to an
+exhaustive `match`.
 
-- `RewriteStatus::Failed` and `InfiniteRewriteFailure::Internal`. The graph
-  remap and compaction paths now index by the topological order the owner
-  already enforces, and a rebuilt graph the owner refuses past its node ceiling
-  is `InfiniteRewriteFailure::Budget(BudgetKind::Nodes)`.
 - `ConformanceReason::InvalidInput`. Formula and signal-catalog documents are
   validated at construction.
-- `InfiniteConformanceReason::InvalidTrace`. A lasso trace and an infinite
-  formula each admit only the infinite-trace profile and the event-position
-  clock.
+- The compiled-in dependency revisions: `TL_SYNTAX_REVISION` and
+  `TL_MLTL_REVISION`, and the `syntax_revision` field of `RewriteReport`,
+  `ConformanceReport` and `PastConformanceReport`, and the `evaluator_revision`
+  field of `ConformanceReport` and `PastConformanceReport`. The pinned
+  revisions are recorded in `Cargo.toml` only.
+- `PGM01_POLICY_REVISION`, a policy revision constant no code consumed.
+- **Wire break (serialized records).** The record types reject unknown fields, so
+  0.4.0 refuses records written by v0.3.0 that still carry a removed field.
+  Schema identities were not bumped, by decision for the pre-release 0.x line.
+  Deleting the removed keys from the retained bytes (a byte-level edit that keeps
+  the key order; re-serializing through a map reorders keys and fails the exact
+  canonical encoding check) makes the record decode, but a record that
+  carries a contextual request digest no longer reproduces under 0.4.0, so
+  regenerate those. What was checked, by writing records with the v0.3.0 tag and
+  decoding them with 0.4.0 (v0.3.0 commit `9e656c39`, one closed-trace
+  formula, one contextual catalog and context, one past history):
+  - `tl-rewrite.report/v1`: Migration: delete `syntaxRevision` from the retained bytes (keep the rest as it is) or regenerate the report; 0.4.0 refuses v0.3.0 reports that carry `syntaxRevision`. Replay-proven: the v0.3.0 report is refused with `unknown field syntaxRevision`; with that one key deleted at the byte level it decodes, re-serializes to the same bytes, and `replay` under 0.4.0 returns `Verified`, so its digests still hold.
+  - `tl-rewrite.conformance/v1`: Migration: delete `syntaxRevision` and `evaluatorRevision` from the retained bytes (keep the rest as it is) or regenerate the report; v0.3.0 reports that carry either are refused. Replay-proven: refused with `unknown field evaluatorRevision`; with both keys deleted it decodes and equals the report 0.4.0 regenerates for the same inputs.
+  - `tl-rewrite.report/v2`: Migration: regenerate the report with 0.4.0; a v0.3.0 report that carries `syntaxRevision` is refused, and with the key deleted it decodes but `replay_with_context` under 0.4.0 returns `Mismatch`, so its digests no longer hold. Replay-proven for the refusal, the decode and the mismatch; that the cause is the contextual request digest is reviewer-checked.
+  - `tl-rewrite.conformance/v2`: Migration: regenerate the report with 0.4.0; v0.3.0 reports that carry `syntaxRevision` or `evaluatorRevision` are refused, and with both keys deleted the report decodes but its `requestSha256` differs from the one 0.4.0 computes (every other field is equal). Replay-proven.
+  - `tl-rewrite.past-conformance/v2`: Migration: delete `syntaxRevision` and `evaluatorRevision` from the retained bytes or regenerate the report; v0.3.0 reports that carry either are refused. Replay-proven for the refusal and for decoding after deleting both keys; digest agreement with a regenerated report was not checked, so that part is reviewer-checked.
+  - `ConformanceReason::InvalidInput` (wire value `invalid_input`, in `tl-rewrite.conformance/v1` and `/v2`): Migration: a retained report whose `reason` is `invalid_input` is refused; regenerate it, since a validated document can no longer produce that reason. Reviewer-checked, not replay-proven.
+  - `tl-rewrite.replay/v1`: carries digests and a status only, so v0.3.0 replay reports still decode (replay-proven). `tl-rewrite.replay/v2` is the same shape and is reviewer-checked.
+- `RewriteStatus::Failed` and `InfiniteRewriteFailure::Internal` (both introduced
+  after v0.3.0 and removed before this release, so they are not API breaks against
+  v0.3.0). The graph remap and compaction paths index by the topological order the
+  owner already enforces, and a rebuilt graph the owner refuses past its node
+  ceiling is `InfiniteRewriteFailure::Budget(BudgetKind::Nodes)`.
+- `InfiniteConformanceReason::InvalidTrace`, likewise introduced and removed
+  after v0.3.0. A lasso trace and an infinite formula each admit only the
+  infinite-trace profile and the event-position clock.
+
+### API migration inventory
+
+- `enum_no_repr_variant_discriminant_changed` `ConformanceReason::EvaluatorError`: Migration: do not cast `ConformanceReason` variants to integers with `as`; discriminants shifted when variants were removed, so match on the variant or use an explicit mapping.
+- `enum_no_repr_variant_discriminant_changed` `ConformanceReason::HorizonLimit`: Migration: do not cast `ConformanceReason` variants to integers with `as`; discriminants shifted when variants were removed, so match on the variant or use an explicit mapping.
+- `enum_no_repr_variant_discriminant_changed` `ConformanceReason::OriginalBinding`: Migration: do not cast `ConformanceReason` variants to integers with `as`; discriminants shifted when variants were removed, so match on the variant or use an explicit mapping.
+- `enum_no_repr_variant_discriminant_changed` `ConformanceReason::PropositionLimit`: Migration: do not cast `ConformanceReason` variants to integers with `as`; discriminants shifted when variants were removed, so match on the variant or use an explicit mapping.
+- `enum_no_repr_variant_discriminant_changed` `ConformanceReason::RewrittenBinding`: Migration: do not cast `ConformanceReason` variants to integers with `as`; discriminants shifted when variants were removed, so match on the variant or use an explicit mapping.
+- `enum_no_repr_variant_discriminant_changed` `ConformanceReason::TraceDomainLimit`: Migration: do not cast `ConformanceReason` variants to integers with `as`; discriminants shifted when variants were removed, so match on the variant or use an explicit mapping.
+- `enum_no_repr_variant_discriminant_changed` `ConformanceReason::UnsupportedProfile`: Migration: do not cast `ConformanceReason` variants to integers with `as`; discriminants shifted when variants were removed, so match on the variant or use an explicit mapping.
+- `enum_variant_missing` `ConformanceReason::InvalidInput`: Migration: delete the match arm for `ConformanceReason::InvalidInput`; formula and catalog documents are validated at construction, so no input produces this variant.
+- `pub_module_level_const_missing` `PGM01_POLICY_REVISION`: Migration: delete uses; the constant named a policy revision no code consumed.
+- `pub_module_level_const_missing` `TL_MLTL_REVISION`: Migration: delete uses; the tl-mltl revision is recorded in `Cargo.toml` only, and reports no longer carry it.
+- `pub_module_level_const_missing` `TL_SYNTAX_REVISION`: Migration: delete uses; the pinned tl-syntax revision is recorded in `Cargo.toml` only, and records no longer carry it.
+- `struct_pub_field_missing` `ConformanceReport::evaluator_revision`: Migration: delete reads and struct-literal initializers of the field; serialized conformance reports no longer carry `evaluatorRevision` (see Removed).
+- `struct_pub_field_missing` `ConformanceReport::syntax_revision`: Migration: delete reads and struct-literal initializers of the field; serialized records no longer carry `syntaxRevision` (see Removed).
+- `struct_pub_field_missing` `PastConformanceReport::evaluator_revision`: Migration: delete reads and struct-literal initializers of the field; serialized conformance reports no longer carry `evaluatorRevision` (see Removed).
+- `struct_pub_field_missing` `PastConformanceReport::syntax_revision`: Migration: delete reads and struct-literal initializers of the field; serialized records no longer carry `syntaxRevision` (see Removed).
+- `struct_pub_field_missing` `RewriteReport::syntax_revision`: Migration: delete reads and struct-literal initializers of the field; serialized records no longer carry `syntaxRevision` (see Removed).
 
 ## 0.3.0
 

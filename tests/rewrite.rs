@@ -188,7 +188,7 @@ fn span_distinct_inputs_keep_budget_partial_identity_semantic() {
 fn parser_to_rewriter_seam_preserves_semantic_identity() {
     // A parsed formula crosses into this crate's tl-syntax type through
     // canonical wire bytes, the boundary every external formula crosses. tl-parse
-    // v0.3.0 compiles the same tl-syntax revision as this crate, so the crossing
+    // 0.4.0 compiles the same tl-syntax revision as this crate, so the crossing
     // is an identity here, and the test still holds if the two pins ever diverge.
     let parsed = |source| {
         let document = parse(
