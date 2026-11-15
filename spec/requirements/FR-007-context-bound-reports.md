@@ -113,4 +113,4 @@ not the truth or suitability of a caller's declaration.
 
 Depends on FR-002 through FR-005 and the exact shared types and wire documents
 introduced by `agent-ix/tl-syntax#15` under `tl-syntax` FR-007. The future
-contract-IR/FRETish adapter remains owned by `agent-ix/quire-contract-ir#57`.
+contract-IR/FRETish adapter remains owned by `agent-ix/filament-contract-ir#57`.

@@ -14,7 +14,7 @@ use tl_syntax::{
 
 /// Selects between the two TL-native `ClockBinding` shapes a
 /// [`PositionHistoryDocument`] fixture can carry. Before TL-179 this also fed
-/// quire-observation authority-view fixtures (`ClockRange`, `Anchor`,
+/// filament-observation authority-view fixtures (`ClockRange`, `Anchor`,
 /// `TemporalBoundary`); tl-mltl 0.2.0 dropped the owner-admission machinery
 /// that consumed those, so this enum is now scoped to exactly what
 /// [`history_document`] still needs.

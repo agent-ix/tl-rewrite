@@ -130,6 +130,6 @@ side-effecting extension point is introduced.
 Depends on FR-001 catalog identity, FR-002 bounded execution, FR-003 trace and
 replay identity, FR-007 contextual reports, the accepted central past
 semantics/profile requirements, and merged `tl-syntax#53` and `tl-mltl#63`
-implementations. The shared-corpus successor is `tl-syntax#54`; native Quire
-projection and correspondence remain owned by `quire-contract-ir#70` and
-`quire-contract-ir#71`.
+implementations. The shared-corpus successor is `tl-syntax#54`; FSL
+projection and correspondence remain owned by `filament-contract-ir#70` and
+`filament-contract-ir#71`.
