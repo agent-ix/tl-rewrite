@@ -1000,8 +1000,8 @@ const CANONICAL_RULE_FAMILIES: [&str; 11] = [
 ];
 
 /// Spellings that would name a derived operator, its lowering, or a text front
-/// end (Quire language, FRETish, clean-ascii). Matched case-insensitively.
-/// A bare "quire" is not listed because it occurs inside "requirement".
+/// end (FSL, FRETish, clean-ascii). Matched case-insensitively.
+/// A bare "fsl" is not listed because it is too short to be a reliable token.
 const FORBIDDEN_TOKENS: [&str; 24] = [
     "weak",
     "strong release",
@@ -1023,10 +1023,10 @@ const FORBIDDEN_TOKENS: [&str; 24] = [
     "clean-ascii",
     "clean_ascii",
     "fretish",
-    "quire_language",
-    "quire-language",
-    "quire language",
-    "quire::",
+    "fsl_language",
+    "fsl-language",
+    "fsl language",
+    "filament::",
 ];
 
 /// The rule-id prefixes the catalog uses for primitive families.
@@ -1231,8 +1231,8 @@ fn engine_source_has_no_derived_operator_branch() {
             "synthetic.rs: forbidden token \"derivedoperator\"",
         ),
         (
-            "fn read_quire_language() {}",
-            "synthetic.rs: forbidden token \"quire_language\"",
+            "fn read_fsl_language() {}",
+            "synthetic.rs: forbidden token \"fsl_language\"",
         ),
         (
             "mod fretish_front_end {}",

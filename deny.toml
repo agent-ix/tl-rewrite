@@ -1,9 +1,9 @@
 [licenses]
 version = 2
 # AGPL-3.0-or-later is deliberately absent: since tl-mltl 0.2.0 (TL-179) this
-# crate's dependency graph has no AGPL-3.0-or-later component (quire-observation
+# crate's dependency graph has no AGPL-3.0-or-later component (filament-observation
 # was the only one), and TL-175 requires every TL-* crate to stay entirely
-# independent of the agent-ix/Quire ecosystem, so none should reappear here.
+# independent of the agent-ix/Filament ecosystem, so none should reappear here.
 allow = [
     "MIT",
     "Apache-2.0",
@@ -27,9 +27,9 @@ unknown-git = "deny"
 # Exact-source exceptions for the TL dependencies. tl-parse is dev-only
 # and exercises the parser-to-rewriter seam; its derived-lowering revisions
 # remain explicitly isolated as historical test dependencies. This crate has no
-# quire-observation dependency, direct or transitive, anywhere including
+# filament-observation dependency, direct or transitive, anywhere including
 # dev-dependencies -- TL-175 requires every TL-* crate to stay entirely
-# independent of the agent-ix/Quire ecosystem.
+# independent of the agent-ix/Filament ecosystem.
 allow-git = [
     "https://github.com/agent-ix/tl-mltl.git",
     "https://github.com/agent-ix/tl-oracle.git",

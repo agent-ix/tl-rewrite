@@ -91,7 +91,7 @@ pub enum ConformanceReason {
 /// result, distinct from an outright evaluator refusal; that state carried its
 /// own `NonBooleanResult` reason here. TL-179 removed `wire::request` /
 /// `wire::report` from tl-mltl entirely (they now live only in the
-/// quire-observation-coupled bridge crate `quire-mltl`, which a TL-* crate
+/// filament-observation-coupled bridge crate `filament-mltl`, which a TL-* crate
 /// must not depend on per TL-175) and replaced them with
 /// `tl_mltl::past::evaluate_past`, which for the past lane only ever returns a
 /// definite Boolean verdict (`PastResultFinality::Final` is past's only
@@ -118,7 +118,7 @@ pub enum PastConformanceReason {
 ///
 /// Replaces the pre-TL-179 owner-admitted `ValidatedTemporalRequest`. tl-mltl
 /// 0.2.0 dropped the admission/authority machinery that type required (and
-/// its quire-observation coupling) along with the type itself, so this crate
+/// its filament-observation coupling) along with the type itself, so this crate
 /// now owns its own minimal, fully TL-native request shape.
 #[derive(Clone, Copy, Debug)]
 pub struct PastEvaluationContext<'a> {
