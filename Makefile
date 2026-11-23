@@ -80,6 +80,8 @@ help:
 	@echo "  make conformance      - Replay every catalog rule through engine and oracle"
 	@echo "  make counterexamples  - Produce and replay the retained counterexample corpus"
 	@echo "  make normalization    - Sweep determinism, fixed point, replay, and budgets"
+	@echo "  make figures          - Regenerate docs/images with ixd-tl"
+	@echo "  make figures-check    - Fail on a missing or stale figure, writes nothing"
 	@echo "  make deny             - cargo deny check advisories, bans, licenses, sources"
 	@echo "  make spec             - Validate specification and coverage with Quire"
 	@echo "  make miri             - Run the pure suites under Miri on the pinned nightly"
@@ -262,11 +264,32 @@ coverage-branch:
 		--fail-under-lines $(COVERAGE_MIN_LINES)
 
 # =============================================================================
+# Documentation figures
+# =============================================================================
+#
+# docs/images/figures.json declares the figures; the shared TL figures and the
+# generate and check commands come from ix-diagrams. Install the tool once with
+#   cargo install --locked --git https://github.com/agent-ix/ix-diagrams ixd-tl
+# or point IXD_TL at a built binary. `figures-check` writes nothing and fails on
+# a missing or stale SVG or a README image whose alt text differs from the claim.
+
+IXD_TL ?= ixd-tl
+
+.PHONY: figures
+figures:
+	$(IXD_TL) generate
+
+.PHONY: figures-check
+figures-check:
+	$(IXD_TL) check
+	$(CI_GUARD) record figures-check
+
+# =============================================================================
 # Composite
 # =============================================================================
 
 .PHONY: ci
-ci: fmt-check lint test test-features conformance counterexamples normalization \
+ci: fmt-check lint test test-features conformance counterexamples normalization figures-check \
 	deny fuzz-check spec msrv rustdoc miri mutants-diff
 
 # The assured entry point (NFR-004). Builds and runs the guard, which refuses

@@ -1,0 +1,5 @@
+{
+  "here": "tl-rewrite",
+  "out": "docs/images",
+  "figures": ["hero","tl-stack","pipeline","rules","scenario-sequence"]
+}
