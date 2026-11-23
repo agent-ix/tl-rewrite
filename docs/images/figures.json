@@ -1,0 +1,60 @@
+{
+  "style": "ix-docs",
+  "data": {
+    "enabled": {"from": "tally", "path": "corpus/rules/manifest.json", "pointer": "/cases", "filters": [{"key": "disposition", "equals": "enabled"}]},
+    "excluded": {"from": "tally", "path": "corpus/rules/manifest.json", "pointer": "/cases", "filters": [{"key": "disposition", "equals": "excluded"}]},
+    "fam_bool": {"from": "tally", "path": "corpus/rules/manifest.json", "pointer": "/cases", "filters": [{"key": "disposition", "equals": "enabled"}, {"key": "id", "prefix": "bool."}]},
+    "fam_neg": {"from": "tally", "path": "corpus/rules/manifest.json", "pointer": "/cases", "filters": [{"key": "disposition", "equals": "enabled"}, {"key": "id", "prefix": "neg."}]},
+    "fam_temporal": {"from": "tally", "path": "corpus/rules/manifest.json", "pointer": "/cases", "filters": [{"key": "disposition", "equals": "enabled"}, {"key": "id", "prefix": "temporal."}]},
+    "families": {"from": "sum", "of": ["fam_bool", "fam_neg", "fam_temporal"]},
+    "families_cover_enabled": {"from": "expect", "of": "families", "like": "enabled"}
+  },
+  "figures": [
+    {
+      "id": "hero", "width": 980, "height": 540,
+      "label": "A formula document goes into rewrite, which applies the {enabled} enabled rules of the catalog ({excluded} more are excluded) bottom-up, first match, under explicit budgets, and returns a RewriteReport whose output is the normal form. replay re-runs the request and reports Verified or Mismatch. check_equivalence compares the original and the normal form on every trace within the horizon and reports Equivalent, or Mismatch with the first counterexample trace.",
+      "items": [
+        {"k": "box", "at": [270, 0, 240, 56], "role": "model", "title": "rule catalog", "subs": ["{enabled} enabled · {excluded} excluded"]},
+        {"k": "line", "points": [[390, 59], [390, 109]], "role": "model"},
+        {"k": "note", "at": [400, 88], "text": "rules in priority order", "role": "model"},
+        {"k": "box", "at": [0, 112, 200, 62], "role": "ink", "title": "formula document", "subs": ["tl-syntax v1 or v2", "closed-trace profile"]},
+        {"k": "box", "at": [270, 112, 240, 62], "role": "logic", "title": "rewrite", "subs": ["bottom-up · first match", "iteration · node · work budgets"]},
+        {"k": "box", "at": [580, 112, 200, 62], "role": "model", "title": "RewriteReport", "subs": ["status · steps · digests"]},
+        {"k": "box", "at": [850, 112, 130, 62], "role": "evidence", "title": "normal form", "subs": ["fixed point"]},
+        {"k": "line", "points": [[200, 143], [267, 143]], "role": "ink", "weight": 2.4},
+        {"k": "note", "at": [206, 135], "text": "input", "role": "ink"},
+        {"k": "line", "points": [[510, 143], [577, 143]], "role": "logic", "weight": 2.4},
+        {"k": "note", "at": [516, 135], "text": "steps", "role": "logic"},
+        {"k": "line", "points": [[780, 143], [847, 143]], "role": "model", "weight": 2.4},
+        {"k": "note", "at": [786, 135], "text": "output", "role": "model"},
+        {"k": "text", "at": [0, 226], "text": "REPLAY", "role": "muted", "size": 12},
+        {"k": "box", "at": [580, 232, 200, 62], "role": "logic", "title": "replay", "subs": ["re-runs the request", "compares every field"]},
+        {"k": "line", "points": [[680, 177], [680, 229]], "role": "model"},
+        {"k": "note", "at": [690, 208], "text": "report", "role": "model"},
+        {"k": "box", "at": [270, 232, 240, 62], "role": "evidence", "title": "ReplayStatus", "subs": ["Verified or Mismatch"]},
+        {"k": "line", "points": [[577, 263], [513, 263]], "role": "logic"},
+        {"k": "note", "at": [520, 255], "text": "status", "role": "logic"},
+        {"k": "text", "at": [0, 340], "text": "EQUIVALENCE", "role": "muted", "size": 12},
+        {"k": "box", "at": [270, 350, 240, 62], "role": "logic", "title": "check_equivalence", "subs": ["every trace in the horizon", "evaluated by tl-mltl"]},
+        {"k": "line", "points": [[100, 177], [100, 381], [267, 381]], "role": "ink"},
+        {"k": "note", "at": [108, 373], "text": "original", "role": "ink"},
+        {"k": "line", "points": [[915, 177], [915, 365], [513, 365]], "role": "evidence"},
+        {"k": "note", "at": [700, 357], "text": "rewritten", "role": "evidence"},
+        {"k": "box", "at": [270, 452, 340, 56], "role": "evidence", "title": "ConformanceStatus", "subs": ["Equivalent, or Mismatch with a trace"]},
+        {"k": "line", "points": [[390, 415], [390, 449]], "role": "logic"},
+        {"k": "legend", "at": [0, 534], "entries": [["code", "authored source", "box"], ["logic", "processing step", "box"], ["model", "checked document / view", "box"], ["evidence", "outcome", "box"], ["ink", "input", "box"]]}
+      ]
+    },
+    {
+      "id": "rules", "width": 980, "height": 236,
+      "label": "The future catalog enables {enabled} rules: {fam_bool} Boolean, {fam_neg} negation, {fam_temporal} temporal. {excluded} more are retained for review and excluded from execution.",
+      "items": [
+        {"k": "text", "at": [0, 16], "text": "ENABLED RULES PER FAMILY", "role": "muted", "size": 12},
+        {"k": "columns", "at": [0, 30, 980, 202], "values": ["fam_bool", "fam_neg", "fam_temporal"], "labels": ["Boolean", "negation", "temporal"], "role": "logic"}
+      ]
+    },
+    {"id": "tl-stack", "construct": {"name": "tl-stack", "here": "tl-rewrite"}},
+    {"id": "pipeline", "construct": {"name": "tl-pipeline", "here": "tl-rewrite"}},
+    {"id": "scenario-sequence", "construct": {"name": "tl-scenario", "here": "tl-rewrite"}}
+  ]
+}
