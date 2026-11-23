@@ -265,6 +265,9 @@ fn lowering_profile(profile: SemanticProfile) -> lowering::SemanticProfile {
         SemanticProfile::InfiniteTraceV1 => {
             panic!("infinite-trace profiles use a separate formula edition")
         }
+        SemanticProfile::LtlfFiniteTraceV1 => {
+            panic!("LTLf profiles use a separate formula edition")
+        }
     }
 }
 

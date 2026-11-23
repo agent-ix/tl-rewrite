@@ -95,6 +95,17 @@ fn operands(kind: NodeKind) -> [Option<NodeId>; 2] {
         | NodeKind::Since { left, right, .. }
         | NodeKind::Triggered { left, right, .. } => [Some(left), Some(right)],
         NodeKind::False | NodeKind::True | NodeKind::Proposition { .. } => [None, None],
+        // tl-syntax TL-428 LTLf nodes. No rewrite profile admits them (the
+        // engine refuses every profile but closed-trace and origin-complete
+        // before any pass), but their operand edges are still reported
+        // exactly so reachability over a foreign graph stays truthful.
+        NodeKind::LtlfFuture { operand }
+        | NodeKind::LtlfGlobally { operand }
+        | NodeKind::StrongNext { operand }
+        | NodeKind::WeakNext { operand } => [Some(operand), None],
+        NodeKind::LtlfUntil { left, right } | NodeKind::LtlfRelease { left, right } => {
+            [Some(left), Some(right)]
+        }
     }
 }
 
@@ -285,6 +296,15 @@ fn remap(kind: NodeKind, mapped: &[NodeId]) -> Option<NodeKind> {
             left: id(left)?,
             right: id(right)?,
         },
+        // tl-syntax TL-428 LTLf nodes: tl-rewrite owns no LTLf rewrite
+        // profile, so a graph holding one is refused here (the caller maps
+        // `None` to a typed abort), never silently rebuilt.
+        NodeKind::LtlfFuture { .. }
+        | NodeKind::LtlfGlobally { .. }
+        | NodeKind::LtlfUntil { .. }
+        | NodeKind::LtlfRelease { .. }
+        | NodeKind::StrongNext { .. }
+        | NodeKind::WeakNext { .. } => return None,
     })
 }
 

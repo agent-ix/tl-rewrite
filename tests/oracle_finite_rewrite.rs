@@ -172,6 +172,16 @@ fn oracle_tree(document: &FormulaDocument) -> OracleFormula {
                 left,
                 right,
             } => F::Triggered(interval(i), Box::new(child(left)), Box::new(child(right))),
+            // tl-syntax TL-428 LTLf nodes never occur in a closed-trace or
+            // origin-complete document; refuse rather than guess an oracle form.
+            NodeKind::LtlfFuture { .. }
+            | NodeKind::LtlfGlobally { .. }
+            | NodeKind::LtlfUntil { .. }
+            | NodeKind::LtlfRelease { .. }
+            | NodeKind::StrongNext { .. }
+            | NodeKind::WeakNext { .. } => {
+                panic!("LTLf nodes are outside the finite-rewrite oracle corpus")
+            }
         };
         trees.push(tree);
     }
