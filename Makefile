@@ -80,7 +80,7 @@ help:
 	@echo "  make conformance      - Replay every catalog rule through engine and oracle"
 	@echo "  make counterexamples  - Produce and replay the retained counterexample corpus"
 	@echo "  make normalization    - Sweep determinism, fixed point, replay, and budgets"
-	@echo "  make figures          - Regenerate docs/images with ixd-tl"
+	@echo "  make figures          - Regenerate docs/images with ixd build"
 	@echo "  make figures-check    - Fail on a missing or stale figure, writes nothing"
 	@echo "  make deny             - cargo deny check advisories, bans, licenses, sources"
 	@echo "  make spec             - Validate specification and coverage with Quire"
@@ -267,21 +267,19 @@ coverage-branch:
 # Documentation figures
 # =============================================================================
 #
-# docs/images/figures.json declares the figures; the shared TL figures and the
-# generate and check commands come from ix-diagrams. Install the tool once with
-#   cargo install --locked --git https://github.com/agent-ix/ix-diagrams ixd-tl
-# or point IXD_TL at a built binary. `figures-check` writes nothing and fails on
-# a missing or stale SVG or a README image whose alt text differs from the claim.
+# docs/images/figures.json declares the figures and is built by the ix-diagrams `ixd`
+# command (cargo install --locked --git https://github.com/agent-ix/ix-diagrams ix-diagrams).
+# `figures-check` writes nothing and fails on a missing, stale or orphaned figure.
 
-IXD_TL ?= ixd-tl
+IXD ?= ixd
 
 .PHONY: figures
 figures:
-	$(IXD_TL) generate
+	$(IXD) build docs/images/figures.json --out docs/images
 
 .PHONY: figures-check
 figures-check:
-	$(IXD_TL) check
+	$(IXD) build docs/images/figures.json --out docs/images --check
 	$(CI_GUARD) record figures-check
 
 # =============================================================================
