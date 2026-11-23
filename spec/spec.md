@@ -74,6 +74,8 @@ FR-005 owned an evidence boundary as well until issue #13 deleted the
 retained archive; that allocation is removed rather than reassigned, because no
 requirement owns an evidence boundary this repository no longer has.
 
+FR-091 and NFR-076 own the optional solver-backed equivalence path behind the `solver` feature and the unchanged default dependency tree.
+
 FR-010 separates shared traversal from future and past rule policy while
 preserving all existing public and wire behavior.
 
