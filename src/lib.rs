@@ -15,6 +15,8 @@ mod hash;
 pub mod infinite;
 pub mod replay;
 pub mod report;
+#[cfg(feature = "solver")]
+pub mod solver_equivalence;
 
 pub use catalog::{
     catalog, infinite_catalog, past_catalog, CatalogDocument, Provenance, ProvenanceKind,
@@ -39,6 +41,11 @@ pub use infinite::{
 pub use infinite::{
     replay_infinite, rewrite_infinite, InfiniteRewriteFailure, InfiniteRewriteReport,
     MAX_INFINITE_REPORT_BYTES,
+};
+#[cfg(feature = "solver")]
+pub use solver_equivalence::{
+    check_equivalence_with_solver, solver_conformance_from_result, SolverConformanceOptions,
+    SolverConformanceReason, SolverConformanceReport, SOLVER_CONFORMANCE_SCHEMA,
 };
 pub use replay::{replay, replay_with_context, ReplayReport, ReplayStatus};
 pub use report::{

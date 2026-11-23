@@ -19,6 +19,9 @@ path = "src/lib.rs"
 [features]
 default = []
 infinite-trace = ["tl-mltl/infinite-trace"]
+# FR-091: solver-backed equivalence. Never default (NFR-076); does not enable
+# tl-mltl's or tl-solve's `infinite-trace`.
+solver = ["dep:tl-solve", "tl-solve/inprocess-sat"]
 
 [dependencies]
 serde = { version = "=1.0.228", features = ["derive"] }
@@ -32,6 +35,17 @@ tl-mltl = { version = "=0.4.0", git = "https://github.com/agent-ix/tl-mltl.git",
 # that pin that same tl-syntax (one tl-syntax package in the graph), then
 # refresh Cargo.lock.
 tl-syntax = { version = "=0.4.0", git = "https://github.com/agent-ix/tl-syntax.git", rev = "a80d09ed9f22c8b228c897cc2eac5b3feebd524e", default-features = false, features = ["alloc", "serde"] }
+# FR-091 / NFR-076: optional, off by default, so the default normal and build
+# tree is unchanged. tl-solve depends on tl-syntax and tl-mltl only, never on
+# tl-rewrite (tl-solve ADR-004 cycle analysis).
+# UNBUILT-PIN: tl-solve has no remote yet (TL-DECISIONS-2026-11-23 item 9);
+# 0b45d0a2 is the head of the local, unbuilt `TL-147-code-unbuilt` branch and
+# the URL is the planned repository. Replace both with the first pushed and
+# merged tl-solve revision whose own tl-syntax and tl-mltl pins equal the ones
+# above (FR-091 pin precondition, tl-solve Task-000 / FR-017-AC-6); until then
+# the `solver` graph holds two tl-syntax and two tl-mltl packages and does not
+# build. Refresh Cargo.lock afterwards.
+tl-solve = { version = "=0.1.0", git = "https://github.com/agent-ix/tl-solve.git", rev = "0b45d0a2e022b093128600234143f7a575f44faa", default-features = false, optional = true }
 
 [dev-dependencies]
 criterion = { version = "=0.5.1", default-features = false }

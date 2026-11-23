@@ -211,7 +211,7 @@ fn rebuild_document(
     }
 }
 
-fn remap(kind: NodeKind, mapped: &[NodeId]) -> Option<NodeKind> {
+pub(crate) fn remap(kind: NodeKind, mapped: &[NodeId]) -> Option<NodeKind> {
     let id = |value: NodeId| {
         usize::try_from(value.0)
             .ok()

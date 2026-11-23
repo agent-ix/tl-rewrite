@@ -77,6 +77,7 @@ help:
 	@echo "  make lint             - Clippy with -D warnings"
 	@echo "  make test             - cargo test"
 	@echo "  make test-features    - cargo test under default and infinite-trace features"
+	@echo "  make test-solver      - cargo test with the optional solver feature (FR-091)"
 	@echo "  make conformance      - Replay every catalog rule through engine and oracle"
 	@echo "  make counterexamples  - Produce and replay the retained counterexample corpus"
 	@echo "  make normalization    - Sweep determinism, fixed point, replay, and budgets"
@@ -126,6 +127,15 @@ test-features:
 	$(CARGO) test --locked --doc
 	$(CARGO) test --locked --doc --features infinite-trace
 	$(CI_GUARD) record test-features
+
+# FR-091 / NFR-076-AC-2: the optional `solver` configuration (tl-solve with its
+# in-process SAT backend) gets its own gate, so no suite skips it. Gate
+# `test-solver`; reconciled by ci_guard like every other `ci` prerequisite.
+.PHONY: test-solver
+test-solver:
+	$(CARGO) test --locked --all-targets --features solver
+	$(CARGO) test --locked --doc --features solver
+	$(CI_GUARD) record test-solver
 
 # =============================================================================
 # Rewrite domain
@@ -293,7 +303,7 @@ figures-check:
 # =============================================================================
 
 .PHONY: ci
-ci: fmt-check lint test test-features conformance counterexamples normalization \
+ci: fmt-check lint test test-features test-solver conformance counterexamples normalization \
 	deny fuzz-check spec msrv rustdoc miri mutants-diff
 
 # The assured entry point (NFR-004). Builds and runs the guard, which refuses

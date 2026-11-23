@@ -35,4 +35,6 @@ allow-git = [
     "https://github.com/agent-ix/tl-oracle.git",
     "https://github.com/agent-ix/tl-parse.git",
     "https://github.com/agent-ix/tl-syntax.git",
+    # NFR-076-AC-2: the optional `solver` feature's tl-solve, and nothing else.
+    "https://github.com/agent-ix/tl-solve.git",
 ]

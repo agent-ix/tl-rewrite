@@ -16,6 +16,7 @@ The crate root re-exports the items below. The module paths are `catalog`, `engi
 | `rewrite_infinite(input, fairness, options, source_revision, max_report_bytes)` | Rewrite an `InfiniteFormulaDocument` and remap fairness roots. |
 | `replay_infinite(input, fairness, expected, trusted_source_revision)` | Re-execute an `InfiniteRewriteReport`; returns a Boolean. |
 | `check_infinite_rewrite(...)` | Compare original and rewritten infinite graphs on one lasso trace (feature `infinite-trace`). |
+| `check_equivalence_with_solver(...)` | Decide a closed-trace pair with tl-solve and return a `SolverConformanceReport` (`tl-rewrite.solver-conformance/v1`); a mismatch carries a counterexample that tl-mltl re-checked (feature `solver`). |
 | `catalog()`, `past_catalog()`, `infinite_catalog()` | The immutable rule catalogs. |
 | `report::read(bytes, input, limits)`, `report::read_with_context(...)` | Strict-read a canonical report, then replay it. |
 

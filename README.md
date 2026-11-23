@@ -88,6 +88,7 @@ in [docs/examples.md](docs/examples.md).
 | `check_past_equivalence` | Compare two origin-history formulas at one history and anchor. |
 | `rewrite_infinite`, `replay_infinite` | Rewrite and replay infinite-trace formula graphs. |
 | `check_infinite_rewrite` | Compare an infinite rewrite on one lasso trace (feature `infinite-trace`). |
+| `check_equivalence_with_solver` | Decide a closed-trace pair through tl-solve, beyond the enumeration ceilings, with a re-checked counterexample on mismatch (feature `solver`). |
 | `report::{read, read_with_context}` | Read a canonical report from bytes and replay it before returning it. |
 
 | Catalog | Rules | Enabled | Profile |
@@ -100,6 +101,7 @@ in [docs/examples.md](docs/examples.md).
 | --- | ---: | --- |
 | none | yes | Rewriting, replay, equivalence checks, and infinite-trace rewriting and replay. |
 | `infinite-trace` | no | `check_infinite_rewrite`, which evaluates both graphs with tl-mltl on a lasso trace. |
+| `solver` | no | `check_equivalence_with_solver`, which asks tl-solve and re-checks any counterexample with tl-mltl. The default dependency tree does not change. |
 
 See [docs/api-reference.md](docs/api-reference.md) and [docs/rules.md](docs/rules.md).
 
